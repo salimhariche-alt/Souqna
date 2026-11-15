@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
 
+MAX_MESSAGE_LENGTH = 1000
+
 
 class Conversation(models.Model):
     """A private chat between a buyer and a seller about one listing."""
@@ -45,7 +47,7 @@ class Message(models.Model):
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='messages_sent'
     )
-    text = models.TextField()
+    text = models.TextField(max_length=MAX_MESSAGE_LENGTH)
     sent_at = models.DateTimeField(auto_now_add=True, db_index=True)
     read = models.BooleanField(default=False)
 

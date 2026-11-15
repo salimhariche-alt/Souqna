@@ -5,6 +5,15 @@ from .models import Category, Favorite, Listing, ListingPhoto
 MAX_PHOTO_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
+def cover_photo_url(listing, request=None):
+    """Full web address of a listing's first photo, or None if it has no photos."""
+    photos = list(listing.photos.all())  # uses prefetched photos, ordered by position
+    if not photos:
+        return None
+    url = photos[0].image.url
+    return request.build_absolute_uri(url) if request else url
+
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -43,12 +52,7 @@ class ListingListSerializer(serializers.ModelSerializer):
                   'cover_photo', 'created_at']
 
     def get_cover_photo(self, listing):
-        photos = list(listing.photos.all())  # uses prefetched photos, ordered by position
-        if not photos:
-            return None
-        url = photos[0].image.url
-        request = self.context.get('request')
-        return request.build_absolute_uri(url) if request else url
+        return cover_photo_url(listing, self.context.get('request'))
 
 
 class ListingDetailSerializer(serializers.ModelSerializer):
