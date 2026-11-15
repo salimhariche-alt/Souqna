@@ -22,6 +22,7 @@ function RootStack() {
         name="signup"
         options={{ presentation: 'modal', title: t('auth.signupTitle') }}
       />
+      <Stack.Screen name="listing/[id]" options={{ title: t('listing.title') }} />
     </Stack>
   );
 }

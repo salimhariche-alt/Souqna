@@ -9,12 +9,18 @@ const ar: Translations = {
     profile: 'حسابي',
   },
   home: {
-    title: 'مرحبًا بك في سوقنا',
-    activeListings: 'الإعلانات النشطة',
-    loading: 'جارٍ التحميل…',
-    error: 'تعذّر الاتصال بالخادم.',
+    allCategories: 'الكل',
+    loading: 'جارٍ تحميل الإعلانات…',
+    empty: 'لا توجد إعلانات حاليًا. عُد قريبًا!',
+    emptyCategory: 'لا توجد إعلانات في هذه الفئة حاليًا.',
+    error: 'تعذّر الاتصال بالخادم. تحقق من اتصالك.',
     retry: 'إعادة المحاولة',
-    server: 'الخادم: {{url}}',
+    loadMoreFailed: 'تعذّر تحميل المزيد من الإعلانات.',
+    refreshFailed: 'تعذّر التحديث. قد لا تكون الإعلانات المعروضة محدّثة.',
+  },
+  listing: {
+    title: 'الإعلان',
+    number: 'الإعلان رقم {{id}}',
   },
   placeholder: {
     comingSoon: 'قريبًا',

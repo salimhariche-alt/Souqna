@@ -8,12 +8,18 @@ const fr = {
     profile: 'Profil',
   },
   home: {
-    title: 'Bienvenue sur Souqna',
-    activeListings: 'Annonces actives',
-    loading: 'Chargement…',
-    error: 'Impossible de joindre le serveur.',
+    allCategories: 'Tout',
+    loading: 'Chargement des annonces…',
+    empty: "Aucune annonce pour l'instant. Revenez bientôt !",
+    emptyCategory: 'Aucune annonce dans cette catégorie pour le moment.',
+    error: 'Impossible de joindre le serveur. Vérifiez votre connexion.',
     retry: 'Réessayer',
-    server: 'Serveur : {{url}}',
+    loadMoreFailed: "Impossible de charger plus d'annonces.",
+    refreshFailed: "Impossible d'actualiser. Les annonces affichées peuvent dater un peu.",
+  },
+  listing: {
+    title: 'Annonce',
+    number: 'Annonce n° {{id}}',
   },
   placeholder: {
     comingSoon: 'Bientôt disponible',
