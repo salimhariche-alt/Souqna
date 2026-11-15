@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third-party
     'rest_framework',
+    'rest_framework_simplejwt',
     'django_filters',
     # Souqna apps
     'accounts',
@@ -61,19 +63,35 @@ INSTALLED_APPS = [
 # Our own user model (phone-number login). Must be set before the first migration.
 AUTH_USER_MODEL = 'accounts.User'
 
+# Log in with a phone number OR an email (API and admin).
+AUTHENTICATION_BACKENDS = ['accounts.backends.PhoneOrEmailBackend']
+
 # Django REST Framework (the /api/ endpoints)
 REST_FRAMEWORK = {
-    # Browser login (the admin or /api-auth/login/). App login (tokens) comes later.
-    # Not-logged-in requests to protected endpoints get 403 "not_authenticated".
+    # 1. Tokens (the mobile app): header "Authorization: Bearer <access token>".
+    # 2. Browser login (the admin or /api-auth/login/), for trying the API by hand.
+    # Not-logged-in requests to protected endpoints get 401 "not_authenticated".
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    # Limit sign-up / log-in attempts to slow down password guessing.
+    'DEFAULT_THROTTLE_RATES': {
+        'auth': '10/minute',
+    },
     # Anyone can read; you must be logged in to create or change anything.
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+}
+
+# Login tokens (djangorestframework-simplejwt)
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 MIDDLEWARE = [

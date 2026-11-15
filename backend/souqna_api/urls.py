@@ -21,6 +21,7 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/auth/', include('accounts.urls')),
     path('api/', include('listings.urls')),
     # Login/logout pages for trying the API in the browser.
     path('api-auth/', include('rest_framework.urls')),
