@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import socket
 from datetime import timedelta
 from pathlib import Path
 
@@ -38,7 +39,35 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+
+def env_list(name, default=''):
+    """Read a comma-separated list from .env, e.g. DJANGO_ALLOWED_HOSTS=a.com,b.com"""
+    return [item.strip() for item in os.environ.get(name, default).split(',') if item.strip()]
+
+
+def this_computers_lan_ip():
+    """This laptop's current Wi-Fi/LAN address (e.g. 192.168.1.20), or None.
+
+    Opening a UDP "connection" sends no data; it just makes the system pick the
+    network card it would use, so we can read that card's address.
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('10.255.255.255', 1))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+# Addresses this server answers to. Add more in .env with DJANGO_ALLOWED_HOSTS.
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
+if DEBUG:
+    # While developing, also answer on this laptop's current Wi-Fi address so a
+    # phone on the same network can connect. Detected at start-up, so it keeps
+    # working when the address changes.
+    LAN_IP = this_computers_lan_ip()
+    if LAN_IP and LAN_IP not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(LAN_IP)
 
 
 # Application definition
@@ -54,6 +83,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'django_filters',
+    'corsheaders',
     # Souqna apps
     'accounts',
     'listings',
@@ -87,6 +117,19 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
+# CORS: which web pages (in a browser) may call this API. Phone apps don't need this;
+# it's only for the web version of the app, e.g. http://localhost:8081.
+# Add exact addresses in .env with DJANGO_CORS_ALLOWED_ORIGINS=https://a.com,https://b.com
+CORS_ALLOWED_ORIGINS = env_list('DJANGO_CORS_ALLOWED_ORIGINS')
+if DEBUG:
+    # While developing: this laptop and home/office network addresses, any port.
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r'^http://(localhost|127\.0\.0\.1)(:\d+)?$',
+        r'^http://192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$',
+        r'^http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$',
+        r'^http://172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$',
+    ]
+
 # Login tokens (djangorestframework-simplejwt)
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
@@ -97,6 +140,7 @@ SIMPLE_JWT = {
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # must come before CommonMiddleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

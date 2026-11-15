@@ -56,6 +56,20 @@ Then open:
 
 - http://127.0.0.1:8000/admin/ — Django admin (log in with your superuser)
 
+### So a phone can connect (testing with Expo Go)
+
+```powershell
+python manage.py runserver 0.0.0.0:8000
+```
+
+`0.0.0.0` means "listen on the Wi-Fi network too", so a phone on the **same Wi-Fi**
+can reach the laptop. While `DJANGO_DEBUG=True`, the laptop's current Wi-Fi address
+is allowed automatically. Only do this on a network you trust (home), not on public
+Wi-Fi: anyone on the same network could reach the server.
+
+The first time, Windows Firewall may ask whether Python can use the network —
+allow it on **Private networks**.
+
 ## API (all under /api/)
 
 Open these in a browser while the server runs. To try the logged-in ones, log in
