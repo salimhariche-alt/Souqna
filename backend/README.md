@@ -27,9 +27,17 @@ python -c "from django.core.management.utils import get_random_secret_key as g; 
 # 6. Create the database tables
 python manage.py migrate
 
-# 7. Create your admin login (asks for username, email, password)
+# 7. Create your admin login (asks for phone number, display name, password)
+#    The phone must be an Algerian mobile number, e.g. 0555123456
 python manage.py createsuperuser
+
+# 8. (Optional) Load the main categories and 30 fake listings for testing
+python manage.py seed_demo
 ```
+
+`seed_demo` is safe to run more than once. To throw away the fake listings and
+make fresh ones, run `python manage.py seed_demo --reset`. Fake sellers use phone
+numbers `0550000001`-`0550000006` and cannot log in.
 
 > `.env` holds your secret key and is ignored by git. Never commit it or share it.
 
