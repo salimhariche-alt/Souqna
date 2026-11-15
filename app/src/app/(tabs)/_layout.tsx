@@ -5,6 +5,7 @@ import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/auth/auth-provider';
+import { LanguageSwitcher } from '@/components/language-switcher';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -36,7 +37,12 @@ export default function TabLayout() {
     <Tabs screenOptions={{ tabBarActiveTintColor: '#208AEF', headerTitleAlign: 'center' }}>
       <Tabs.Screen
         name="index"
-        options={{ title: t('tabs.home'), tabBarIcon: tabIcon('home-outline') }}
+        options={{
+          title: t('tabs.home'),
+          tabBarIcon: tabIcon('home-outline'),
+          // Logged-out visitors can't open Profile, so they switch language here.
+          headerRight: () => <LanguageSwitcher compact />,
+        }}
       />
       <Tabs.Screen
         name="search"

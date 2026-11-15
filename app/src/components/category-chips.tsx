@@ -1,0 +1,89 @@
+import { type ComponentRef, useRef } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
+
+import type { Category } from '@/api/listings';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
+import type { Language } from '@/i18n';
+import { useLanguage } from '@/i18n/language-provider';
+
+// The order asked for in the design; any other main category comes after these.
+const ORDER = ['Women', 'Men', 'Kids', 'Home', 'Electronics'];
+
+export function mainCategoriesInOrder(categories: Category[]): Category[] {
+  const rank = (c: Category) => {
+    const index = ORDER.indexOf(c.name_en);
+    return index === -1 ? ORDER.length : index;
+  };
+  return categories.filter((c) => c.parent === null).sort((a, b) => rank(a) - rank(b));
+}
+
+function nameIn(category: Category, language: Language) {
+  return { ar: category.name_ar, fr: category.name_fr, en: category.name_en }[language];
+}
+
+type Props = {
+  categories: Category[];
+  selected: number | null;
+  onSelect: (categoryId: number | null) => void;
+};
+
+/** A scrollable row: All, Women, Men, Kids, Home, Electronics (in the chosen language). */
+export function CategoryChips({ categories, selected, onSelect }: Props) {
+  const { t } = useTranslation();
+  const { language, direction } = useLanguage();
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+
+  const chips: { id: number | null; label: string }[] = [
+    { id: null, label: t('home.allCategories') },
+    ...categories.map((c) => ({ id: c.id, label: nameIn(c, language) })),
+  ];
+
+  return (
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+      // Phone scroll views always start at the left edge. In Arabic the first chip
+      // ("All") sits on the right, so start the row scrolled to the right end.
+      // (Web browsers already do this by themselves for right-to-left pages.)
+      onContentSizeChange={() => {
+        if (direction === 'rtl' && Platform.OS !== 'web') {
+          scrollRef.current?.scrollToEnd({ animated: false });
+        }
+      }}>
+      {chips.map((chip) => {
+        const isSelected = chip.id === selected;
+        return (
+          <Pressable
+            key={chip.id ?? 'all'}
+            onPress={() => onSelect(chip.id)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}>
+            <ThemedView
+              type={isSelected ? undefined : 'backgroundElement'}
+              style={[styles.chip, isSelected && styles.chipSelected]}>
+              <ThemedText type="smallBold" style={isSelected ? styles.chipTextSelected : undefined}>
+                {chip.label}
+              </ThemedText>
+            </ThemedView>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: { gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  chip: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
+  },
+  chipSelected: { backgroundColor: '#208AEF' },
+  chipTextSelected: { color: '#ffffff' },
+});

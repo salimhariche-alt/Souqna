@@ -9,12 +9,18 @@ const en: Translations = {
     profile: 'Profile',
   },
   home: {
-    title: 'Welcome to Souqna',
-    activeListings: 'Active listings',
-    loading: 'Loading…',
-    error: "Can't reach the server.",
+    allCategories: 'All',
+    loading: 'Loading listings…',
+    empty: 'No listings yet. Check back soon!',
+    emptyCategory: 'No listings in this category yet.',
+    error: "Can't reach the server. Check your connection.",
     retry: 'Try again',
-    server: 'Server: {{url}}',
+    loadMoreFailed: "Couldn't load more listings.",
+    refreshFailed: "Couldn't refresh. The listings shown may be a little out of date.",
+  },
+  listing: {
+    title: 'Listing',
+    number: 'Listing #{{id}}',
   },
   placeholder: {
     comingSoon: 'Coming soon',
