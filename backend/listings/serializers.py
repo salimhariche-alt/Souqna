@@ -21,8 +21,11 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class SellerSerializer(serializers.Serializer):
+    """Public info about a seller (never their phone or email)."""
+
     id = serializers.IntegerField()
     display_name = serializers.CharField()
+    wilaya = serializers.IntegerField(allow_null=True)
 
 
 class ListingPhotoSerializer(serializers.ModelSerializer):
@@ -63,13 +66,22 @@ class ListingDetailSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name_en', read_only=True)
     wilaya_name = serializers.CharField(source='get_wilaya_display', read_only=True)
     condition_label = serializers.CharField(source='get_condition_display', read_only=True)
+    is_favorited = serializers.SerializerMethodField()
 
     class Meta:
         model = Listing
         fields = ['id', 'title', 'description', 'price_dzd', 'category', 'category_name',
                   'size', 'brand', 'condition', 'condition_label', 'wilaya', 'wilaya_name',
-                  'status', 'seller', 'photos', 'created_at']
+                  'status', 'seller', 'photos', 'is_favorited', 'created_at']
         read_only_fields = ['created_at']
+
+    def get_is_favorited(self, listing):
+        """True if the logged-in user has this listing in their favorites."""
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return Favorite.objects.filter(user=user, listing=listing).exists()
 
 
 class FavoriteSerializer(serializers.ModelSerializer):

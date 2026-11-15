@@ -22,6 +22,9 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   [/password is too common/i, 'errors.passwordCommon'],
   [/password is entirely numeric/i, 'errors.passwordNumeric'],
   [/password is too similar/i, 'errors.passwordSimilar'],
+  [/^Message can't be empty/, 'errors.messageEmpty'],
+  [/^Messages can be at most/, 'errors.messageTooLong'],
+  [/^You can't start a conversation about your own listing/, 'errors.ownListing'],
   [/^This field (is required|may not be blank)/, 'errors.required'],
 ];
 

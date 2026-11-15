@@ -43,6 +43,7 @@ class ConversationViewSet(mixins.ListModelMixin,
     conversations where you are the buyer or the seller.
 
     - GET  /api/conversations/                 my conversations, newest activity first
+                                               (?listing=<id> to find the one about a listing)
     - POST /api/conversations/                 start one: {"listing": id, "text": "..."}
                                                (reuses the existing one for that listing)
     - GET  /api/conversations/{id}/            all messages, oldest first; marks the other
@@ -61,6 +62,12 @@ class ConversationViewSet(mixins.ListModelMixin,
             .prefetch_related('listing__photos')
         )
         if self.action == 'list':
+            # ?listing=<id>: only my conversation(s) about that listing.
+            listing_id = self.request.query_params.get('listing')
+            if listing_id is not None:
+                if not listing_id.isdigit():
+                    return conversations.none()
+                conversations = conversations.filter(listing_id=int(listing_id))
             conversations = with_activity(conversations, me)
         return conversations
 

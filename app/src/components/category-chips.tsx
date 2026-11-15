@@ -6,7 +6,7 @@ import type { Category } from '@/api/listings';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import type { Language } from '@/i18n';
+import { categoryName } from '@/hooks/use-categories';
 import { useLanguage } from '@/i18n/language-provider';
 
 // The order asked for in the design; any other main category comes after these.
@@ -18,10 +18,6 @@ export function mainCategoriesInOrder(categories: Category[]): Category[] {
     return index === -1 ? ORDER.length : index;
   };
   return categories.filter((c) => c.parent === null).sort((a, b) => rank(a) - rank(b));
-}
-
-function nameIn(category: Category, language: Language) {
-  return { ar: category.name_ar, fr: category.name_fr, en: category.name_en }[language];
 }
 
 type Props = {
@@ -38,7 +34,7 @@ export function CategoryChips({ categories, selected, onSelect }: Props) {
 
   const chips: { id: number | null; label: string }[] = [
     { id: null, label: t('home.allCategories') },
-    ...categories.map((c) => ({ id: c.id, label: nameIn(c, language) })),
+    ...categories.map((c) => ({ id: c.id, label: categoryName(c, language) })),
   ];
 
   return (
