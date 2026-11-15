@@ -17,10 +17,13 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/', include('listings.urls')),
+    # Login/logout pages for trying the API in the browser.
+    path('api-auth/', include('rest_framework.urls')),
 ]
 
 # Serve uploaded photos while developing (a real server does this in production).

@@ -56,6 +56,25 @@ Then open:
 
 - http://127.0.0.1:8000/admin/ — Django admin (log in with your superuser)
 
+## API (all under /api/)
+
+Open these in a browser while the server runs. To try the logged-in ones, log in
+first at http://127.0.0.1:8000/api-auth/login/ (phone number + password).
+
+| Address | What it does | Who |
+|---|---|---|
+| `GET /api/categories/` | All categories in ar / fr / en | Anyone |
+| `GET /api/listings/` | Active listings, newest first, 20 per page | Anyone |
+| `GET /api/listings/?category=1&wilaya=16&min_price=1000&max_price=9000&size=M&condition=good&search=nike` | Filters and search (use any combination) | Anyone |
+| `GET /api/listings/{id}/` | One listing with photos and seller name | Anyone |
+| `POST /api/listings/` | Create a listing | Logged in |
+| `PATCH /api/listings/{id}/` | Edit, or set `status` to `reserved` / `sold` | Seller only |
+| `POST /api/listings/{id}/photos/` | Upload one photo (field `image`, max 8, 10 MB) | Seller only |
+| `POST` / `DELETE /api/listings/{id}/favorite/` | Add / remove from my favorites | Logged in |
+| `GET /api/favorites/` | My favorites | Logged in |
+
+Run the automated tests with `python manage.py test`.
+
 Stop the server with `Ctrl+C`. Leave the virtual environment with `deactivate`.
 
 ## After pulling new code
