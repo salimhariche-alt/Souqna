@@ -1,5 +1,10 @@
 import { PlaceholderScreen } from '@/components/placeholder-screen';
+import { RequireAuth } from '@/components/require-auth';
 
 export default function MessagesScreen() {
-  return <PlaceholderScreen titleKey="tabs.messages" />;
+  return (
+    <RequireAuth next="/messages">
+      <PlaceholderScreen titleKey="tabs.messages" />
+    </RequireAuth>
+  );
 }
