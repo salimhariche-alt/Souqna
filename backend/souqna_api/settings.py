@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third-party
     'rest_framework',
+    'django_filters',
     # Souqna apps
     'accounts',
     'listings',
@@ -59,6 +60,21 @@ INSTALLED_APPS = [
 
 # Our own user model (phone-number login). Must be set before the first migration.
 AUTH_USER_MODEL = 'accounts.User'
+
+# Django REST Framework (the /api/ endpoints)
+REST_FRAMEWORK = {
+    # Browser login (the admin or /api-auth/login/). App login (tokens) comes later.
+    # Not-logged-in requests to protected endpoints get 403 "not_authenticated".
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    # Anyone can read; you must be logged in to create or change anything.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
