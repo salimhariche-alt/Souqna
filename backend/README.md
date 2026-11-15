@@ -76,6 +76,10 @@ first at http://127.0.0.1:8000/api-auth/login/ (phone number + password).
 | `POST /api/listings/{id}/photos/` | Upload one photo (field `image`, max 8, 10 MB) | Seller only |
 | `POST` / `DELETE /api/listings/{id}/favorite/` | Add / remove from my favorites | Logged in |
 | `GET /api/favorites/` | My favorites | Logged in |
+| `GET /api/conversations/` | My conversations, newest activity first, with unread counts | Logged in |
+| `POST /api/conversations/` | Ask a seller about a listing: `listing` + `text` (reuses an existing conversation) | Logged in, not the seller |
+| `GET /api/conversations/{id}/` | All messages, oldest first; marks the other person's as read | Buyer or seller |
+| `POST /api/conversations/{id}/messages/` | Send a message: `text` (1 to 1,000 characters) | Buyer or seller |
 
 **Using a token (mobile app):** send the access token in every request header:
 `Authorization: Bearer <access token>`. Access tokens last 30 minutes; refresh

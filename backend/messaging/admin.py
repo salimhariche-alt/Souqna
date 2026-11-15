@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 
 from .models import Conversation, Message
 
@@ -15,7 +15,7 @@ class MessageInline(admin.TabularInline):
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
     list_display = ('listing', 'buyer', 'seller', 'message_count', 'unread_count',
-                    'created_at')
+                    'last_activity', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('listing__title', 'buyer__phone', 'buyer__display_name',
                      'seller__phone', 'seller__display_name')
@@ -28,7 +28,12 @@ class ConversationAdmin(admin.ModelAdmin):
         return super().get_queryset(request).annotate(
             _message_count=Count('messages'),
             _unread_count=Count('messages', filter=Q(messages__read=False)),
+            _last_activity=Max('messages__sent_at'),
         )
+
+    @admin.display(description='last activity', ordering='_last_activity')
+    def last_activity(self, obj):
+        return obj._last_activity
 
     @admin.display(description='messages', ordering='_message_count')
     def message_count(self, obj):
