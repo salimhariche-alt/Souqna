@@ -2,16 +2,22 @@ import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 type Props = {
   title: string;
   onPress: () => void;
   loading?: boolean;
-  variant?: 'primary' | 'danger';
+  /** primary = blue, danger = red, secondary = grey (follows light/dark mode). */
+  variant?: 'primary' | 'danger' | 'secondary';
 };
 
 /** The main button of a screen. Shows a spinner and ignores taps while loading. */
 export function PrimaryButton({ title, onPress, loading = false, variant = 'primary' }: Props) {
+  const theme = useTheme();
+  const secondary = variant === 'secondary';
+  const textColor = secondary ? theme.text : '#ffffff';
+
   return (
     <Pressable
       onPress={onPress}
@@ -21,12 +27,13 @@ export function PrimaryButton({ title, onPress, loading = false, variant = 'prim
       style={({ pressed }) => [
         styles.button,
         variant === 'danger' && styles.danger,
+        secondary && { backgroundColor: theme.backgroundSelected },
         (pressed || loading) && styles.dimmed,
       ]}>
       {loading ? (
-        <ActivityIndicator color="#ffffff" />
+        <ActivityIndicator color={textColor} />
       ) : (
-        <ThemedText type="smallBold" style={styles.text}>
+        <ThemedText type="smallBold" style={[styles.text, { color: textColor }]}>
           {title}
         </ThemedText>
       )}
@@ -46,5 +53,5 @@ const styles = StyleSheet.create({
   },
   danger: { backgroundColor: '#D93025' },
   dimmed: { opacity: 0.7 },
-  text: { color: '#ffffff', fontSize: 16 },
+  text: { fontSize: 16 },
 });

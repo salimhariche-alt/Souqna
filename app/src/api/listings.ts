@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { ApiError, apiFetch } from './client';
 
 /** One listing in a list (the short version sent by GET /api/listings/). */
 export type ListingSummary = {
@@ -33,6 +33,45 @@ export type Category = {
   name_en: string;
   parent: number | null;
 };
+
+/** One listing with everything (GET /api/listings/{id}/). */
+export type ListingDetail = Omit<ListingSummary, 'cover_photo'> & {
+  description: string;
+  seller: { id: number; display_name: string; wilaya: number | null };
+  photos: { id: number; image: string; position: number }[];
+  /** True if it's in the logged-in user's favorites (always false when logged out). */
+  is_favorited: boolean;
+};
+
+/** One listing. With `auth`, the answer also says whether it's in my favorites. */
+export function fetchListing(id: number | string, auth: boolean) {
+  return apiFetch<ListingDetail>(`/api/listings/${id}/`, { auth });
+}
+
+export function addFavorite(listingId: number) {
+  return apiFetch<unknown>(`/api/listings/${listingId}/favorite/`, { method: 'POST', auth: true });
+}
+
+export async function removeFavorite(listingId: number) {
+  try {
+    await apiFetch<unknown>(`/api/listings/${listingId}/favorite/`, {
+      method: 'DELETE',
+      auth: true,
+    });
+  } catch (error) {
+    // 404 = it wasn't a favorite anyway, which is what we wanted.
+    if (!(error instanceof ApiError && error.status === 404)) throw error;
+  }
+}
+
+/** The seller marks their own listing as sold. */
+export function markListingSold(listingId: number) {
+  return apiFetch<ListingDetail>(`/api/listings/${listingId}/`, {
+    method: 'PATCH',
+    body: { status: 'sold' },
+    auth: true,
+  });
+}
 
 /** Active listings, newest first. `page` starts at 1. */
 export function fetchListings({ page, category }: { page: number; category?: number | null }) {

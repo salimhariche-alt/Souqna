@@ -183,10 +183,34 @@ class ListingDetailTests(ApiTestCase):
         response = self.client.get(f'/api/listings/{listing.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['description'], 'Robe faite main')
-        self.assertEqual(response.data['seller'], {'id': self.seller.id, 'display_name': 'Amina'})
+        self.assertEqual(response.data['seller'],
+                         {'id': self.seller.id, 'display_name': 'Amina', 'wilaya': Wilaya.ALGER})
         self.assertEqual(len(response.data['photos']), 1)
         self.assertEqual(response.data['photos'][0]['position'], 1)
         self.assertNotIn('phone', response.data['seller'])  # don't leak phone numbers
+        self.assertNotIn('email', response.data['seller'])
+
+    def test_seller_without_wilaya(self):
+        no_wilaya = User.objects.create_user(phone='0770000009', display_name='Sans wilaya')
+        listing = self.make_listing(seller=no_wilaya)
+        response = self.client.get(f'/api/listings/{listing.id}/')
+        self.assertIsNone(response.data['seller']['wilaya'])
+
+    def test_is_favorited_is_false_for_visitors(self):
+        listing = self.make_listing()
+        Favorite.objects.create(user=self.other, listing=listing)
+        response = self.client.get(f'/api/listings/{listing.id}/')
+        self.assertIs(response.data['is_favorited'], False)
+
+    def test_is_favorited_follows_my_favorites(self):
+        listing = self.make_listing()
+        self.client.force_authenticate(self.other)
+        self.assertIs(self.client.get(f'/api/listings/{listing.id}/').data['is_favorited'], False)
+        self.client.post(f'/api/listings/{listing.id}/favorite/')
+        self.assertIs(self.client.get(f'/api/listings/{listing.id}/').data['is_favorited'], True)
+        # Someone else's favorite doesn't count for me.
+        self.client.force_authenticate(self.seller)
+        self.assertIs(self.client.get(f'/api/listings/{listing.id}/').data['is_favorited'], False)
 
     def test_sold_listing_detail_still_viewable(self):
         listing = self.make_listing(status=Listing.Status.SOLD)

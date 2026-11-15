@@ -1,15 +1,16 @@
 import { router, type Href } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { fetchCategories, type Category, type ListingSummary } from '@/api/listings';
+import type { ListingSummary } from '@/api/listings';
 import { CategoryChips, mainCategoriesInOrder } from '@/components/category-chips';
 import { FeedMessage } from '@/components/feed-message';
 import { ListingCard } from '@/components/listing-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useCategories } from '@/hooks/use-categories';
 import { useListingsFeed } from '@/hooks/use-listings-feed';
 import { useLanguage } from '@/i18n/language-provider';
 
@@ -17,16 +18,10 @@ import { useLanguage } from '@/i18n/language-provider';
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { language, direction } = useLanguage();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { categories: allCategories, reload: loadCategories } = useCategories();
+  const categories = useMemo(() => mainCategoriesInOrder(allCategories), [allCategories]);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const feed = useListingsFeed(categoryId);
-
-  const loadCategories = useCallback(() => {
-    fetchCategories()
-      .then((all) => setCategories(mainCategoriesInOrder(all)))
-      .catch(() => {}); // the feed still works with just "All"
-  }, []);
-  useEffect(loadCategories, [loadCategories]);
 
   const openListing = useCallback((listing: ListingSummary) => {
     router.push(`/listing/${listing.id}` as Href);

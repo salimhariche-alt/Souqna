@@ -242,6 +242,27 @@ class ListConversationsTests(MessagingTestCase):
         self.as_user(self.outsider)
         self.assertEqual(self.client.get(URL).data['count'], 0)
 
+    def test_find_my_conversation_about_one_listing(self):
+        about_robe = self.make_conversation(buyer=self.buyer, listing=self.listing)
+        self.make_conversation(buyer=self.buyer, listing=self.listing2)
+        self.make_conversation(buyer=self.buyer2, listing=self.listing)  # someone else's
+
+        self.as_user(self.buyer)
+        response = self.client.get(f'{URL}?listing={self.listing.id}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row['id'] for row in response.data['results']], [about_robe.id])
+
+        # The seller sees every buyer's conversation about their listing.
+        self.as_user(self.seller)
+        self.assertEqual(self.client.get(f'{URL}?listing={self.listing.id}').data['count'], 2)
+
+        # Nobody else finds anything, and nonsense values just give an empty list.
+        self.as_user(self.outsider)
+        self.assertEqual(self.client.get(f'{URL}?listing={self.listing.id}').data['count'], 0)
+        self.as_user(self.buyer)
+        self.assertEqual(self.client.get(f'{URL}?listing=abc').data['count'], 0)
+        self.assertEqual(self.client.get(f'{URL}?listing=99999').data['count'], 0)
+
 
 # 3. Open a conversation --------------------------------------------------------------
 
