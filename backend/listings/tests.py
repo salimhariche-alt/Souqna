@@ -56,7 +56,7 @@ class ApiTestCase(APITestCase):
 
     def assertNotLoggedIn(self, response):
         """Blocked because nobody is logged in (not because of the owner rule)."""
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(response.data['detail'].code, 'not_authenticated')
 
     def assertNotOwner(self, response):

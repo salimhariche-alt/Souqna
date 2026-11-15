@@ -63,6 +63,10 @@ first at http://127.0.0.1:8000/api-auth/login/ (phone number + password).
 
 | Address | What it does | Who |
 |---|---|---|
+| `POST /api/auth/signup/` | Sign up: `phone` and/or `email`, `password` (8+ chars), `display_name`, `wilaya`, optional `preferred_language`. Returns tokens | Anyone |
+| `POST /api/auth/login/` | Log in: `phone_or_email` + `password`. Returns `access` + `refresh` tokens | Anyone |
+| `POST /api/auth/refresh/` | Send `refresh`, get a new `access` token | Anyone |
+| `GET` / `PATCH /api/auth/me/` | See / edit my display name, wilaya, language | Logged in |
 | `GET /api/categories/` | All categories in ar / fr / en | Anyone |
 | `GET /api/listings/` | Active listings, newest first, 20 per page | Anyone |
 | `GET /api/listings/?category=1&wilaya=16&min_price=1000&max_price=9000&size=M&condition=good&search=nike` | Filters and search (use any combination) | Anyone |
@@ -72,6 +76,10 @@ first at http://127.0.0.1:8000/api-auth/login/ (phone number + password).
 | `POST /api/listings/{id}/photos/` | Upload one photo (field `image`, max 8, 10 MB) | Seller only |
 | `POST` / `DELETE /api/listings/{id}/favorite/` | Add / remove from my favorites | Logged in |
 | `GET /api/favorites/` | My favorites | Logged in |
+
+**Using a token (mobile app):** send the access token in every request header:
+`Authorization: Bearer <access token>`. Access tokens last 30 minutes; refresh
+tokens last 30 days. Sign-up and log-in allow 10 attempts per minute.
 
 Run the automated tests with `python manage.py test`.
 

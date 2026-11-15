@@ -8,7 +8,7 @@ from .models import User
 class SouqnaUserCreationForm(UserCreationForm):
     class Meta:
         model = User
-        fields = ('phone', 'display_name')
+        fields = ('phone', 'email', 'display_name')
 
 
 class SouqnaUserChangeForm(UserChangeForm):
@@ -38,6 +38,7 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('phone', 'display_name', 'password1', 'password2'),
+            'description': 'Enter a phone number, an email, or both.',
+            'fields': ('phone', 'email', 'display_name', 'password1', 'password2'),
         }),
     )
