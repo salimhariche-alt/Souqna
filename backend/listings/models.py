@@ -62,6 +62,27 @@ class Listing(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
+    # Moderation. Honest listings stay "approved" and nothing changes for them.
+    # A listing flagged by the automatic checks becomes "pending_review": hidden from
+    # everyone except its seller until an admin approves or rejects it.
+    class Review(models.TextChoices):
+        APPROVED = 'approved', 'Approved'
+        PENDING = 'pending_review', 'Needs review'
+        REJECTED = 'rejected', 'Rejected'
+
+    review_status = models.CharField(
+        max_length=16, choices=Review.choices, default=Review.APPROVED, db_index=True
+    )
+    # What the automatic checks found, e.g. [{"code": "low_price", "detail": "..."}].
+    # Shown to admins only (never to the seller, so scammers can't learn the rules).
+    flag_reasons = models.JSONField(default=list, blank=True)
+    flagged_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='+',
+    )
+
     class Meta:
         ordering = ['-created_at']
 
@@ -78,6 +99,9 @@ class ListingPhoto(models.Model):
         default=1,
         validators=[MinValueValidator(1), MaxValueValidator(MAX_PHOTOS_PER_LISTING)],
     )
+    # 16-character "difference hash" of the photo, to find copies of the same photo
+    # (see moderation/images.py). Empty for photos that couldn't be read.
+    fingerprint = models.CharField(max_length=16, blank=True, db_index=True)
 
     class Meta:
         ordering = ['listing', 'position']

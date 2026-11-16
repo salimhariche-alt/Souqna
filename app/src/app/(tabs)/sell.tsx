@@ -3,7 +3,7 @@ import { RequireAuth } from '@/components/require-auth';
 
 export default function SellScreen() {
   return (
-    <RequireAuth next="/sell">
+    <RequireAuth next="/sell" verified>
       <PlaceholderScreen titleKey="tabs.sell" />
     </RequireAuth>
   );

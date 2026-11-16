@@ -1,4 +1,5 @@
-import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router, type Href } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +53,35 @@ function ProfileContent() {
         ) : null}
       </ThemedView>
 
+      {/* Phone verification */}
+      <ThemedView type="backgroundElement" style={[styles.card, styles.verifyCard]}>
+        <View style={styles.verifyRow}>
+          <Ionicons
+            name={user.phone_verified ? 'checkmark-circle' : 'alert-circle-outline'}
+            size={22}
+            color={user.phone_verified ? '#1E8E3E' : '#E37400'}
+          />
+          <ThemedText
+            type="smallBold"
+            style={user.phone_verified ? styles.verifiedText : styles.unverifiedText}>
+            {user.phone_verified ? t('profile.phoneVerified') : t('profile.phoneNotVerified')}
+          </ThemedText>
+        </View>
+        {!user.phone_verified && (
+          <>
+            <ThemedText type="small" themeColor="textSecondary">
+              {t('profile.whyVerify')}
+            </ThemedText>
+            <PrimaryButton
+              title={t('profile.verifyNow')}
+              onPress={() =>
+                router.push({ pathname: '/verify-phone', params: { next: '/profile' } } as Href)
+              }
+            />
+          </>
+        )}
+      </ThemedView>
+
       <LanguageSwitcher />
 
       <PrimaryButton
@@ -83,4 +113,8 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.three },
   infoRow: { gap: Spacing.half },
+  verifyCard: { gap: Spacing.three },
+  verifyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  verifiedText: { color: '#1E8E3E' },
+  unverifiedText: { color: '#B06000' },
 });

@@ -23,10 +23,13 @@ URL = '/api/conversations/'
 class MessagingTestCase(APITestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.seller = User.objects.create_user(phone='0550000001', display_name='Amina')
-        cls.buyer = User.objects.create_user(phone='0660000002', display_name='Yacine')
-        cls.buyer2 = User.objects.create_user(phone='0770000003', display_name='Sara')
-        cls.outsider = User.objects.create_user(phone='0550000004', display_name='Karim')
+        # Verified phones: messaging needs one (the "not verified" case is tested below).
+        verified = {'phone_verified': True}
+        cls.seller = User.objects.create_user(phone='0550000001', display_name='Amina', **verified)
+        cls.buyer = User.objects.create_user(phone='0660000002', display_name='Yacine', **verified)
+        cls.buyer2 = User.objects.create_user(phone='0770000003', display_name='Sara', **verified)
+        cls.outsider = User.objects.create_user(phone='0550000004', display_name='Karim',
+                                                **verified)
         category = Category.objects.create(name_en='Women', name_fr='Femmes', name_ar='نساء')
         cls.listing = Listing.objects.create(
             seller=cls.seller, title='Robe kabyle', price_dzd=8500, category=category,
@@ -75,6 +78,7 @@ class LoginRequiredTests(MessagingTestCase):
         self.client.post('/api/auth/signup/', {'phone': '0661112233', 'password': 'Souqna-2026!',
                                                'display_name': 'Nadia', 'wilaya': 31},
                          format='json')
+        User.objects.filter(phone='0661112233').update(phone_verified=True)
         token = self.client.post('/api/auth/login/', {'phone_or_email': '0661112233',
                                                       'password': 'Souqna-2026!'},
                                  format='json').data['access']

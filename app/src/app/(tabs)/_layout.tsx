@@ -19,16 +19,20 @@ function tabIcon(name: IconName): BottomTabNavigationOptions['tabBarIcon'] {
  * The bottom tab bar: Home, Search, Sell, Messages, Profile.
  * Home and Search are open to everyone. Sell, Messages and Profile need a login:
  * when a logged-out user taps one, the Log in screen opens first.
+ * Sell also needs a verified phone: unverified users go to the verification screen.
  */
 export default function TabLayout() {
   const { t } = useTranslation();
-  const { status } = useAuth();
+  const { status, user } = useAuth();
 
-  const needsLogin = (tab: 'sell' | 'messages' | 'profile') => ({
+  const needsLogin = (tab: 'sell' | 'messages' | 'profile', needsVerifiedPhone = false) => ({
     tabPress: (event: { preventDefault: () => void }) => {
       if (status !== 'signedIn') {
         event.preventDefault(); // stay on the current tab
         router.push({ pathname: '/login', params: { next: `/${tab}` } } as Href);
+      } else if (needsVerifiedPhone && !user?.phone_verified) {
+        event.preventDefault();
+        router.push({ pathname: '/verify-phone', params: { next: `/${tab}` } } as Href);
       }
     },
   });
@@ -51,7 +55,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="sell"
         options={{ title: t('tabs.sell'), tabBarIcon: tabIcon('add-circle-outline') }}
-        listeners={needsLogin('sell')}
+        listeners={needsLogin('sell', true)}
       />
       <Tabs.Screen
         name="messages"

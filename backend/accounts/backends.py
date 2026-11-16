@@ -4,6 +4,19 @@ from django.contrib.auth.backends import ModelBackend
 from .models import normalize_email_address, normalize_phone
 
 
+def find_user(identifier: str):
+    """The account with this phone number or email, or None."""
+    User = get_user_model()
+    identifier = (identifier or '').strip()
+    if not identifier:
+        return None
+    if '@' in identifier:
+        lookup = {'email': normalize_email_address(identifier)}
+    else:
+        lookup = {'phone': normalize_phone(identifier)}
+    return User._default_manager.filter(**lookup).first()
+
+
 class PhoneOrEmailBackend(ModelBackend):
     """Log in with a phone number or an email, plus password.
 
@@ -17,14 +30,8 @@ class PhoneOrEmailBackend(ModelBackend):
         if not username or password is None:
             return None
 
-        if '@' in username:
-            lookup = {'email': normalize_email_address(username)}
-        else:
-            lookup = {'phone': normalize_phone(username)}
-
-        try:
-            user = User._default_manager.get(**lookup)
-        except User.DoesNotExist:
+        user = find_user(username)
+        if user is None:
             # Hash anyway so a wrong login takes the same time whether or not the
             # account exists (makes it harder to guess who has an account).
             User().set_password(password)

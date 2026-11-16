@@ -29,6 +29,8 @@ import { categoryName, useCategories } from '@/hooks/use-categories';
 import { useTheme } from '@/hooks/use-theme';
 import { formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
+import { soldCount } from '@/utils/count';
+import { monthYear } from '@/utils/dates';
 import { formatPrice } from '@/utils/format';
 import { timeAgo } from '@/utils/time-ago';
 
@@ -85,6 +87,14 @@ export default function ListingDetailsScreen() {
     router.push({ pathname: '/login', params: { next: `/listing/${id}` } } as Href);
   };
 
+  // Messaging needs a verified phone: open the verification screen, then continue.
+  const verifyAsked = useRef(false);
+  const askToVerify = useCallback(() => {
+    pending.current = 'message';
+    verifyAsked.current = true;
+    router.push({ pathname: '/verify-phone', params: { next: `/listing/${id}` } } as Href);
+  }, [id]);
+
   const toggleFavorite = useCallback(
     async (target?: boolean) => {
       if (!listing) return;
@@ -118,18 +128,33 @@ export default function ListingDetailsScreen() {
     }
   }, [listing, t]);
 
-  // After logging in, finish what the user tapped (unless it turns out to be their own listing).
+  // After logging in (or verifying the phone), finish what the user tapped -
+  // unless it turns out to be their own listing.
   useEffect(() => {
     if (!signedIn || !listing || !pending.current) return;
-    const action = pending.current;
-    pending.current = null;
-    if (listing.seller.id === user?.id) return;
-    if (action === 'favorite') toggleFavorite(true);
-    if (action === 'message' && !isSold) openConversation();
-  }, [signedIn, listing, user, isSold, toggleFavorite, openConversation]);
+    if (listing.seller.id === user?.id) {
+      pending.current = null;
+      return;
+    }
+    if (pending.current === 'favorite') {
+      pending.current = null;
+      toggleFavorite(true);
+    } else if (pending.current === 'message' && !isSold) {
+      if (user?.phone_verified) {
+        pending.current = null;
+        openConversation();
+      } else if (!verifyAsked.current) {
+        askToVerify(); // just logged in, but the phone isn't verified yet
+      }
+    }
+  }, [signedIn, listing, user, isSold, toggleFavorite, openConversation, askToVerify]);
 
   const onHeart = () => (signedIn ? toggleFavorite() : askToLogIn('favorite'));
-  const onMessage = () => (signedIn ? openConversation() : askToLogIn('message'));
+  const onMessage = () => {
+    if (!signedIn) askToLogIn('message');
+    else if (!user?.phone_verified) askToVerify();
+    else openConversation();
+  };
 
   const sendFirstMessage = async (text: string) => {
     if (!listing) return;
@@ -140,6 +165,14 @@ export default function ListingDetailsScreen() {
       setMessageOpen(false);
       router.push(`/chat/${conversation.id}` as Href);
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        (error.data as { code?: string } | null)?.code === 'phone_not_verified'
+      ) {
+        setMessageOpen(false);
+        askToVerify(); // the backend says the phone isn't verified (e.g. changed elsewhere)
+        return;
+      }
       const errors = formErrorsFrom(error, t, { text: 'text', listing: 'text' });
       setSendError(errors.fields.text ?? errors.general);
     } finally {
@@ -226,6 +259,38 @@ export default function ListingDetailsScreen() {
         </View>
 
         <View style={styles.body}>
+          {/* Only the seller ever sees a listing that isn't approved. */}
+          {listing.review_status !== 'approved' && (
+            <View
+              style={[
+                styles.reviewBanner,
+                listing.review_status === 'rejected' ? styles.rejectedBanner : styles.pendingBanner,
+              ]}
+              accessibilityRole="alert">
+              <Ionicons
+                name={listing.review_status === 'rejected' ? 'close-circle' : 'time-outline'}
+                size={22}
+                color={listing.review_status === 'rejected' ? '#B3261E' : '#8A5300'}
+              />
+              <View style={styles.flex}>
+                <ThemedText
+                  type="smallBold"
+                  style={[align, listing.review_status === 'rejected' ? styles.rejectedText : styles.pendingText]}>
+                  {listing.review_status === 'rejected'
+                    ? t('listing.rejectedTitle')
+                    : t('listing.underReviewTitle')}
+                </ThemedText>
+                <ThemedText
+                  type="small"
+                  style={[align, listing.review_status === 'rejected' ? styles.rejectedText : styles.pendingText]}>
+                  {listing.review_status === 'rejected'
+                    ? t('listing.rejectedText')
+                    : t('listing.underReviewText')}
+                </ThemedText>
+              </View>
+            </View>
+          )}
+
           <ThemedText type="subtitle" style={align}>
             {formatPrice(listing.price_dzd, language)}
           </ThemedText>
@@ -279,6 +344,23 @@ export default function ListingDetailsScreen() {
                   {wilayaLabel(listing.seller.wilaya, language)}
                 </ThemedText>
               ) : null}
+              {/* Trust info */}
+              {listing.seller.phone_verified ? (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={16} color="#1E8E3E" />
+                  <ThemedText type="smallBold" style={styles.verifiedText}>
+                    {t('listing.phoneVerified')}
+                  </ThemedText>
+                </View>
+              ) : null}
+              <ThemedText type="small" themeColor="textSecondary" style={align}>
+                {t('listing.memberSince', {
+                  date: monthYear(listing.seller.member_since, language),
+                })}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={align}>
+                {soldCount(listing.seller.items_sold, language)}
+              </ThemedText>
             </View>
           </ThemedView>
 
@@ -427,6 +509,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#208AEF',
   },
   avatarText: { color: '#ffffff', fontSize: 18 },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.one,
+    marginVertical: Spacing.one,
+    paddingVertical: Spacing.half,
+    paddingHorizontal: Spacing.two,
+    borderRadius: 999,
+    backgroundColor: 'rgba(30,142,62,0.12)',
+  },
+  verifiedText: { color: '#1E8E3E' },
+  reviewBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  pendingBanner: { backgroundColor: '#FFF4E0' },
+  rejectedBanner: { backgroundColor: '#FDECEA' },
+  pendingText: { color: '#8A5300' },
+  rejectedText: { color: '#B3261E' },
   soldNote: { marginTop: Spacing.two },
   actionBar: {
     borderTopWidth: StyleSheet.hairlineWidth,

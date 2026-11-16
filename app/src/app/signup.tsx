@@ -7,7 +7,6 @@ import { useAuth } from '@/auth/auth-provider';
 import {
   ALGERIAN_MOBILE,
   LOOKS_LIKE_EMAIL,
-  leaveAuthScreen,
   normalizePhone,
   safeNext,
 } from '@/auth/navigation';
@@ -61,7 +60,9 @@ export default function SignupScreen() {
         wilaya,
         preferred_language: language,
       });
-      leaveAuthScreen(next);
+      // Next: confirm the phone number by SMS (replaces this screen, so "back"
+      // doesn't return to the sign-up form).
+      router.replace({ pathname: '/verify-phone', params: next ? { next } : {} } as Href);
     } catch (error) {
       setErrors(
         formErrorsFrom(error, t, {

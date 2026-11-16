@@ -59,8 +59,10 @@ class MessageSerializer(serializers.ModelSerializer):
 class StartConversationSerializer(serializers.Serializer):
     """Input for starting a conversation: which listing, and the first message."""
 
+    # Only visible listings: not flagged/rejected, seller not suspended or banned.
     listing = serializers.PrimaryKeyRelatedField(
-        queryset=Listing.objects.all(),
+        queryset=Listing.objects.filter(review_status=Listing.Review.APPROVED,
+                                        seller__is_active=True),
         error_messages={
             'required': 'Choose the listing you want to ask about.',
             'null': 'Choose the listing you want to ask about.',

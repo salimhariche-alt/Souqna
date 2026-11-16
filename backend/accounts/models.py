@@ -1,5 +1,8 @@
+import hashlib
+import hmac
 import re
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
@@ -77,6 +80,12 @@ class User(AbstractUser):
     preferred_language = models.CharField(
         max_length=2, choices=Language.choices, default=Language.ARABIC
     )
+    # Trust: the phone number was confirmed with an SMS code.
+    phone_verified = models.BooleanField(default=False)
+    phone_verified_at = models.DateTimeField(null=True, blank=True)
+    # Moderation: "suspended" = is_active False (can be undone). "Banned" = suspended
+    # + this date; the phone number and devices are also blocked from new accounts.
+    banned_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = 'phone'
     REQUIRED_FIELDS = ['display_name']
@@ -112,3 +121,45 @@ class User(AbstractUser):
 
     def get_short_name(self):
         return self.display_name
+
+    @property
+    def items_sold(self) -> int:
+        """How many of this user's listings are marked as sold.
+
+        Counted from the listings (not stored separately), so it is always correct,
+        even if a listing is set back to active.
+        """
+        return self.listings.filter(status='sold').count()
+
+
+class PhoneVerification(models.Model):
+    """The SMS code a user is waiting to type in (at most one per user).
+
+    The code itself is never stored, only a scrambled version (HMAC with SECRET_KEY),
+    so someone reading the database still can't see the codes.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='phone_verification'
+    )
+    # The number the code was sent to. Usually the user's phone; for an account
+    # without a phone it becomes their phone once the code is confirmed.
+    phone = models.CharField(max_length=10, validators=[algerian_mobile])
+    code_hash = models.CharField(max_length=64)
+    sent_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+    # Wrong codes in a row. Not reset by sending a new code, so asking for new
+    # codes can't be used to get around the limit.
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f'Code for {self.user} ({self.phone})'
+
+    @staticmethod
+    def hash_code(user_id: int, code: str) -> str:
+        message = f'{user_id}:{code}'.encode()
+        return hmac.new(settings.SECRET_KEY.encode(), message, hashlib.sha256).hexdigest()
+
+    def code_matches(self, code: str) -> bool:
+        return hmac.compare_digest(self.code_hash, self.hash_code(self.user_id, code))

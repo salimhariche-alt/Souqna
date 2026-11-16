@@ -234,7 +234,11 @@ class Command(BaseCommand):
             )
             if created:
                 user.set_unusable_password()  # demo accounts cannot log in
-                user.save()
+            if not user.phone_verified:
+                # Demo sellers count as verified, so the trust badge has something to show.
+                user.phone_verified = True
+                user.phone_verified_at = user.date_joined
+            user.save()
             sellers.append(user)
         self.stdout.write(f'Demo sellers ready: {len(sellers)}.')
         return sellers

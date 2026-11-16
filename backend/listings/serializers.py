@@ -21,11 +21,14 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class SellerSerializer(serializers.Serializer):
-    """Public info about a seller (never their phone or email)."""
+    """Public info about a seller, including trust info (never their phone or email)."""
 
     id = serializers.IntegerField()
     display_name = serializers.CharField()
     wilaya = serializers.IntegerField(allow_null=True)
+    phone_verified = serializers.BooleanField()
+    member_since = serializers.DateTimeField(source='date_joined')
+    items_sold = serializers.IntegerField()
 
 
 class ListingPhotoSerializer(serializers.ModelSerializer):
@@ -72,8 +75,10 @@ class ListingDetailSerializer(serializers.ModelSerializer):
         model = Listing
         fields = ['id', 'title', 'description', 'price_dzd', 'category', 'category_name',
                   'size', 'brand', 'condition', 'condition_label', 'wilaya', 'wilaya_name',
-                  'status', 'seller', 'photos', 'is_favorited', 'created_at']
-        read_only_fields = ['created_at']
+                  'status', 'seller', 'photos', 'is_favorited', 'review_status', 'created_at']
+        # review_status: only the seller can see a listing that isn't approved, so the
+        # app can show "Under review". The reasons (flag_reasons) stay admin-only.
+        read_only_fields = ['created_at', 'review_status']
 
     def get_is_favorited(self, listing):
         """True if the logged-in user has this listing in their favorites."""

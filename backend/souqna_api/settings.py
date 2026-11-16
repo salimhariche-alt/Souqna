@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     'accounts',
     'listings',
     'messaging',
+    'moderation',
 ]
 
 # Our own user model (phone-number login). Must be set before the first migration.
@@ -108,6 +109,7 @@ REST_FRAMEWORK = {
     # Limit sign-up / log-in attempts to slow down password guessing.
     'DEFAULT_THROTTLE_RATES': {
         'auth': '10/minute',
+        'sms': '10/hour',  # verification codes: SMS cost money
     },
     # Anyone can read; you must be logged in to create or change anything.
     'DEFAULT_PERMISSION_CLASSES': [
@@ -129,6 +131,11 @@ if DEBUG:
         r'^http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$',
         r'^http://172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$',
     ]
+
+# How SMS (phone verification codes) are sent. The default prints them in the
+# Django server terminal (development). To use a real SMS provider, write a class
+# like accounts.sms.ConsoleSMSBackend and set DJANGO_SMS_BACKEND in .env.
+SMS_BACKEND = os.environ.get('DJANGO_SMS_BACKEND', 'accounts.sms.ConsoleSMSBackend')
 
 # Login tokens (djangorestframework-simplejwt)
 SIMPLE_JWT = {
