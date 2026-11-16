@@ -3,13 +3,12 @@ import { Image } from 'expo-image';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { ThemedText } from '@/components/themed-text';
-import { Brand, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
+import { useTokens } from '@/theme';
+import { AppText } from '@/ui';
 
 export const MAX_PHOTOS = 8;
-const SIZE = 96;
+const SIZE = 104;
 
 export type FormPhoto = {
   /** Stays the same while the photo is in the form (used as the list key). */
@@ -26,35 +25,64 @@ type Props = {
   photos: FormPhoto[];
   onRemove: (key: string) => void;
   onMakeCover: (key: string) => void;
-  onAdd: (source: 'camera' | 'gallery') => void;
+  /** Add photos (the form asks: camera or gallery). */
+  onAdd: () => void;
   error?: string;
   disabled?: boolean;
 };
 
-/** Thumbnails of the listing's photos. The first one is the cover. */
+/**
+ * The listing's photos. With none yet: a large dashed "Add photos" box. Then thumbnails
+ * (the first one is the cover; ★ makes another the cover, ✕ removes) and a "+" tile.
+ */
 export function PhotoStrip({ photos, onRemove, onMakeCover, onAdd, error, disabled }: Props) {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const tk = useTokens();
   const { direction } = useLanguage();
   const full = photos.length >= MAX_PHOTOS;
-  // The small round buttons sit in the top "end" corner: right in French, left in Arabic.
-  const endCorner = direction === 'rtl' ? { left: 4 } : { right: 4 };
-  const startCorner = direction === 'rtl' ? { right: 4 } : { left: 4 };
+  // The small round buttons: ✕ in the top "end" corner, ★ in the bottom "start" corner.
+  const endCorner = direction === 'rtl' ? { left: 6 } : { right: 6 };
+  const startCorner = direction === 'rtl' ? { right: 6 } : { left: 6 };
+  const dashed = {
+    borderWidth: 2,
+    borderStyle: 'dashed' as const,
+    borderColor: error ? tk.color.danger : tk.color.primary,
+    backgroundColor: tk.color.primarySoft,
+  };
+
+  if (photos.length === 0) {
+    return (
+      <View style={{ gap: tk.space.sm }}>
+        <Pressable
+          onPress={onAdd}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={t('sell.addPhotos')}
+          style={({ pressed }) => [styles.bigBox, dashed, { borderRadius: tk.radius.xl, gap: tk.space.sm }, pressed && styles.pressed]}>
+          <View style={[styles.bigIcon, { backgroundColor: tk.color.background }]}>
+            <Ionicons name="camera-outline" size={32} color={tk.color.primary} />
+          </View>
+          <AppText variant="bodyStrong" tone="primary" align="center">
+            {t('sell.addPhotos')}
+          </AppText>
+          <AppText variant="small" tone="secondary" align="center">
+            {t('sell.addPhotosHint', { max: MAX_PHOTOS })}
+          </AppText>
+        </Pressable>
+        {error ? (
+          <AppText variant="small" tone="danger" accessibilityLiveRegion="polite">
+            {error}
+          </AppText>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText type="smallBold">{t('sell.photos')}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {t('sell.photoCount', { count: photos.length, max: MAX_PHOTOS })}
-        </ThemedText>
-      </View>
-
-      <View style={styles.grid}>
+    <View style={{ gap: tk.space.sm }}>
+      <View style={[styles.grid, { gap: tk.space.sm }]}>
         {photos.map((photo, index) => (
-          <View
-            key={photo.key}
-            style={[styles.thumb, { backgroundColor: theme.backgroundElement }]}>
+          <View key={photo.key} style={[styles.thumb, { borderRadius: tk.radius.md, backgroundColor: tk.color.surfaceAlt }]}>
             <Image source={{ uri: photo.uri }} style={styles.image} contentFit="cover" />
             {photo.preparing && (
               <View style={styles.overlay}>
@@ -62,10 +90,10 @@ export function PhotoStrip({ photos, onRemove, onMakeCover, onAdd, error, disabl
               </View>
             )}
             {index === 0 ? (
-              <View style={styles.coverBadge}>
-                <ThemedText type="small" style={styles.coverText}>
+              <View style={[styles.coverBadge, { backgroundColor: tk.color.primary }]}>
+                <AppText variant="caption" align="center" style={{ color: tk.color.onPrimary }}>
                   {t('sell.cover')}
-                </ThemedText>
+                </AppText>
               </View>
             ) : (
               <Pressable
@@ -89,65 +117,35 @@ export function PhotoStrip({ photos, onRemove, onMakeCover, onAdd, error, disabl
             </Pressable>
           </View>
         ))}
-
         {!full && (
-          <>
-            <AddTile icon="camera-outline" label={t('sell.camera')} onPress={() => onAdd('camera')} disabled={disabled} />
-            <AddTile icon="images-outline" label={t('sell.gallery')} onPress={() => onAdd('gallery')} disabled={disabled} />
-          </>
+          <Pressable
+            onPress={onAdd}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={t('sell.addPhotos')}
+            style={({ pressed }) => [styles.thumb, styles.addTile, dashed, { borderRadius: tk.radius.md }, pressed && styles.pressed]}>
+            <Ionicons name="add" size={30} color={tk.color.primary} />
+          </Pressable>
         )}
       </View>
-
       {error ? (
-        <ThemedText type="small" style={styles.error} accessibilityLiveRegion="polite">
+        <AppText variant="small" tone="danger" accessibilityLiveRegion="polite">
           {error}
-        </ThemedText>
+        </AppText>
       ) : (
-        <ThemedText type="small" themeColor="textSecondary">
-          {full ? t('sell.photosFull') : t('sell.photosHint')}
-        </ThemedText>
+        <AppText variant="small" tone="secondary">
+          {full ? t('sell.photosFull') : t('sell.photosHint')} · {t('sell.photoCount', { count: photos.length, max: MAX_PHOTOS })}
+        </AppText>
       )}
     </View>
   );
 }
 
-function AddTile({
-  icon,
-  label,
-  onPress,
-  disabled,
-}: {
-  icon: 'camera-outline' | 'images-outline';
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.thumb,
-        styles.addTile,
-        { borderColor: theme.backgroundSelected },
-        pressed && styles.pressed,
-      ]}>
-      <Ionicons name={icon} size={28} color={Brand.fill} />
-      <ThemedText type="small" themeColor="primary" style={styles.addText} numberOfLines={1}>
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { gap: Spacing.two, alignSelf: 'stretch' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  thumb: { width: SIZE, height: SIZE, borderRadius: Spacing.two, overflow: 'hidden' },
+  bigBox: { minHeight: 190, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  bigIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  thumb: { width: SIZE, height: SIZE, overflow: 'hidden' },
   image: { width: '100%', height: '100%' },
   overlay: {
     position: 'absolute',
@@ -159,36 +157,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  coverBadge: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: 2,
-    alignItems: 'center',
-    backgroundColor: 'rgba(32,138,239,0.9)',
-  },
-  coverText: { color: '#ffffff', fontSize: 12 },
+  coverBadge: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingVertical: 2 },
   roundButton: {
     position: 'absolute',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  top: { top: 4 },
-  bottom: { bottom: 4 },
-  addTile: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.one,
-  },
-  addText: { fontSize: 12 },
-  pressed: { opacity: 0.6 },
-  error: { color: '#D93025' },
+  top: { top: 6 },
+  bottom: { bottom: 6 },
+  addTile: { alignItems: 'center', justifyContent: 'center' },
+  pressed: { opacity: 0.7 },
 });

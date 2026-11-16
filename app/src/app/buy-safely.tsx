@@ -11,7 +11,8 @@ import { PrimaryButton } from '@/components/primary-button';
 import { RequireAuth } from '@/components/require-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Brand, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
 
 type Tip = { icon: ComponentProps<typeof Ionicons>['name']; key: string; warn?: boolean };
@@ -26,6 +27,7 @@ const TIPS: Tip[] = [
 /** Shown once, before the first conversation: four simple tips to buy safely. */
 function BuySafelyContent() {
   const { t } = useTranslation();
+  const theme = useTheme();
   const { direction } = useLanguage();
   const { user, updateUser } = useAuth();
   const [saving, setSaving] = useState(false);
@@ -66,9 +68,9 @@ function BuySafelyContent() {
           key={tip.key}
           type="backgroundElement"
           style={[styles.tip, tip.warn && styles.warnTip]}>
-          <Ionicons name={tip.icon} size={26} color={tip.warn ? '#B3261E' : Brand.fill} />
+          <Ionicons name={tip.icon} size={26} color={tip.warn ? theme.danger : theme.primary} />
           <View style={styles.flex}>
-            <ThemedText type="smallBold" style={[align, tip.warn && styles.warnText]}>
+            <ThemedText themeColor="danger" type="smallBold" style={[align, tip.warn && styles.warnText]}>
               {t(`safety.tips.${tip.key}.title`)}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary" style={align}>
@@ -118,5 +120,5 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
   },
   warnTip: { borderWidth: 1, borderColor: 'rgba(179,38,30,0.35)' },
-  warnText: { color: '#B3261E' },
+  warnText: {},
 });

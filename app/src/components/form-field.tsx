@@ -63,7 +63,7 @@ export function FormField({ label, error, hint, password = false, ...inputProps 
         )}
       </View>
       {error ? (
-        <ThemedText type="small" style={styles.error} accessibilityLiveRegion="polite">
+        <ThemedText themeColor="danger" type="small" style={styles.error} accessibilityLiveRegion="polite">
           {error}
         </ThemedText>
       ) : hint ? (
@@ -89,5 +89,5 @@ const styles = StyleSheet.create({
   input: { flex: 1, paddingVertical: Spacing.three, fontSize: 16 },
   multiline: { minHeight: 110, maxHeight: 220, textAlignVertical: 'top' },
   eye: { paddingStart: Spacing.two },
-  error: { color: '#D93025' },
+  error: {},
 });

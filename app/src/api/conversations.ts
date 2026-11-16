@@ -84,6 +84,14 @@ export async function findConversationForListing(listingId: number): Promise<num
   return data.results[0]?.id ?? null;
 }
 
+/** Have I already talked to this person (about any listing)? */
+export async function hasConversationWith(userId: number): Promise<boolean> {
+  const data = await apiFetch<{ results: unknown[] }>(`/api/conversations/?with=${userId}`, {
+    auth: true,
+  });
+  return data.results.length > 0;
+}
+
 /**
  * Ask the seller about a listing: sends the first message. If a conversation about
  * this listing already exists, the backend adds the message to it instead.

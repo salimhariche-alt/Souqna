@@ -54,7 +54,7 @@ export function ListRow({ label, icon, value, description, onPress, arrow, dange
         </View>
       ) : null}
       <View style={styles.flex}>
-        <AppText variant="bodyStrong" style={{ color }} numberOfLines={1}>
+        <AppText variant="bodyStrong" style={{ color }} numberOfLines={2}>
           {label}
         </AppText>
         {description ? (

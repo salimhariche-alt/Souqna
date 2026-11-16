@@ -91,7 +91,7 @@ export function ListingGrid({
         feed.refreshFailed || headerComponent ? (
           <View>
             {feed.refreshFailed ? (
-              <ThemedText type="small" style={styles.refreshFailed}>
+              <ThemedText themeColor="danger" type="small" style={styles.refreshFailed}>
                 {t('home.refreshFailed')}
               </ThemedText>
             ) : null}
@@ -134,5 +134,5 @@ const styles = StyleSheet.create({
   footer: { alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.four },
   center: { textAlign: 'center' },
   link: {},
-  refreshFailed: { color: '#B3261E', textAlign: 'center', paddingVertical: Spacing.two },
+  refreshFailed: { textAlign: 'center', paddingVertical: Spacing.two },
 });

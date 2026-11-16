@@ -6,7 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
-import { errorCode, findConversationForListing, startConversation } from '@/api/conversations';
+import {
+  errorCode,
+  findConversationForListing,
+  hasConversationWith,
+  startConversation,
+} from '@/api/conversations';
 import {
   addFavorite,
   fetchListing,
@@ -24,13 +29,10 @@ import { MoreButton, OptionsMenu, type MenuOption } from '@/components/options-m
 import { ReportSheet } from '@/components/report-sheet';
 import { PhotoCarousel } from '@/components/photo-carousel';
 import { PhotoViewer } from '@/components/photo-viewer';
-import { PrimaryButton } from '@/components/primary-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Brand, Spacing } from '@/constants/theme';
 import { wilayaLabel } from '@/constants/wilayas';
 import { categoryName, useCategories } from '@/hooks/use-categories';
-import { useTheme } from '@/hooks/use-theme';
+import { useTokens } from '@/theme';
+import { AppText, Badge, Button, Card, SectionHeader } from '@/ui';
 import { formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
 import { soldCount } from '@/utils/count';
@@ -46,7 +48,7 @@ type PendingAction = 'favorite' | 'message';
 
 export default function ListingDetailsScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const tk = useTokens();
   const insets = useSafeAreaInsets();
   const { language, direction } = useLanguage();
   const { status: authStatus, user } = useAuth();
@@ -102,13 +104,9 @@ export default function ListingDetailsScreen() {
     router.push({ pathname: '/verify-phone', params: { next: `/listing/${id}` } } as Href);
   }, [id]);
 
-  // Before the very first conversation: the "Buy safely" tips (once, then never again).
-  const tipsAsked = useRef(false);
-  const askToReadTips = useCallback(() => {
-    pending.current = 'message';
-    tipsAsked.current = true;
-    router.push('/buy-safely' as Href);
-  }, []);
+  // Before writing to a NEW seller (no conversation with them yet): the "Buy safely"
+  // tips, every time. Remembered for this visit, so they don't show twice in a row.
+  const tipsShownFor = useRef<number | null>(null);
 
   const toggleFavorite = useCallback(
     async (target?: boolean) => {
@@ -134,8 +132,20 @@ export default function ListingDetailsScreen() {
     setOpeningChat(true);
     try {
       const existing = await findConversationForListing(listing.id);
-      if (existing) router.push(`/chat/${existing}` as Href);
-      else setMessageOpen(true);
+      if (existing) {
+        router.push(`/chat/${existing}` as Href);
+        return;
+      }
+      const sellerId = listing.seller.id;
+      if (tipsShownFor.current !== sellerId && !(await hasConversationWith(sellerId))) {
+        // A new seller: the safety tips first; "Got it" brings the user back here and
+        // the message box opens (see the effect below).
+        tipsShownFor.current = sellerId;
+        pending.current = 'message';
+        router.push('/buy-safely' as Href);
+        return;
+      }
+      setMessageOpen(true);
     } catch {
       setActionError(t('listing.actionFailed'));
     } finally {
@@ -157,20 +167,17 @@ export default function ListingDetailsScreen() {
     } else if (pending.current === 'message' && !isSold) {
       if (!user?.phone_verified) {
         if (!verifyAsked.current) askToVerify(); // just logged in, phone not verified yet
-      } else if (!user.safety_tips_seen) {
-        if (!tipsAsked.current) askToReadTips(); // verified now; show the tips first
       } else {
         pending.current = null;
-        openConversation();
+        openConversation(); // (shows the safety tips first if it's a new seller)
       }
     }
-  }, [signedIn, listing, user, isSold, toggleFavorite, openConversation, askToVerify, askToReadTips]);
+  }, [signedIn, listing, user, isSold, toggleFavorite, openConversation, askToVerify]);
 
   const onHeart = () => (signedIn ? toggleFavorite() : askToLogIn('favorite'));
   const onMessage = () => {
     if (!signedIn) askToLogIn('message');
     else if (!user?.phone_verified) askToVerify();
-    else if (!user.safety_tips_seen) askToReadTips();
     else openConversation();
   };
 
@@ -313,193 +320,157 @@ export default function ListingDetailsScreen() {
     [t('listing.posted'), timeAgo(listing.created_at, language)],
   ];
 
+  const reviewRejected = listing.review_status === 'rejected';
+
   return (
-    <ThemedView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <View style={[styles.screen, { backgroundColor: tk.color.background }]}>
+      <ScrollView contentContainerStyle={[styles.scroll, { maxWidth: tk.maxWidth, paddingBottom: tk.space.xxl }]}>
         <View style={styles.photoBox}>
           {listing.photos.length ? (
-            <PhotoCarousel
-              photos={listing.photos}
-              height={PHOTO_HEIGHT}
-              onPressPhoto={setViewerAt}
-            />
+            <PhotoCarousel photos={listing.photos} height={PHOTO_HEIGHT} onPressPhoto={setViewerAt} />
           ) : (
-            <View style={[styles.noPhoto, { backgroundColor: theme.backgroundSelected }]}>
-              <Ionicons name="image-outline" size={48} color={theme.textSecondary} />
-              <ThemedText themeColor="textSecondary">{t('listing.noPhotos')}</ThemedText>
+            <View style={[styles.noPhoto, { backgroundColor: tk.color.surfaceAlt, gap: tk.space.sm }]}>
+              <Ionicons name="image-outline" size={48} color={tk.color.textMuted} />
+              <AppText tone="secondary">{t('listing.noPhotos')}</AppText>
             </View>
           )}
           {listing.status !== 'active' && (
-            <View
-              style={[
-                styles.badge,
-                // Top corner where reading starts: left in French/English, right in Arabic.
-                direction === 'rtl' ? { right: Spacing.three } : { left: Spacing.three },
-                isSold ? styles.badgeSold : styles.badgeReserved,
-              ]}>
-              <ThemedText type="smallBold" style={styles.badgeText}>
-                {isSold ? t('listing.sold') : t('listing.reserved')}
-              </ThemedText>
+            // Top corner where reading starts: left in French/English, right in Arabic.
+            <View style={[styles.corner, { top: tk.space.lg }, direction === 'rtl' ? { right: tk.space.lg } : { left: tk.space.lg }]}>
+              <Badge label={isSold ? t('listing.sold') : t('listing.reserved')} tone={isSold ? 'danger' : 'warning'} solid />
             </View>
           )}
           {!isOwner && (
             // "⋯" in the other top corner: right in French/English, left in Arabic.
-            <View
-              style={[
-                styles.photoMenu,
-                direction === 'rtl' ? { left: Spacing.three } : { right: Spacing.three },
-              ]}>
+            <View style={[styles.corner, { top: tk.space.lg }, direction === 'rtl' ? { left: tk.space.lg } : { right: tk.space.lg }]}>
               <MoreButton onPhoto onPress={() => setMenu('listing')} />
             </View>
           )}
         </View>
 
-        <View style={styles.body}>
+        <View style={{ padding: tk.space.lg, gap: tk.space.lg }}>
           {/* Only the seller ever sees a listing that isn't approved. */}
           {listing.review_status !== 'approved' && (
-            <View
-              style={[
-                styles.reviewBanner,
-                listing.review_status === 'rejected' ? styles.rejectedBanner : styles.pendingBanner,
-              ]}
-              accessibilityRole="alert">
-              <Ionicons
-                name={listing.review_status === 'rejected' ? 'close-circle' : 'time-outline'}
-                size={22}
-                color={listing.review_status === 'rejected' ? '#B3261E' : '#8A5300'}
-              />
-              <View style={styles.flex}>
-                <ThemedText
-                  type="smallBold"
-                  style={[align, listing.review_status === 'rejected' ? styles.rejectedText : styles.pendingText]}>
-                  {listing.review_status === 'rejected'
-                    ? t('listing.rejectedTitle')
-                    : t('listing.underReviewTitle')}
-                </ThemedText>
-                <ThemedText
-                  type="small"
-                  style={[align, listing.review_status === 'rejected' ? styles.rejectedText : styles.pendingText]}>
-                  {listing.review_status === 'rejected'
-                    ? t('listing.rejectedText')
-                    : t('listing.underReviewText')}
-                </ThemedText>
+            <Card style={{ backgroundColor: reviewRejected ? tk.color.dangerSoft : tk.color.warningSoft }}>
+              <View style={[styles.rowStart, { gap: tk.space.md }]} accessibilityRole="alert">
+                <Ionicons
+                  name={reviewRejected ? 'close-circle' : 'time-outline'}
+                  size={22}
+                  color={reviewRejected ? tk.color.danger : tk.color.warning}
+                />
+                <View style={[styles.flex, { gap: tk.space.xxs }]}>
+                  <AppText variant="bodyStrong" tone={reviewRejected ? 'danger' : 'warning'}>
+                    {reviewRejected ? t('listing.rejectedTitle') : t('listing.underReviewTitle')}
+                  </AppText>
+                  <AppText variant="small" tone={reviewRejected ? 'danger' : 'warning'}>
+                    {reviewRejected ? t('listing.rejectedText') : t('listing.underReviewText')}
+                  </AppText>
+                </View>
               </View>
-            </View>
+            </Card>
           )}
 
-          <ThemedText type="subtitle" style={align}>
-            {formatPrice(listing.price_dzd, language)}
-          </ThemedText>
-          <ThemedText style={[styles.title, align]}>{listing.title}</ThemedText>
+          <View style={{ gap: tk.space.xs }}>
+            <AppText variant="display">{formatPrice(listing.price_dzd, language)}</AppText>
+            <AppText variant="subtitle">{listing.title}</AppText>
+          </View>
 
-          <ThemedView type="backgroundElement" style={styles.card}>
+          <Card>
             {details
               .filter(([, value]) => value)
-              .map(([label, value]) => (
-                <View key={label} style={styles.detailRow}>
-                  <ThemedText type="small" themeColor="textSecondary">
+              .map(([label, value], index) => (
+                <View
+                  key={label}
+                  style={[
+                    styles.detailRow,
+                    { gap: tk.space.lg, paddingTop: index ? tk.space.md : 0, borderTopWidth: index ? StyleSheet.hairlineWidth : 0, borderTopColor: tk.color.border },
+                  ]}>
+                  <AppText variant="small" tone="secondary">
                     {label}
-                  </ThemedText>
-                  <ThemedText
-                    type="smallBold"
-                    style={[
-                      styles.detailValue,
-                      // The value sits at the row's end: right in French/English, left in Arabic.
-                      { textAlign: direction === 'rtl' ? 'left' : 'right' },
-                    ]}>
+                  </AppText>
+                  <AppText variant="smallStrong" align="end" style={styles.detailValue}>
                     {value}
-                  </ThemedText>
+                  </AppText>
                 </View>
               ))}
-          </ThemedView>
+          </Card>
 
-          <ThemedText type="smallBold" style={align}>
-            {t('listing.description')}
-          </ThemedText>
-          <ThemedText
-            themeColor={listing.description ? 'text' : 'textSecondary'}
-            style={align}>
-            {listing.description || t('listing.noDescription')}
-          </ThemedText>
+          <View style={{ gap: tk.space.sm }}>
+            <SectionHeader title={t('listing.description')} />
+            <AppText tone={listing.description ? 'default' : 'secondary'}>
+              {listing.description || t('listing.noDescription')}
+            </AppText>
+          </View>
 
-          <ThemedText type="smallBold" style={align}>
-            {t('listing.seller')}
-          </ThemedText>
-          <ThemedView type="backgroundElement" style={[styles.card, styles.sellerCard]}>
-            {/* Tapping the seller opens their public profile. */}
-            <Pressable
-              onPress={() => router.push(`/seller/${listing.seller.id}` as Href)}
-              accessibilityRole="button"
-              accessibilityLabel={t('seller.open', { name: listing.seller.display_name })}
-              style={({ pressed }) => [styles.sellerLink, pressed && styles.pressed]}>
-            <Avatar uri={listing.seller.avatar} name={listing.seller.display_name} size={44} />
-            <View style={styles.flex}>
-              <ThemedText type="smallBold" themeColor="primary" style={[align, styles.sellerName]}>
-                {listing.seller.display_name}
-              </ThemedText>
-              {listing.seller.wilaya ? (
-                <ThemedText type="small" themeColor="textSecondary" style={align}>
-                  {wilayaLabel(listing.seller.wilaya, language)}
-                </ThemedText>
-              ) : null}
-              {/* Trust info */}
-              {listing.seller.phone_verified ? (
-                <View style={styles.verifiedBadge}>
-                  <Ionicons name="checkmark-circle" size={16} color="#1E8E3E" />
-                  <ThemedText type="smallBold" style={styles.verifiedText}>
-                    {t('listing.phoneVerified')}
-                  </ThemedText>
-                </View>
-              ) : null}
-              <ThemedText type="small" themeColor="textSecondary" style={align}>
-                {t('listing.memberSince', {
-                  date: monthYear(listing.seller.member_since, language),
-                })}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={align}>
-                {soldCount(listing.seller.items_sold, language)}
-              </ThemedText>
-            </View>
-            </Pressable>
-            {!isOwner && <MoreButton onPress={() => setMenu('seller')} />}
-          </ThemedView>
+          <View style={{ gap: tk.space.sm }}>
+            <SectionHeader title={t('listing.seller')} />
+            <Card>
+              <View style={[styles.rowCenter, { gap: tk.space.md }]}>
+                {/* Tapping the seller opens their public profile. */}
+                <Pressable
+                  onPress={() => router.push(`/seller/${listing.seller.id}` as Href)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('seller.open', { name: listing.seller.display_name })}
+                  style={({ pressed }) => [styles.rowCenter, styles.flex, { gap: tk.space.md }, pressed && styles.pressed]}>
+                  <Avatar uri={listing.seller.avatar} name={listing.seller.display_name} size={52} />
+                  <View style={[styles.flex, { gap: tk.space.xxs }]}>
+                    <AppText variant="bodyStrong" tone="primary" numberOfLines={1}>
+                      {listing.seller.display_name}
+                    </AppText>
+                    {listing.seller.wilaya ? (
+                      <AppText variant="small" tone="secondary">
+                        {wilayaLabel(listing.seller.wilaya, language)}
+                      </AppText>
+                    ) : null}
+                    {listing.seller.phone_verified ? (
+                      <Badge label={t('listing.phoneVerified')} tone="success" icon="checkmark-circle" />
+                    ) : null}
+                    <AppText variant="small" tone="secondary">
+                      {t('listing.memberSince', { date: monthYear(listing.seller.member_since, language) })} ·{' '}
+                      {soldCount(listing.seller.items_sold, language)}
+                    </AppText>
+                  </View>
+                </Pressable>
+                {!isOwner && <MoreButton onPress={() => setMenu('seller')} />}
+              </View>
+            </Card>
+          </View>
 
           {isSold && (
-            <ThemedText themeColor="textSecondary" style={[styles.center, styles.soldNote]}>
+            <AppText tone="secondary" align="center">
               {isOwner ? t('listing.ownerSoldNotice') : t('listing.soldNotice')}
-            </ThemedText>
+            </AppText>
           )}
         </View>
       </ScrollView>
 
       {/* Bottom bar with the actions */}
-      <ThemedView
+      <View
         style={[
           styles.actionBar,
-          { borderTopColor: theme.backgroundSelected, paddingBottom: insets.bottom + Spacing.two },
+          {
+            backgroundColor: tk.color.background,
+            borderTopColor: tk.color.border,
+            paddingTop: tk.space.md,
+            paddingHorizontal: tk.space.lg,
+            paddingBottom: insets.bottom + tk.space.md,
+            gap: tk.space.sm,
+          },
         ]}>
         {actionError ? (
-          <ThemedText type="small" style={[styles.actionError, styles.center]}>
+          <AppText variant="small" tone="danger" align="center">
             {actionError}
-          </ThemedText>
+          </AppText>
         ) : null}
-        <View style={styles.actionRow}>
+        <View style={[styles.actionRow, { gap: tk.space.sm, maxWidth: tk.maxWidth }]}>
           {isOwner ? (
             <>
               <View style={styles.flex}>
-                <PrimaryButton
-                  title={t('listing.edit')}
-                  variant="secondary"
-                  onPress={() => router.push(`/listing/${listing.id}/edit` as Href)}
-                />
+                <Button title={t('listing.edit')} variant="outlined" icon="create-outline" onPress={() => router.push(`/listing/${listing.id}/edit` as Href)} />
               </View>
               {!isSold && (
                 <View style={styles.flex}>
-                  <PrimaryButton
-                    title={t('listing.markSold')}
-                    variant="danger"
-                    onPress={() => setConfirmSold(true)}
-                  />
+                  <Button title={t('listing.markSold')} tone="danger" onPress={() => setConfirmSold(true)} />
                 </View>
               )}
             </>
@@ -508,17 +479,13 @@ export default function ListingDetailsScreen() {
               <HeartButton favorited={listing.is_favorited} onPress={onHeart} />
               {!isSold && (
                 <View style={styles.flex}>
-                  <PrimaryButton
-                    title={t('listing.messageSeller')}
-                    onPress={onMessage}
-                    loading={openingChat}
-                  />
+                  <Button title={t('listing.messageSeller')} icon="chatbubble-outline" onPress={onMessage} loading={openingChat} />
                 </View>
               )}
             </>
           )}
         </View>
-      </ThemedView>
+      </View>
 
       <PhotoViewer photos={listing.photos} openAt={viewerAt} onClose={() => setViewerAt(null)} />
       <ConfirmDialog
@@ -565,14 +532,14 @@ export default function ListingDetailsScreen() {
           setWarnedText(null);
         }}
       />
-    </ThemedView>
+    </View>
   );
 }
 
 /** The round ♡ button: filled red when the listing is in my favorites. */
 function HeartButton({ favorited, onPress }: { favorited: boolean; onPress: () => void }) {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const tk = useTokens();
   return (
     <Pressable
       onPress={onPress}
@@ -582,14 +549,10 @@ function HeartButton({ favorited, onPress }: { favorited: boolean; onPress: () =
       hitSlop={6}
       style={({ pressed }) => [
         styles.circle,
-        { backgroundColor: theme.backgroundElement },
+        { backgroundColor: favorited ? tk.color.dangerSoft : tk.color.surface, borderColor: tk.color.border },
         pressed && styles.pressed,
       ]}>
-      <Ionicons
-        name={favorited ? 'heart' : 'heart-outline'}
-        size={26}
-        color={favorited ? '#E0245E' : theme.text}
-      />
+      <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={26} color={favorited ? tk.color.danger : tk.color.text} />
     </Pressable>
   );
 }
@@ -597,88 +560,23 @@ function HeartButton({ favorited, onPress }: { favorited: boolean; onPress: () =
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   flex: { flex: 1 },
-  center: { textAlign: 'center' },
-  scroll: { paddingBottom: Spacing.five, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  scroll: { width: '100%', alignSelf: 'center' },
   photoBox: { height: PHOTO_HEIGHT },
-  noPhoto: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
-  badge: {
-    position: 'absolute',
-    top: Spacing.three,
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: 999,
-  },
-  photoMenu: { position: 'absolute', top: Spacing.three },
-  badgeSold: { backgroundColor: '#D93025' },
-  badgeReserved: { backgroundColor: '#E37400' },
-  badgeText: { color: '#ffffff' },
-  body: { padding: Spacing.four, gap: Spacing.three },
-  title: { fontSize: 18 },
-  card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: Spacing.three,
-  },
+  noPhoto: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  corner: { position: 'absolute' },
+  rowStart: { flexDirection: 'row', alignItems: 'flex-start' },
+  rowCenter: { flexDirection: 'row', alignItems: 'center' },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detailValue: { flexShrink: 1 },
-  sellerCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  sellerLink: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  sellerName: {},
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Brand.fill,
-  },
-  avatarText: { color: '#ffffff', fontSize: 18 },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: Spacing.one,
-    marginVertical: Spacing.one,
-    paddingVertical: Spacing.half,
-    paddingHorizontal: Spacing.two,
-    borderRadius: 999,
-    backgroundColor: 'rgba(30,142,62,0.12)',
-  },
-  verifiedText: { color: '#1E8E3E' },
-  reviewBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  pendingBanner: { backgroundColor: '#FFF4E0' },
-  rejectedBanner: { backgroundColor: '#FDECEA' },
-  pendingText: { color: '#8A5300' },
-  rejectedText: { color: '#B3261E' },
-  soldNote: { marginTop: Spacing.two },
-  actionBar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.two,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    width: '100%',
-    maxWidth: 720,
-    alignSelf: 'center',
-  },
-  actionError: { color: '#D93025' },
+  actionBar: { borderTopWidth: StyleSheet.hairlineWidth },
+  actionRow: { flexDirection: 'row', alignItems: 'center', width: '100%', alignSelf: 'center' },
   circle: {
     width: 48,
     height: 48,
     borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { opacity: 0.6 },
+  pressed: { opacity: 0.7 },
 });

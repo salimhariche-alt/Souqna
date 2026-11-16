@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -15,19 +16,23 @@ import {
 } from '@/api/listings';
 import { useAuth } from '@/auth/auth-provider';
 import { mainCategoriesInOrder } from '@/components/category-chips';
-import { FormField } from '@/components/form-field';
+import { OptionsMenu } from '@/components/options-menu';
 import { MAX_PHOTOS, PhotoStrip, type FormPhoto } from '@/components/photo-strip';
-import { PrimaryButton } from '@/components/primary-button';
-import { ThemedText } from '@/components/themed-text';
 import { WilayaPicker } from '@/components/wilaya-picker';
-import { Brand, Spacing } from '@/constants/theme';
 import { categoryName, useCategories } from '@/hooks/use-categories';
-import { useTheme } from '@/hooks/use-theme';
 import { formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
 import { preparePhoto } from '@/photos/prepare';
 import { usePhotoPicker } from '@/photos/use-photo-picker';
+import { useTokens } from '@/theme';
+import { AppText, Button, Card, ChoiceSheet, ListRow, SectionHeader, TextField } from '@/ui';
 import { onlyDigits } from '@/utils/digits';
+
+/** Quick picks in the Size and Brand sheets (anything else can be typed). */
+const SIZE_SUGGESTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '36', '38', '40', '42', '44', '46'];
+const BRAND_SUGGESTIONS = ['Zara', 'H&M', 'Mango', 'Bershka', 'LC Waikiki', 'DeFacto', 'Nike', 'Adidas', 'Puma', 'Samsung', 'Apple', 'Xiaomi'];
+
+type Sheet = 'category' | 'size' | 'brand' | 'condition';
 
 type Field = 'photos' | 'title' | 'description' | 'category' | 'size' | 'brand' | 'condition' | 'price' | 'wilaya';
 type Errors = Partial<Record<Field, string>>;
@@ -68,9 +73,12 @@ function inputFrom(listing: ListingDetail): ListingInput {
 /** The Sell form, also used to edit a listing. */
 export function ListingForm({ initial, onDone }: Props) {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const { language, direction } = useLanguage();
+  const tk = useTokens();
+  const insets = useSafeAreaInsets();
+  const { language } = useLanguage();
   const { user } = useAuth();
+  const [sheet, setSheet] = useState<Sheet | null>(null);
+  const [photoMenu, setPhotoMenu] = useState(false);
   const { categories } = useCategories();
   const isEdit = initial !== undefined;
 
@@ -105,7 +113,6 @@ export function ListingForm({ initial, onDone }: Props) {
   const nextKey = useRef(0);
 
   const clearError = (field: Field) => setErrors((current) => ({ ...current, [field]: undefined }));
-  const align = { textAlign: direction === 'rtl' ? 'right' : 'left' } as const;
 
   // Photos ---------------------------------------------------------------------------
   const { pick, dialogs } = usePhotoPicker((picked) => {
@@ -248,247 +255,247 @@ export function ListingForm({ initial, onDone }: Props) {
     }
   };
 
+  const selectedLabel = selected ? categoryName(selected, language) : '';
+  const fieldError = (field: Field) =>
+    errors[field] ? (
+      <AppText variant="small" tone="danger" accessibilityLiveRegion="polite">
+        {errors[field]}
+      </AppText>
+    ) : null;
+
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={[styles.flex, { backgroundColor: tk.color.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <PhotoStrip
-          photos={photos}
-          onRemove={removePhoto}
-          onMakeCover={makeCover}
-          onAdd={(source) => pick(source, MAX_PHOTOS - photos.length)}
-          error={errors.photos}
-          disabled={busy}
-        />
-
-        <FormField
-          label={t('sell.title')}
-          value={title}
-          onChangeText={(value) => {
-            setTitle(value);
-            clearError('title');
-          }}
-          placeholder={t('sell.titlePlaceholder')}
-          maxLength={100}
-          error={errors.title}
-          editable={!busy}
-        />
-
-        <FormField
-          label={t('sell.description')}
-          value={description}
-          onChangeText={(value) => {
-            setDescription(value);
-            clearError('description');
-          }}
-          placeholder={t('sell.descriptionPlaceholder')}
-          multiline
-          maxLength={2000}
-          error={errors.description}
-          editable={!busy}
-        />
-
-        <Choices
-          label={t('sell.category')}
-          error={errors.category}
-          options={mainCategories.map((c) => ({ value: c.id, label: categoryName(c, language) }))}
-          selected={mainId}
-          onSelect={(value) => {
-            setCategory(value);
-            clearError('category');
-          }}
-          disabled={busy}
-        />
-        {subCategories.length > 0 && (
-          <Choices
-            label={t('sell.subCategory')}
-            options={subCategories.map((c) => ({ value: c.id, label: categoryName(c, language) }))}
-            selected={selected?.parent ? selected.id : null}
-            onSelect={setCategory}
+      <ScrollView
+        contentContainerStyle={[styles.container, { padding: tk.space.lg, gap: tk.space.xl, maxWidth: 640 }]}
+        keyboardShouldPersistTaps="handled">
+        {/* Photos */}
+        <View style={{ gap: tk.space.sm }}>
+          <SectionHeader title={t('sell.photos')} />
+          <PhotoStrip
+            photos={photos}
+            onRemove={removePhoto}
+            onMakeCover={makeCover}
+            onAdd={() => setPhotoMenu(true)}
+            error={errors.photos}
             disabled={busy}
           />
-        )}
-
-        <View style={styles.row}>
-          <View style={styles.flex}>
-            <FormField
-              label={t('sell.size')}
-              value={size}
-              onChangeText={(value) => {
-                setSize(value);
-                clearError('size');
-              }}
-              placeholder={t('search.sizePlaceholder')}
-              maxLength={20}
-              error={errors.size}
-              editable={!busy}
-            />
-          </View>
-          <View style={styles.flex}>
-            <FormField
-              label={t('sell.brand')}
-              value={brand}
-              onChangeText={(value) => {
-                setBrand(value);
-                clearError('brand');
-              }}
-              placeholder={t('sell.brandPlaceholder')}
-              maxLength={50}
-              error={errors.brand}
-              editable={!busy}
-            />
-          </View>
         </View>
 
-        <Choices
-          label={t('sell.condition')}
-          error={errors.condition}
-          options={CONDITIONS.map((c) => ({ value: c, label: t(`listing.conditions.${c}`) }))}
-          selected={condition}
-          onSelect={(value) => {
-            setCondition(value);
-            clearError('condition');
-          }}
-          disabled={busy}
-        />
+        {/* About your item */}
+        <View style={{ gap: tk.space.md }}>
+          <SectionHeader title={t('sell.aboutItem')} />
+          <TextField
+            label={t('sell.title')}
+            value={title}
+            onChangeText={(value) => {
+              setTitle(value);
+              clearError('title');
+            }}
+            placeholder={t('sell.titlePlaceholder')}
+            maxLength={100}
+            error={errors.title}
+            editable={!busy}
+          />
+          <TextField
+            label={t('sell.description')}
+            value={description}
+            onChangeText={(value) => {
+              setDescription(value);
+              clearError('description');
+            }}
+            placeholder={t('sell.descriptionPlaceholder')}
+            multiline
+            maxLength={2000}
+            error={errors.description}
+            editable={!busy}
+          />
+        </View>
 
-        <FormField
-          label={t('sell.price')}
-          value={price}
-          onChangeText={(value) => {
-            setPrice(onlyDigits(value).slice(0, 9));
-            clearError('price');
-          }}
-          placeholder="2500"
-          keyboardType="number-pad"
-          inputMode="numeric"
-          hint={t('sell.priceHint')}
-          error={errors.price}
-          editable={!busy}
-        />
+        {/* Item details: rows that open pickers */}
+        <View style={{ gap: tk.space.sm }}>
+          <SectionHeader title={t('sell.itemDetails')} />
+          <ListRow icon="grid-outline" label={t('sell.category')} value={selectedLabel || t('sell.choose')} onPress={() => setSheet('category')} />
+          {fieldError('category')}
+          <ListRow icon="resize-outline" label={t('sell.size')} value={size || t('sell.optional')} onPress={() => setSheet('size')} />
+          <ListRow icon="pricetag-outline" label={t('sell.brand')} value={brand || t('sell.optional')} onPress={() => setSheet('brand')} />
+          <ListRow
+            icon="sparkles-outline"
+            label={t('sell.condition')}
+            value={condition ? t(`listing.conditions.${condition}`) : t('sell.choose')}
+            onPress={() => setSheet('condition')}
+          />
+          {fieldError('condition')}
+        </View>
 
-        <WilayaPicker
-          label={t('sell.wilaya')}
-          value={wilaya}
-          onChange={(code) => {
-            setWilaya(code);
-            clearError('wilaya');
-          }}
-          error={errors.wilaya}
-        />
+        {/* Pricing */}
+        <View style={{ gap: tk.space.md }}>
+          <SectionHeader title={t('sell.pricing')} />
+          <TextField
+            label={t('sell.price')}
+            icon="cash-outline"
+            value={price}
+            onChangeText={(value) => {
+              setPrice(onlyDigits(value).slice(0, 9));
+              clearError('price');
+            }}
+            placeholder="2500"
+            keyboardType="number-pad"
+            inputMode="numeric"
+            hint={t('sell.priceHint')}
+            error={errors.price}
+            editable={!busy}
+          />
+        </View>
 
-        {progress ? (
-          <View style={styles.progress} accessibilityRole="progressbar"
-            accessibilityValue={{ min: 0, max: progress.total, now: progress.done }}>
-            <ThemedText type="small" themeColor="textSecondary" style={align}>
-              {progress.label}
-            </ThemedText>
-            <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-              <View
-                style={[
-                  styles.bar,
-                  { width: `${Math.max(5, (progress.done / progress.total) * 100)}%` },
-                ]}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {generalError ? (
-          <ThemedText type="small" style={[styles.error, align]} accessibilityLiveRegion="polite">
-            {generalError}
-          </ThemedText>
-        ) : null}
-
-        <PrimaryButton
-          title={
-            failedOnce ? t('sell.tryAgain') : isEdit ? t('sell.saveChanges') : t('sell.publish')
-          }
-          onPress={publish}
-          loading={busy}
-        />
+        {/* Location */}
+        <View style={{ gap: tk.space.sm }}>
+          <SectionHeader title={t('sell.location')} />
+          <WilayaPicker
+            variant="row"
+            label={t('sell.wilaya')}
+            value={wilaya}
+            onChange={(code) => {
+              setWilaya(code);
+              clearError('wilaya');
+            }}
+            error={errors.wilaya}
+          />
+        </View>
       </ScrollView>
+
+      {/* Fixed at the bottom: progress, error and Publish. */}
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: tk.color.background,
+            borderTopColor: tk.color.border,
+            paddingHorizontal: tk.space.lg,
+            paddingTop: tk.space.md,
+            paddingBottom: insets.bottom + tk.space.md,
+            gap: tk.space.sm,
+          },
+        ]}>
+        <View style={[styles.bottomInner, { gap: tk.space.sm }]}>
+          {progress ? (
+            <View
+              style={{ gap: tk.space.xs }}
+              accessibilityRole="progressbar"
+              accessibilityValue={{ min: 0, max: progress.total, now: progress.done }}>
+              <AppText variant="small" tone="secondary">
+                {progress.label}
+              </AppText>
+              <View style={[styles.track, { backgroundColor: tk.color.surfaceAlt }]}>
+                <View
+                  style={[
+                    styles.bar,
+                    { backgroundColor: tk.color.primary, width: `${Math.max(5, (progress.done / progress.total) * 100)}%` },
+                  ]}
+                />
+              </View>
+            </View>
+          ) : null}
+          {generalError ? (
+            <AppText variant="small" tone="danger" accessibilityLiveRegion="polite">
+              {generalError}
+            </AppText>
+          ) : null}
+          <Button
+            title={failedOnce ? t('sell.tryAgain') : isEdit ? t('sell.saveChanges') : t('sell.publish')}
+            onPress={publish}
+            loading={busy}
+          />
+        </View>
+      </View>
+
+      {/* Pickers */}
+      <OptionsMenu
+        visible={photoMenu}
+        onClose={() => setPhotoMenu(false)}
+        options={[
+          { label: t('sell.camera'), icon: 'camera-outline', onPress: () => pick('camera', MAX_PHOTOS - photos.length) },
+          { label: t('sell.gallery'), icon: 'images-outline', onPress: () => pick('gallery', MAX_PHOTOS - photos.length) },
+        ]}
+      />
+      <ChoiceSheet
+        visible={sheet === 'category'}
+        title={t('sell.category')}
+        groups={[
+          { options: mainCategories.map((c) => ({ value: c.id, label: categoryName(c, language) })) },
+          ...(subCategories.length
+            ? [{ title: t('sell.subCategory'), options: subCategories.map((c) => ({ value: c.id, label: categoryName(c, language) })) }]
+            : []),
+        ]}
+        selected={category}
+        onSelect={(value) => {
+          setCategory(value);
+          clearError('category');
+          // A main category with sub-categories: stay open to choose one (optional).
+          const hasSubs = categories.some((c) => c.parent === value);
+          if (!hasSubs) setSheet(null);
+        }}
+        onClose={() => setSheet(null)}
+      />
+      <ChoiceSheet<string>
+        visible={sheet === 'size'}
+        title={t('sell.size')}
+        selected={null}
+        onSelect={() => {}}
+        suggestions={SIZE_SUGGESTIONS}
+        freeText={{
+          value: size,
+          placeholder: t('search.sizePlaceholder'),
+          maxLength: 20,
+          onSubmit: (value) => {
+            setSize(value);
+            clearError('size');
+            setSheet(null);
+          },
+        }}
+        onClose={() => setSheet(null)}
+      />
+      <ChoiceSheet<string>
+        visible={sheet === 'brand'}
+        title={t('sell.brand')}
+        selected={null}
+        onSelect={() => {}}
+        suggestions={BRAND_SUGGESTIONS}
+        freeText={{
+          value: brand,
+          placeholder: t('sell.brandPlaceholder'),
+          maxLength: 50,
+          onSubmit: (value) => {
+            setBrand(value);
+            clearError('brand');
+            setSheet(null);
+          },
+        }}
+        onClose={() => setSheet(null)}
+      />
+      <ChoiceSheet<Condition>
+        visible={sheet === 'condition'}
+        title={t('sell.condition')}
+        groups={[{ options: CONDITIONS.map((c) => ({ value: c, label: t(`listing.conditions.${c}`) })) }]}
+        selected={condition}
+        onSelect={(value) => {
+          setCondition(value);
+          clearError('condition');
+          setSheet(null);
+        }}
+        onClose={() => setSheet(null)}
+      />
       {dialogs}
     </KeyboardAvoidingView>
   );
 }
 
-/** A row of choice buttons (category, condition). */
-function Choices<T extends string | number>({
-  label,
-  options,
-  selected,
-  onSelect,
-  error,
-  disabled,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  selected: T | null;
-  onSelect: (value: T) => void;
-  error?: string;
-  disabled?: boolean;
-}) {
-  const theme = useTheme();
-  return (
-    <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={label}>
-      <ThemedText type="smallBold">{label}</ThemedText>
-      <View style={styles.chips}>
-        {options.map((option) => {
-          const isSelected = option.value === selected;
-          return (
-            <Pressable
-              key={String(option.value)}
-              onPress={() => onSelect(option.value)}
-              disabled={disabled}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: isSelected }}
-              style={[
-                styles.chip,
-                { backgroundColor: isSelected ? Brand.fill : theme.backgroundElement },
-                error && !isSelected ? styles.chipError : null,
-              ]}>
-              <ThemedText type="smallBold" style={isSelected ? styles.chipTextSelected : undefined}>
-                {option.label}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
-      </View>
-      {error ? (
-        <ThemedText type="small" style={styles.error} accessibilityLiveRegion="polite">
-          {error}
-        </ThemedText>
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: {
-    padding: Spacing.four,
-    gap: Spacing.four,
-    width: '100%',
-    maxWidth: 640,
-    alignSelf: 'center',
-    paddingBottom: Spacing.five,
-  },
-  row: { flexDirection: 'row', gap: Spacing.three },
-  choices: { gap: Spacing.two, alignSelf: 'stretch' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  chip: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  chipError: { borderColor: '#D93025' },
-  chipTextSelected: { color: '#ffffff' },
-  progress: { gap: Spacing.one },
+  container: { width: '100%', alignSelf: 'center', paddingBottom: 32 },
+  bottomBar: { borderTopWidth: StyleSheet.hairlineWidth },
+  bottomInner: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   track: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  bar: { height: '100%', borderRadius: 4, backgroundColor: Brand.fill },
-  error: { color: '#D93025' },
+  bar: { height: '100%', borderRadius: 4 },
 });

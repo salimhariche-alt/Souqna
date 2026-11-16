@@ -75,8 +75,9 @@ export function Button({
           <AppText
             variant={size === 'sm' ? 'smallStrong' : 'bodyStrong'}
             align="center"
-            style={{ color: content }}
-            numberOfLines={1}>
+            // Two lines at most: long labels (French, Arabic) wrap instead of being cut off.
+            style={[styles.label, { color: content }]}
+            numberOfLines={2}>
             {title}
           </AppText>
         </View>
@@ -87,7 +88,8 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: { alignItems: 'center', justifyContent: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, maxWidth: '100%' },
+  label: { flexShrink: 1 },
   disabled: { opacity: 0.45 },
   pressedDanger: { opacity: 0.85 },
 });

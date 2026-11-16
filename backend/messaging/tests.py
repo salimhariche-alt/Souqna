@@ -403,6 +403,24 @@ class ChatScreenSupportTests(MessagingTestCase):
                          {'by_me': True, 'by_them': False})
 
 
+class ConversationsWithPersonTests(MessagingTestCase):
+    """?with=<user id>: have I already talked to this person (about any listing)?"""
+
+    def test_with_filter(self):
+        first = self.make_conversation(listing=self.listing)
+        self.make_conversation(buyer=self.buyer2, listing=self.listing)
+        self.as_user(self.buyer)
+        ids = [c['id'] for c in self.client.get(URL, {'with': self.seller.id}).data['results']]
+        self.assertEqual(ids, [first.id])
+        # Nobody else: an empty list (a "new seller").
+        self.assertEqual(self.client.get(URL, {'with': self.outsider.id}).data['results'], [])
+        self.assertEqual(self.client.get(URL, {'with': 'abc'}).data['results'], [])
+        # The seller sees the same conversation from their side.
+        self.as_user(self.seller)
+        ids = [c['id'] for c in self.client.get(URL, {'with': self.buyer.id}).data['results']]
+        self.assertEqual(ids, [first.id])
+
+
 class AdminTests(MessagingTestCase):
     def test_conversations_and_messages_in_admin(self):
         conversation = self.make_conversation()

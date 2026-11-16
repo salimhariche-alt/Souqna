@@ -244,7 +244,7 @@ export function FiltersSheet({ visible, applied, categories, onApply, onClose }:
                       </View>
                     </View>
                     {priceError ? (
-                      <ThemedText type="small" style={styles.error}>
+                      <ThemedText themeColor="danger" type="small" style={styles.error}>
                         {t('search.priceError')}
                       </ThemedText>
                     ) : null}
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     fontSize: 16,
   },
-  error: { color: '#D93025' },
+  error: {},
   footer: {
     flexDirection: 'row',
     gap: Spacing.three,

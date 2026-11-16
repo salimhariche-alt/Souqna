@@ -1,10 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Brand, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTokens } from '@/theme';
+import { AppText, EmptyState } from '@/ui';
 
 type Props =
   | { kind: 'loading'; text: string }
@@ -16,45 +15,30 @@ type Props =
       onPress?: () => void;
     };
 
-/** A centred spinner, or an icon with a short message (and an optional button). */
+/** A centred spinner, or the design system's empty state (icon, message, button). */
 export function FeedMessage(props: Props) {
-  const theme = useTheme();
+  const tk = useTokens();
   return (
-    <View style={styles.container} accessibilityLiveRegion="polite">
+    <View style={[styles.container, { backgroundColor: tk.color.background }]} accessibilityLiveRegion="polite">
       {props.kind === 'loading' ? (
-        <ActivityIndicator size="large" />
+        <View style={{ alignItems: 'center', gap: tk.space.lg }}>
+          <ActivityIndicator size="large" color={tk.color.primary} />
+          <AppText tone="secondary" align="center">
+            {props.text}
+          </AppText>
+        </View>
       ) : (
-        <Ionicons name={props.icon} size={44} color={theme.textSecondary} />
+        <EmptyState
+          icon={props.icon}
+          title={props.text}
+          actionLabel={props.buttonLabel}
+          onAction={props.onPress}
+        />
       )}
-      <ThemedText themeColor="textSecondary" style={styles.text}>
-        {props.text}
-      </ThemedText>
-      {props.kind === 'message' && props.buttonLabel && props.onPress ? (
-        <Pressable onPress={props.onPress} accessibilityRole="button" style={styles.button}>
-          <ThemedText type="smallBold" style={styles.buttonText}>
-            {props.buttonLabel}
-          </ThemedText>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.three,
-    padding: Spacing.five,
-    minHeight: 280,
-  },
-  text: { textAlign: 'center' },
-  button: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.three,
-    backgroundColor: Brand.fill,
-  },
-  buttonText: { color: '#ffffff' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, minHeight: 300 },
 });

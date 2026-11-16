@@ -2,9 +2,10 @@
 const fr = {
   tabs: {
     home: 'Accueil',
-    search: 'Rechercher',
+    search: 'Parcourir',
     sell: 'Vendre',
-    messages: 'Messages',
+    messages: 'Messagerie',
+    messagesUnread: 'Messagerie, {{count}} non lu(s)',
     profile: 'Profil',
   },
   home: {
@@ -224,6 +225,15 @@ const fr = {
     },
   },
   sell: {
+    screenTitle: 'Vendre un article',
+    addPhotos: 'Ajouter des photos',
+    addPhotosHint: "Jusqu'à {{max}} photos. La première sera la couverture.",
+    aboutItem: "À propos de l'article",
+    itemDetails: "Détails de l'article",
+    pricing: 'Prix',
+    location: 'Lieu',
+    choose: 'Choisir',
+    optional: 'Facultatif',
     photos: 'Photos',
     photoCount: '{{count}}/{{max}}',
     photosHint: 'La première photo est la couverture. Touchez ☆ pour en choisir une autre.',
@@ -284,7 +294,7 @@ const fr = {
   safety: {
     screenTitle: 'Conseils',
     title: 'Achetez en toute sécurité',
-    intro: 'Quelques réflexes simples pour que tout se passe bien, avant votre première discussion.',
+    intro: 'Quelques réflexes simples pour que tout se passe bien, avant de discuter avec un nouveau vendeur.',
     moreOptions: "Plus d'options",
     understood: "J'ai compris",
     tips: {
@@ -373,6 +383,8 @@ const fr = {
     deleteListingTitle: "Supprimer l'annonce ?",
     deleteListingText: "« {{title}} » disparaîtra de Souqna. Cette action est définitive.",
     noFavorites: "Pas encore de favoris. Touchez ♡ sur une annonce pour l'enregistrer ici.",
+    noFavoritesTitle: 'Aucun favori',
+    viewMyListings: 'Voir mes annonces',
     changePhoto: 'Changer la photo de profil',
     removePhoto: 'Supprimer la photo',
     photoHint: 'Facultatif. La position et les infos cachées de la photo sont supprimées.',
@@ -380,6 +392,30 @@ const fr = {
   },
   settings: {
     title: 'Paramètres',
+  },
+  help: {
+    title: 'Aide',
+    intro: 'Les réponses aux questions les plus fréquentes.',
+    buy: {
+      question: 'Comment acheter ?',
+      answer:
+        "Trouvez un article, touchez « Contacter le vendeur » et discutez dans l'appli. Rencontrez-vous dans un lieu public et payez en main propre après avoir vérifié l'article.",
+    },
+    sell: {
+      question: 'Comment vendre ?',
+      answer:
+        "Touchez « Vendre », ajoutez des photos, un titre, la catégorie, l'état et le prix, puis publiez. Retrouvez vos annonces dans « Mes annonces ».",
+    },
+    verify: {
+      question: 'Pourquoi vérifier mon numéro ?',
+      answer:
+        'Un numéro vérifié est nécessaire pour vendre et envoyer des messages. Cela rend Souqna plus sûr : les acheteurs voient le badge « Téléphone vérifié ».',
+    },
+    safety: {
+      question: 'Que faire en cas de problème ?',
+      answer:
+        "Utilisez « ⋯ » sur une annonce, un profil ou une conversation pour signaler ou bloquer. N'envoyez jamais d'argent à l'avance (CCP, BaridiMob).",
+    },
   },
   deleteAccount: {
     title: 'Supprimer mon compte',
@@ -398,6 +434,20 @@ const fr = {
     mismatchPhone: "Ce n'est pas le numéro de ce compte.",
     mismatchEmail: "Ce n'est pas l'e-mail de ce compte.",
     confirm: 'Supprimer définitivement mon compte',
+  },
+  choice: { ok: 'OK' },
+  browse: {
+    placeholder: 'Rechercher des articles ou des membres',
+    categories: 'Catégories',
+    backToCategories: 'Retour aux catégories',
+    members: 'Membres',
+    verified: 'Vérifié',
+  },
+  welcome: {
+    headline: 'Vendez et achetez en seconde main partout en Algérie',
+    subline: 'Des articles près de chez vous, des vendeurs au numéro vérifié, et vous payez en main propre.',
+    signup: 'Créer un compte',
+    haveAccount: "J'ai déjà un compte",
   },
   designPreview: {
     screenTitle: 'Aperçu du design',

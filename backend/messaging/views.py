@@ -127,7 +127,8 @@ class ConversationViewSet(mixins.ListModelMixin,
     conversations where you are the buyer or the seller.
 
     - GET  /api/conversations/                 my conversations, newest activity first
-                                               (?listing=<id> to find the one about a listing)
+                                               (?listing=<id> to find the one about a listing,
+                                               ?with=<user id> for those with one person)
     - POST /api/conversations/                 start one: {"listing": id, "text": "..."}
                                                (reuses the existing one for that listing)
     - GET  /api/conversations/{id}/            all messages, oldest first; marks the other
@@ -160,6 +161,14 @@ class ConversationViewSet(mixins.ListModelMixin,
                 if not listing_id.isdigit():
                     return conversations.none()
                 conversations = conversations.filter(listing_id=int(listing_id))
+            # ?with=<user id>: only my conversations with that person (about any listing),
+            # e.g. to know if they are a "new seller" for me.
+            other_id = self.request.query_params.get('with')
+            if other_id is not None:
+                if not other_id.isdigit():
+                    return conversations.none()
+                conversations = conversations.filter(
+                    Q(buyer=me, seller_id=int(other_id)) | Q(seller=me, buyer_id=int(other_id)))
             conversations = with_activity(conversations, me)
         return conversations
 

@@ -45,7 +45,7 @@ export function OptionsMenu({ visible, options, onClose }: Props) {
                   size={22}
                   color={option.danger ? '#D93025' : theme.text}
                 />
-                <ThemedText style={[styles.label, option.danger && styles.danger]}>
+                <ThemedText themeColor="danger" style={[styles.label, option.danger && styles.danger]}>
                   {option.label}
                 </ThemedText>
               </Pressable>
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
   },
   label: { flex: 1, fontSize: 16 },
-  danger: { color: '#D93025' },
+  danger: {},
   pressed: { opacity: 0.6 },
   cancel: { alignItems: 'center', paddingVertical: Spacing.three },
   cancelText: {},
