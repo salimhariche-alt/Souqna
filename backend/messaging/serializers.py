@@ -3,8 +3,10 @@ from rest_framework import serializers
 from listings.models import Listing
 from listings.serializers import cover_photo_url
 from listings.visibility import visible_listing_q
+from moderation.models import Block
 
 from .models import MAX_MESSAGE_LENGTH, Message
+from .voice import voice_status
 
 MESSAGE_ERRORS = {
     'required': "Message can't be empty.",
@@ -48,14 +50,28 @@ class MessageSerializer(serializers.ModelSerializer):
     sender = PersonSerializer(read_only=True)
     is_mine = serializers.SerializerMethodField()
     warnings = serializers.SerializerMethodField()
+    kind = serializers.SerializerMethodField()
+    audio = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'is_mine', 'text', 'sent_at', 'read', 'warnings']
-        read_only_fields = ['sent_at', 'read']
+        fields = ['id', 'sender', 'is_mine', 'kind', 'text', 'audio', 'duration_ms', 'sent_at',
+                  'read', 'warnings']
+        read_only_fields = ['sent_at', 'read', 'duration_ms']
 
     def get_is_mine(self, message):
         return message.sender_id == self.context['request'].user.id
+
+    def get_kind(self, message) -> str:
+        return 'voice' if message.is_voice else 'text'
+
+    def get_audio(self, message):
+        """Full web address of the voice recording (None for a text message)."""
+        if not message.is_voice:
+            return None
+        request = self.context.get('request')
+        url = message.audio.url
+        return request.build_absolute_uri(url) if request else url
 
     def get_warnings(self, message):
         """Why the RECEIVER should be careful, e.g. ["contact_phone", "advance_payment"].
@@ -112,6 +128,8 @@ class ConversationListSerializer(serializers.Serializer):
             return None
         return {
             'text': conversation.last_text,
+            'is_voice': bool(conversation.last_audio),
+            'duration_ms': conversation.last_duration_ms,
             'sent_at': serializers.DateTimeField().to_representation(conversation.last_sent_at),
             'is_mine': conversation.last_sender_id == self.context['request'].user.id,
         }
@@ -126,11 +144,31 @@ class ConversationDetailSerializer(serializers.Serializer):
     seller = PersonSerializer()
     other_person = serializers.SerializerMethodField()
     messages = serializers.SerializerMethodField()
+    blocked = serializers.SerializerMethodField()
+    voice = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+
+    def get_voice(self, conversation):
+        """How many voice messages can I still send here today? {"limit", "left_today"}"""
+        return voice_status(conversation, self.context['request'].user)
 
     def get_other_person(self, conversation):
         return PersonSerializer(other_person(conversation, self.context['request'].user)).data
 
     def get_messages(self, conversation):
         messages = conversation.messages.select_related('sender').order_by('sent_at', 'id')
+        # ?after=<message id>: only newer messages (the app checks every few seconds,
+        # so it doesn't download the whole conversation each time).
+        after = self.context.get('after')
+        if after is not None:
+            messages = messages.filter(id__gt=after)
         return MessageSerializer(messages, many=True, context=self.context).data
+
+    def get_blocked(self, conversation):
+        """Has one of us blocked the other? Then no new messages can be sent here."""
+        me = self.context['request'].user
+        other = other_person(conversation, me)
+        return {
+            'by_me': Block.objects.filter(blocker=me, blocked=other).exists(),
+            'by_them': Block.objects.filter(blocker=other, blocked=me).exists(),
+        }

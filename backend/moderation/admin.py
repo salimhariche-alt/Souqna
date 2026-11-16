@@ -163,6 +163,9 @@ class ReportAdmin(admin.ModelAdmin):
         if report.target_type == Report.Target.LISTING:
             return admin_link(report.listing, f'Listing: {report.listing}')
         if report.target_type == Report.Target.MESSAGE:
+            if report.message.is_voice:  # listen to it right here
+                from messaging.admin import audio_player
+                return format_html('Voice message: {}', audio_player(report.message))
             text = report.message.text
             return format_html('Message: “{}”', text if len(text) <= 120 else text[:120] + '…')
         return admin_link(report.reported_user, f'User: {report.reported_user}')

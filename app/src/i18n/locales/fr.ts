@@ -102,8 +102,55 @@ const fr = {
   },
   chat: {
     title: 'Conversation',
-    number: 'Conversation n° {{id}}',
-    messageSent: 'Votre message a bien été envoyé au vendeur.',
+    today: "Aujourd'hui",
+    yesterday: 'Hier',
+    placeholder: 'Écrivez un message…',
+    send: 'Envoyer',
+    sending: 'Envoi…',
+    failed: 'Échec de l’envoi. Touchez pour réessayer.',
+    warning:
+      "Prudence : ne payez jamais à l'avance. Rencontrez-vous en personne et vérifiez l'article d'abord.",
+    notFound: "Cette conversation n'existe pas.",
+    openListing: "Ouvrir l'annonce {{title}}",
+    reportHint: 'Appui long sur un message reçu pour le signaler.',
+    longPressHint: 'Appui long pour signaler ce message',
+    reportUser: 'Signaler cet utilisateur',
+    blockUser: 'Bloquer cet utilisateur',
+    blockedByMe:
+      'Vous avez bloqué {{name}} : vous ne pouvez plus vous écrire dans cette conversation.',
+    blockedByThem: 'Vous ne pouvez plus envoyer de messages dans cette conversation.',
+  },
+  voice: {
+    holdToRecord: 'Maintenir pour enregistrer un message vocal',
+    slideToCancel: '‹ Glissez pour annuler',
+    releaseToCancel: 'Relâchez pour annuler',
+    holdHint: 'Maintenez le micro appuyé pour enregistrer, relâchez pour envoyer.',
+    phoneOnly: "Les messages vocaux s'enregistrent depuis l'application mobile.",
+    play: 'Écouter le message vocal',
+    pause: 'Mettre en pause',
+    preview: '🎤 Message vocal ({{duration}})',
+    tip: "Gardez votre affaire dans l'application. Ne payez jamais à l'avance.",
+    tipOk: 'Compris',
+    micAccessTitle: 'Accès au micro',
+    micAccessText:
+      'Souqna a besoin du micro pour enregistrer vos messages vocaux. Rien n’est enregistré tant que vous ne maintenez pas le bouton.',
+    micDeniedText:
+      "Pour envoyer des messages vocaux, autorisez le micro dans les réglages du téléphone : Réglages → Applications → Expo Go (ou Souqna) → Autorisations → Micro.",
+    errors: {
+      dailyLimit:
+        "Limite atteinte : {{limit}} messages vocaux par jour dans cette conversation. Vous pouvez toujours écrire.",
+      tooLong: 'Un message vocal peut durer 60 secondes au maximum.',
+      tooBig: 'Ce message vocal est trop lourd.',
+      notSupported: "Ce message vocal n'a pas pu être envoyé. Réessayez.",
+    },
+  },
+  messages: {
+    loading: 'Chargement des messages…',
+    empty:
+      "Pas encore de conversation. Trouvez un article qui vous plaît et contactez le vendeur !",
+    browse: 'Voir les annonces',
+    you: 'Vous : ',
+    rowLabel: '{{name}}, {{title}}, {{count}} message(s) non lu(s)',
   },
   placeholder: {
     comingSoon: 'Bientôt disponible',
