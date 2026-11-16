@@ -1,3 +1,6 @@
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
+
 import { ApiError, apiFetch } from './client';
 
 /** One listing in a list (the short version sent by GET /api/listings/). */
@@ -79,6 +82,76 @@ export function markListingSold(listingId: number) {
   return apiFetch<ListingDetail>(`/api/listings/${listingId}/`, {
     method: 'PATCH',
     body: { status: 'sold' },
+    auth: true,
+  });
+}
+
+/** What the Sell / Edit form sends (photos go separately, one by one). */
+export type ListingInput = {
+  title: string;
+  description: string;
+  category: number;
+  size: string;
+  brand: string;
+  condition: Condition;
+  price_dzd: number;
+  wilaya: number;
+};
+
+export function createListing(input: ListingInput) {
+  return apiFetch<ListingDetail>('/api/listings/', { method: 'POST', body: input, auth: true });
+}
+
+export function updateListing(listingId: number, input: ListingInput) {
+  return apiFetch<ListingDetail>(`/api/listings/${listingId}/`, {
+    method: 'PATCH',
+    body: input,
+    auth: true,
+  });
+}
+
+export type ListingPhoto = ListingDetail['photos'][number];
+
+/** Upload one photo file (already resized). Photos can be big: wait up to 90 s. */
+export async function uploadListingPhoto(listingId: number, fileUri: string) {
+  const form = new FormData();
+  if (Platform.OS === 'web') {
+    // In a browser the photo is a "blob:" address: read it into a real file first.
+    const blob = await (await fetch(fileUri)).blob();
+    form.append('image', blob, 'photo.jpg');
+  } else {
+    // On a phone: Expo's fetch (SDK 58) does NOT accept React Native's old
+    // { uri, name, type } file parts. It accepts a part that can give its bytes, plus a
+    // name (the server needs a file name) and a type. The bytes are read while sending.
+    const file = new File(fileUri);
+    const part = { name: 'photo.jpg', type: 'image/jpeg', bytes: () => file.bytes() };
+    form.append('image', part as unknown as Blob);
+  }
+  return apiFetch<ListingPhoto>(`/api/listings/${listingId}/photos/`, {
+    method: 'POST',
+    form,
+    auth: true,
+    timeoutMs: 90000,
+  });
+}
+
+export async function deleteListingPhoto(listingId: number, photoId: number) {
+  try {
+    await apiFetch<unknown>(`/api/listings/${listingId}/photos/${photoId}/`, {
+      method: 'DELETE',
+      auth: true,
+    });
+  } catch (error) {
+    // 404 = already gone, which is what we wanted.
+    if (!(error instanceof ApiError && error.status === 404)) throw error;
+  }
+}
+
+/** Put the photos in this order; the first one becomes the cover. */
+export function orderListingPhotos(listingId: number, photoIds: number[]) {
+  return apiFetch<ListingPhoto[]>(`/api/listings/${listingId}/photos/order/`, {
+    method: 'POST',
+    body: { order: photoIds },
     auth: true,
   });
 }

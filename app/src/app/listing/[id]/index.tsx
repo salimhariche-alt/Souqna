@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useLocalSearchParams, type Href } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -81,9 +81,12 @@ export default function ListingDetailsScreen() {
     }
   }, [id, signedIn]);
 
-  useEffect(() => {
-    if (authStatus !== 'loading') load();
-  }, [load, authStatus]);
+  // Every time the screen is shown: also after coming back from "Edit".
+  useFocusEffect(
+    useCallback(() => {
+      if (authStatus !== 'loading') load();
+    }, [load, authStatus]),
+  );
 
   const askToLogIn = (action: PendingAction) => {
     pending.current = action;
