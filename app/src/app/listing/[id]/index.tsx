@@ -27,7 +27,7 @@ import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { wilayaLabel } from '@/constants/wilayas';
 import { categoryName, useCategories } from '@/hooks/use-categories';
 import { useTheme } from '@/hooks/use-theme';
@@ -434,7 +434,7 @@ export default function ListingDetailsScreen() {
               style={({ pressed }) => [styles.sellerLink, pressed && styles.pressed]}>
             <Avatar uri={listing.seller.avatar} name={listing.seller.display_name} size={44} />
             <View style={styles.flex}>
-              <ThemedText type="smallBold" style={[align, styles.sellerName]}>
+              <ThemedText type="smallBold" themeColor="primary" style={[align, styles.sellerName]}>
                 {listing.seller.display_name}
               </ThemedText>
               {listing.seller.wilaya ? (
@@ -624,14 +624,14 @@ const styles = StyleSheet.create({
   detailValue: { flexShrink: 1 },
   sellerCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   sellerLink: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  sellerName: { color: '#208AEF' },
+  sellerName: {},
   avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#208AEF',
+    backgroundColor: Brand.fill,
   },
   avatarText: { color: '#ffffff', fontSize: 18 },
   verifiedBadge: {

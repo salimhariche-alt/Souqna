@@ -8,7 +8,7 @@ import { FiltersSheet } from '@/components/filters-sheet';
 import { ListingGrid } from '@/components/listing-grid';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useListingsFeed } from '@/hooks/use-listings-feed';
 import { useTheme } from '@/hooks/use-theme';
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.one,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#208AEF',
+    backgroundColor: Brand.fill,
   },
   badgeText: { color: '#ffffff', fontSize: 12, lineHeight: 16 },
   chips: {
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     borderRadius: 999,
-    backgroundColor: '#208AEF',
+    backgroundColor: Brand.fill,
   },
   chipText: { color: '#ffffff' },
   count: { paddingHorizontal: Spacing.two, paddingTop: Spacing.one, paddingBottom: Spacing.one },

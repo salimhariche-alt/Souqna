@@ -61,6 +61,10 @@ function SettingsContent() {
         }}
       />
       <Row icon="trash-outline" label={t('deleteAccount.title')} onPress={() => router.push('/delete-account' as Href)} danger />
+      {/* Development only: the design system preview (brand colour options). */}
+      {__DEV__ && (
+        <Row icon="color-palette-outline" label={t('designPreview.screenTitle')} onPress={() => router.push('/design-preview' as Href)} />
+      )}
     </ScrollView>
   );
 }

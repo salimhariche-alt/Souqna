@@ -35,7 +35,7 @@ import { ReportSheet } from '@/components/report-sheet';
 import { RequireAuth } from '@/components/require-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { codedMessage, formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
@@ -441,7 +441,7 @@ function ChatContent({ id }: { id: string }) {
               {t('voice.tip')}
             </ThemedText>
             <Pressable onPress={dismissVoiceTip} accessibilityRole="button" hitSlop={8}>
-              <ThemedText type="smallBold" style={styles.link}>
+              <ThemedText type="smallBold" themeColor="primary" style={styles.link}>
                 {t('voice.tipOk')}
               </ThemedText>
             </Pressable>
@@ -597,7 +597,7 @@ function ChatContent({ id }: { id: string }) {
               </ThemedText>
               {blockedByMe && (
                 <Pressable onPress={unblock} accessibilityRole="button" hitSlop={8}>
-                  <ThemedText type="smallBold" style={styles.link}>
+                  <ThemedText type="smallBold" themeColor="primary" style={styles.link}>
                     {t('block.unblock')}
                   </ThemedText>
                 </Pressable>
@@ -746,7 +746,7 @@ function VoicePlayer({
 }) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const color = mine ? '#ffffff' : '#208AEF';
+  const color = mine ? '#ffffff' : Brand.fill;
   return (
     <View style={styles.voiceRow}>
       <Pressable
@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   // With direction "rtl" on the screen, flex-start/flex-end flip by themselves in Arabic.
-  mine: { alignSelf: 'flex-end', backgroundColor: '#208AEF', borderBottomEndRadius: 4 },
+  mine: { alignSelf: 'flex-end', backgroundColor: Brand.fill, borderBottomEndRadius: 4 },
   theirs: { alignSelf: 'flex-start', borderBottomStartRadius: 4 },
   mineText: { color: '#ffffff' },
   meta: { alignSelf: 'flex-end' },
@@ -918,7 +918,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#208AEF',
+    backgroundColor: Brand.fill,
   },
   sendDisabled: { opacity: 0.4 },
   flipped: { transform: [{ scaleX: -1 }] },
@@ -955,5 +955,5 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.two,
   },
-  link: { color: '#208AEF' },
+  link: {},
 });

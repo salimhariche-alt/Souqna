@@ -394,6 +394,46 @@ const en: Translations = {
     mismatchEmail: "That's not this account's email.",
     confirm: 'Delete my account for good',
   },
+  designPreview: {
+    screenTitle: 'Design preview',
+    title: "Souqna's colour",
+    intro:
+      'The three proposed brand colours, on real parts of the app. The chosen colour is used across the whole app.',
+    chosen: 'Chosen',
+    mode: { phone: 'Like the phone', light: 'Light', dark: 'Dark' },
+    brands: {
+      atlas: {
+        name: 'A · Atlas green',
+        description: 'A deep green like the Atlas forests and the flag: calm and trustworthy.',
+      },
+      terracotta: {
+        name: 'B · Terracotta',
+        description: 'The warm earth of Ghardaïa and clay pottery: friendly and local.',
+      },
+      safran: {
+        name: 'C · Sahara saffron',
+        description: 'A saffron / desert ochre: sunny and energetic, like a souk.',
+      },
+    },
+    swatch: { primary: 'Main', pressed: 'Pressed', soft: 'Soft background' },
+    sample: {
+      categories: 'Categories',
+      seeAll: 'See all',
+      women: 'Women',
+      men: 'Men',
+      kids: 'Kids',
+      home: 'Home',
+      price: '2,500 DA',
+      itemTitle: 'Embroidered Kabyle dress, size M',
+      new: 'New',
+      hint: 'A short, clear title.',
+      languageValue: 'English',
+      emptyTitle: 'No messages yet',
+    },
+    fontTitle: 'Font: IBM Plex Sans Arabic',
+    fontText: 'Free, designed for Arabic and Latin letters together. Every size:',
+    choose: 'Chosen colour: A · Atlas green. It changes in one line (CHOSEN_BRAND in src/theme/tokens.ts).',
+  },
   seller: {
     notFound: "This profile isn't available.",
     activeListings: 'Listings on sale ({{count}})',

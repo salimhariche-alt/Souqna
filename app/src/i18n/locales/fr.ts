@@ -399,6 +399,46 @@ const fr = {
     mismatchEmail: "Ce n'est pas l'e-mail de ce compte.",
     confirm: 'Supprimer définitivement mon compte',
   },
+  designPreview: {
+    screenTitle: 'Aperçu du design',
+    title: 'Couleur de Souqna',
+    intro:
+      "Les trois couleurs proposées pour la marque, sur de vrais éléments de l'appli. La couleur choisie est utilisée dans toute l'appli.",
+    chosen: 'Choisie',
+    mode: { phone: 'Comme le téléphone', light: 'Clair', dark: 'Sombre' },
+    brands: {
+      atlas: {
+        name: 'A · Vert Atlas',
+        description: "Un vert profond, comme les forêts de l'Atlas et le drapeau : calme et digne de confiance.",
+      },
+      terracotta: {
+        name: 'B · Terracotta',
+        description: 'La terre chaude de Ghardaïa et des poteries : chaleureuse et locale.',
+      },
+      safran: {
+        name: 'C · Safran du Sahara',
+        description: 'Un safran / ocre du désert : ensoleillé et plein d’énergie, comme un souk.',
+      },
+    },
+    swatch: { primary: 'Principale', pressed: 'Appuyée', soft: 'Fond doux' },
+    sample: {
+      categories: 'Catégories',
+      seeAll: 'Voir tout',
+      women: 'Femmes',
+      men: 'Hommes',
+      kids: 'Enfants',
+      home: 'Maison',
+      price: '2 500 DA',
+      itemTitle: 'Robe kabyle brodée, taille M',
+      new: 'Nouveau',
+      hint: 'Un titre court et clair.',
+      languageValue: 'Français',
+      emptyTitle: 'Pas encore de message',
+    },
+    fontTitle: 'Police : IBM Plex Sans Arabic',
+    fontText: "Gratuite, conçue pour l'arabe et l'alphabet latin ensemble. Toutes les tailles :",
+    choose: 'Couleur choisie : A · Vert Atlas. Elle se change en une ligne (CHOSEN_BRAND dans src/theme/tokens.ts).',
+  },
   seller: {
     notFound: "Ce profil n'est pas disponible.",
     activeListings: 'Annonces en vente ({{count}})',

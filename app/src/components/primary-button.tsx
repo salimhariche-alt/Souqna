@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type Props = {
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: Spacing.four,
     borderRadius: Spacing.two,
-    backgroundColor: '#208AEF',
+    backgroundColor: Brand.fill,
   },
   danger: { backgroundColor: '#D93025' },
   dimmed: { opacity: 0.7 },

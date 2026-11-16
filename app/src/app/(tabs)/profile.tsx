@@ -25,7 +25,7 @@ import { PrimaryButton } from '@/components/primary-button';
 import { ProfileHeader } from '@/components/profile-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useListingsFeed } from '@/hooks/use-listings-feed';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
@@ -40,7 +40,7 @@ function Welcome() {
   return (
     <ScrollView contentContainerStyle={styles.welcome}>
       <View style={styles.welcomeIcon}>
-        <Ionicons name="person-circle-outline" size={72} color="#208AEF" />
+        <Ionicons name="person-circle-outline" size={72} color={Brand.fill} />
       </View>
       <ThemedText type="subtitle" style={styles.center}>
         {t('profile.welcomeTitle')}
@@ -58,6 +58,14 @@ function Welcome() {
         onPress={() => router.push({ pathname: '/signup', params: { next: '/profile' } } as Href)}
       />
       <LanguageSwitcher />
+      {/* Development only: the design system preview (brand colour options). */}
+      {__DEV__ && (
+        <PrimaryButton
+          title={t('designPreview.screenTitle')}
+          variant="secondary"
+          onPress={() => router.push('/design-preview' as Href)}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -90,7 +98,7 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected }}
-      style={[styles.chip, { backgroundColor: selected ? '#208AEF' : theme.backgroundElement }]}>
+      style={[styles.chip, { backgroundColor: selected ? Brand.fill : theme.backgroundElement }]}>
       <ThemedText type="smallBold" style={selected ? styles.chipTextSelected : undefined}>
         {label}
       </ThemedText>
