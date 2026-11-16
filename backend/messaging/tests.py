@@ -352,6 +352,57 @@ class SendMessageTests(MessagingTestCase):
 
 # Admin ------------------------------------------------------------------------------------
 
+class ChatScreenSupportTests(MessagingTestCase):
+    """What the app's Messages tab and chat screen need (Step 2.2 #6)."""
+
+    def test_unread_count_for_the_tab_badge(self):
+        first = self.make_conversation()
+        second = self.make_conversation(listing=self.listing2)
+        Message.objects.create(conversation=first, sender=self.seller, text='a')
+        Message.objects.create(conversation=first, sender=self.seller, text='b')
+        Message.objects.create(conversation=second, sender=self.seller, text='c')
+        Message.objects.create(conversation=second, sender=self.buyer, text='mine')  # not counted
+        Message.objects.create(conversation=second, sender=self.seller, text='old', read=True)
+        self.as_user(self.buyer)
+        self.assertEqual(self.client.get(f'{URL}unread-count/').data, {'unread': 3})
+        # Opening a conversation marks its messages as read.
+        self.client.get(f'{URL}{first.id}/')
+        self.assertEqual(self.client.get(f'{URL}unread-count/').data, {'unread': 1})
+        # Someone else's count is separate.
+        self.as_user(self.buyer2)
+        self.assertEqual(self.client.get(f'{URL}unread-count/').data, {'unread': 0})
+
+    def test_unread_count_needs_login(self):
+        self.assertEqual(self.client.get(f'{URL}unread-count/').status_code,
+                         status.HTTP_401_UNAUTHORIZED)
+
+    def test_only_newer_messages_with_after(self):
+        conversation = self.make_conversation()
+        old = Message.objects.create(conversation=conversation, sender=self.buyer, text='1')
+        Message.objects.create(conversation=conversation, sender=self.seller, text='2')
+        Message.objects.create(conversation=conversation, sender=self.seller, text='3')
+        self.as_user(self.buyer)
+        response = self.client.get(f'{URL}{conversation.id}/?after={old.id}')
+        self.assertEqual([m['text'] for m in response.data['messages']], ['2', '3'])
+        self.assertFalse(conversation.messages.filter(read=False).exclude(sender=self.buyer)
+                         .exists())  # still marked as read
+        self.assertEqual(self.client.get(f'{URL}{conversation.id}/?after=abc').status_code,
+                         status.HTTP_400_BAD_REQUEST)
+
+    def test_blocked_flags(self):
+        from moderation.models import Block
+        conversation = self.make_conversation()
+        self.as_user(self.buyer)
+        self.assertEqual(self.client.get(f'{URL}{conversation.id}/').data['blocked'],
+                         {'by_me': False, 'by_them': False})
+        Block.objects.create(blocker=self.seller, blocked=self.buyer)
+        self.assertEqual(self.client.get(f'{URL}{conversation.id}/').data['blocked'],
+                         {'by_me': False, 'by_them': True})
+        self.as_user(self.seller)
+        self.assertEqual(self.client.get(f'{URL}{conversation.id}/').data['blocked'],
+                         {'by_me': True, 'by_them': False})
+
+
 class AdminTests(MessagingTestCase):
     def test_conversations_and_messages_in_admin(self):
         conversation = self.make_conversation()

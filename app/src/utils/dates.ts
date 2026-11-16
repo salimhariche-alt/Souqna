@@ -2,7 +2,7 @@ import type { Language } from '@/i18n';
 
 // Written by hand (React Native's JavaScript engine doesn't reliably have month names).
 // Arabic uses the month names used in Algeria.
-const MONTHS: Record<Language, string[]> = {
+export const MONTHS: Record<Language, string[]> = {
   fr: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre',
     'octobre', 'novembre', 'décembre'],
   en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',

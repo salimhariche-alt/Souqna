@@ -40,7 +40,15 @@
           "photosPermission": "Souqna uses your photos so you can add them to the items you sell.",
           "cameraPermission": "Souqna uses the camera so you can take photos of the items you sell."
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Souqna uses the microphone to record voice messages in your conversations.",
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

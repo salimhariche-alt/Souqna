@@ -1,11 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, type Href } from 'expo-router';
 import { type BottomTabNavigationOptions, Tabs } from 'expo-router/js-tabs';
-import type { ComponentProps } from 'react';
+import { useEffect, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/auth/auth-provider';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { refreshUnread, setUnread, useUnreadCount } from '@/messages/unread';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -21,9 +22,24 @@ function tabIcon(name: IconName): BottomTabNavigationOptions['tabBarIcon'] {
  * when a logged-out user taps one, the Log in screen opens first.
  * Sell also needs a verified phone: unverified users go to the verification screen.
  */
+/** How often the red badge checks for new messages when the Messages tab isn't open. */
+const BADGE_CHECK_MS = 30000;
+
 export default function TabLayout() {
   const { t } = useTranslation();
   const { status, user } = useAuth();
+  const unread = useUnreadCount();
+
+  // Keep the badge up to date while logged in; reset it when logged out.
+  useEffect(() => {
+    if (status !== 'signedIn') {
+      setUnread(0);
+      return;
+    }
+    refreshUnread();
+    const timer = setInterval(refreshUnread, BADGE_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [status]);
 
   const needsLogin = (tab: 'sell' | 'messages' | 'profile', needsVerifiedPhone = false) => ({
     tabPress: (event: { preventDefault: () => void }) => {
@@ -59,7 +75,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="messages"
-        options={{ title: t('tabs.messages'), tabBarIcon: tabIcon('chatbubbles-outline') }}
+        options={{
+          title: t('tabs.messages'),
+          tabBarIcon: tabIcon('chatbubbles-outline'),
+          // Red badge with the number of unread messages ("99+" above 99).
+          tabBarBadge: unread > 0 ? (unread > 99 ? '99+' : unread) : undefined,
+        }}
         listeners={needsLogin('messages')}
       />
       <Tabs.Screen

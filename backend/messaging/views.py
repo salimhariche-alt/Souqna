@@ -3,6 +3,7 @@ from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from accounts.permissions import IsPhoneVerified
@@ -11,7 +12,9 @@ from moderation.limits import check_daily_limit
 from moderation.models import Block
 from souqna_api.exceptions import DetailedAPIException
 
+from .audio import AudioError, inspect_audio
 from .models import Conversation, Message
+from .voice import check_can_send_voice
 from .serializers import (
     ConversationDetailSerializer,
     ConversationListSerializer,
@@ -48,6 +51,8 @@ def with_activity(conversations, me):
     )
     return conversations.annotate(
         last_text=Subquery(latest.values('text')[:1]),
+        last_audio=Subquery(latest.values('audio')[:1]),
+        last_duration_ms=Subquery(latest.values('duration_ms')[:1]),
         last_sender_id=Subquery(latest.values('sender_id')[:1]),
         last_sent_at=Subquery(latest.values('sent_at')[:1]),
         last_activity=Coalesce(Subquery(latest.values('sent_at')[:1]), F('created_at')),
@@ -69,13 +74,15 @@ class ConversationViewSet(mixins.ListModelMixin,
     - GET  /api/conversations/{id}/            all messages, oldest first; marks the other
                                                person's messages as read
     - POST /api/conversations/{id}/messages/   send a message: {"text": "..."}
+    - POST /api/conversations/{id}/voice/      send a voice message (form field "audio")
+    - GET  /api/conversations/unread-count/    {"unread": n} for the tab badge
     """
 
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
-        # Starting a conversation or sending a message needs a verified phone number.
-        if self.action in ('create', 'messages'):
+        # Starting a conversation or sending a message (text or voice) needs a verified phone.
+        if self.action in ('create', 'messages', 'voice'):
             return [permissions.IsAuthenticated(), IsPhoneVerified()]
         return super().get_permissions()
 
@@ -132,18 +139,69 @@ class ConversationViewSet(mixins.ListModelMixin,
             conversation, status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def retrieve(self, request, pk=None):
-        """Open a conversation. The other person's messages become "read"."""
+        """Open a conversation. The other person's messages become "read".
+
+        ?after=<message id> returns only the messages newer than that one.
+        """
         conversation = self.get_object()  # "not found" if it isn't yours
         conversation.messages.filter(read=False).exclude(sender=request.user).update(read=True)
-        return self.detail_response(conversation)
+        after = request.query_params.get('after')
+        if after is not None and not after.isdigit():
+            return Response({'detail': '"after" must be a message id.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        conversation = self.get_queryset().get(pk=conversation.pk)
+        context = {**self.get_serializer_context(),
+                   'after': int(after) if after is not None else None}
+        return Response(ConversationDetailSerializer(conversation, context=context).data)
+
+    @action(detail=False, methods=['get'], url_path='unread-count')
+    def unread_count(self, request):
+        """GET /api/conversations/unread-count/ - {"unread": total unread messages for me}
+        (for the red badge on the Messages tab)."""
+        me = request.user
+        unread = (Message.objects
+                  .filter(Q(conversation__buyer=me) | Q(conversation__seller=me), read=False)
+                  .exclude(sender=me)
+                  .count())
+        return Response({'unread': unread})
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def voice(self, request, pk=None):
+        """Send a voice message: form field "audio" (AAC/M4A, max 60 s, max 1 MB).
+
+        Verified phones only; daily limits per conversation.
+        """
+        conversation = self.get_object()  # "not found" if it isn't yours
+        self.check_not_blocked(conversation)
+        check_can_send_voice(conversation, request.user)
+
+        uploaded = request.FILES.get('audio')
+        if uploaded is None:
+            return Response({'audio': ['Send the recording in the "audio" field.']},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            duration_ms, extension = inspect_audio(uploaded)
+        except AudioError as error:
+            return Response({'audio': [error.message], 'code': error.code},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        message = Message(conversation=conversation, sender=request.user, text='',
+                          duration_ms=duration_ms)
+        message.audio.save(f'voice{extension}', uploaded, save=False)
+        message.save()
+        data = MessageSerializer(message, context=self.get_serializer_context()).data
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    def check_not_blocked(self, conversation):
+        if Block.between(conversation.buyer, conversation.seller):
+            raise BlockedConversation({'detail': "You can't send messages to this person.",
+                                       'code': 'blocked'})
 
     @action(detail=True, methods=['post'])
     def messages(self, request, pk=None):
         """Send a message in this conversation."""
         conversation = self.get_object()  # "not found" if it isn't yours
-        if Block.between(conversation.buyer, conversation.seller):
-            raise BlockedConversation({'detail': "You can't send messages to this person.",
-                                       'code': 'blocked'})
+        self.check_not_blocked(conversation)
         serializer = MessageSerializer(data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
         text = serializer.validated_data['text']
