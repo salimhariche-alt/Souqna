@@ -11,9 +11,12 @@ export type PreparedPhoto = { uri: string; width: number; height: number };
  * Make a photo ready to upload: at most 1600 pixels wide, saved as a good-quality JPEG.
  * A 4-6 MB phone photo usually becomes 300-500 KB: fast on mobile data, light for the server.
  */
-export async function preparePhoto(photo: { uri: string; width: number }): Promise<PreparedPhoto> {
+export async function preparePhoto(
+  photo: { uri: string; width: number },
+  maxWidth = MAX_PHOTO_WIDTH,
+): Promise<PreparedPhoto> {
   const context = ImageManipulator.manipulate(photo.uri);
-  if (photo.width > MAX_PHOTO_WIDTH) context.resize({ width: MAX_PHOTO_WIDTH });
+  if (photo.width > maxWidth) context.resize({ width: maxWidth });
   const image = await context.renderAsync();
   const saved = await image.saveAsync({ compress: JPEG_QUALITY, format: SaveFormat.JPEG });
   return { uri: saved.uri, width: saved.width, height: saved.height };

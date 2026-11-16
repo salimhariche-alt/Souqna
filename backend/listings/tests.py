@@ -323,11 +323,21 @@ class ListingWriteTests(ApiTestCase):
                                      format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_listings_cannot_be_deleted_through_api(self):
+    def test_seller_deletes_a_listing_it_is_hidden_not_erased(self):
         listing = self.make_listing()
+        Favorite.objects.create(user=self.other, listing=listing)
+        self.client.force_authenticate(self.other)
+        self.assertNotOwner(self.client.delete(f'/api/listings/{listing.id}/'))
         self.client.force_authenticate(self.seller)
         response = self.client.delete(f'/api/listings/{listing.id}/')
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        listing.refresh_from_db()
+        self.assertIsNotNone(listing.deleted_at)  # still in the database
+        self.assertFalse(Favorite.objects.filter(listing=listing).exists())
+        # Gone for everyone, the seller included.
+        self.assertEqual(self.client.get(f'/api/listings/{listing.id}/').status_code, 404)
+        self.client.force_authenticate(None)
+        self.assertNotIn(listing.id, self.list_ids())
 
 
 # 4. Photo upload -----------------------------------------------------------------

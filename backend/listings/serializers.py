@@ -20,15 +20,30 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name_ar', 'name_fr', 'name_en', 'parent']
 
 
+def avatar_url(user, request=None):
+    """Full web address of a user's profile photo, or None."""
+    if not user.avatar:
+        return None
+    url = user.avatar.url
+    return request.build_absolute_uri(url) if request else url
+
+
 class SellerSerializer(serializers.Serializer):
-    """Public info about a seller, including trust info (never their phone or email)."""
+    """Public info about a seller, including trust info.
+
+    NEVER add the phone number or email here: this is shown to everyone.
+    """
 
     id = serializers.IntegerField()
     display_name = serializers.CharField()
     wilaya = serializers.IntegerField(allow_null=True)
+    avatar = serializers.SerializerMethodField()
     phone_verified = serializers.BooleanField()
     member_since = serializers.DateTimeField(source='date_joined')
     items_sold = serializers.IntegerField()
+
+    def get_avatar(self, user):
+        return avatar_url(user, self.context.get('request'))
 
 
 class ListingPhotoSerializer(serializers.ModelSerializer):
@@ -59,6 +74,13 @@ class ListingListSerializer(serializers.ModelSerializer):
 
     def get_cover_photo(self, listing):
         return cover_photo_url(listing, self.context.get('request'))
+
+
+class MyListingSerializer(ListingListSerializer):
+    """One of MY listings (Profile -> My listings): also its review status."""
+
+    class Meta(ListingListSerializer.Meta):
+        fields = ListingListSerializer.Meta.fields + ['review_status']
 
 
 class ListingDetailSerializer(serializers.ModelSerializer):

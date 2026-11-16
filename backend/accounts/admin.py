@@ -39,11 +39,13 @@ class UserAdmin(BaseUserAdmin):
                    'wilaya', 'is_staff')
     search_fields = ('phone', 'display_name', 'email')
     ordering = ('-date_joined',)
-    actions = ['mark_phone_verified', 'suspend_users', 'reactivate_users', 'ban_users']
+    actions = ['mark_phone_verified', 'suspend_users', 'reactivate_users', 'ban_users',
+               'remove_avatars']
 
     fieldsets = (
         (None, {'fields': ('phone', 'password')}),
-        ('Profile', {'fields': ('display_name', 'email', 'wilaya', 'preferred_language')}),
+        ('Profile', {'fields': ('display_name', 'email', 'wilaya', 'preferred_language',
+                                'avatar', 'deleted_at')}),
         ('Trust', {'fields': ('phone_verified', 'phone_verified_at', 'banned_at',
                               'hidden_by_reports', 'messaging_blocked_until',
                               'safety_tips_seen_at')}),
@@ -147,6 +149,15 @@ class UserAdmin(BaseUserAdmin):
         for user in users:
             moderation_actions.ban_user(user, request.user)
         self.message_user(request, f'{len(users)} user(s) banned.', messages.WARNING)
+
+    @admin.action(description='Remove profile photo (e.g. after a report)')
+    def remove_avatars(self, request, queryset):
+        count = 0
+        for user in queryset.exclude(avatar=''):
+            user.avatar.delete(save=True)
+            moderation_actions.log(request.user, ModerationLog.Action.REMOVE_AVATAR, user)
+            count += 1
+        self.message_user(request, f'{count} profile photo(s) removed.')
 
 
 @admin.register(PhoneVerification)

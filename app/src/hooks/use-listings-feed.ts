@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { fetchListings, type ListingFilters, type ListingSummary } from '@/api/listings';
+import {
+  fetchListings,
+  type ListingFilters,
+  type ListingsPage,
+  type ListingSummary,
+} from '@/api/listings';
 
 export type FeedStatus = 'loading' | 'ready' | 'error';
 
@@ -12,8 +17,14 @@ export type FeedStatus = 'loading' | 'ready' | 'error';
  * - retry():    try the first page again after an error
  * - count:      how many listings match in total (e.g. "45 articles")
  * Changing any filter starts again from page 1.
+ *
+ * `fetchPage` loads something else page by page (e.g. my favourites) instead of the
+ * active listings; it must stay the same function between renders.
  */
-export function useListingsFeed(filters: ListingFilters) {
+export function useListingsFeed(
+  filters: ListingFilters,
+  fetchPage?: (page: number) => Promise<ListingsPage>,
+) {
   const [items, setItems] = useState<ListingSummary[]>([]);
   const [count, setCount] = useState(0);
   const [status, setStatus] = useState<FeedStatus>('loading');
@@ -25,6 +36,10 @@ export function useListingsFeed(filters: ListingFilters) {
   // The filters as text, so a new object with the same values doesn't reload.
   const filtersKey = JSON.stringify(filters);
   const currentFilters = useMemo(() => JSON.parse(filtersKey) as ListingFilters, [filtersKey]);
+  const load = useCallback(
+    (page: number) => (fetchPage ? fetchPage(page) : fetchListings({ page, filters: currentFilters })),
+    [fetchPage, currentFilters],
+  );
 
   // Kept in refs so that quick repeated scroll events see the latest values.
   const page = useRef(0);
@@ -48,7 +63,7 @@ export function useListingsFeed(filters: ListingFilters) {
         setRefreshing(true);
       }
       try {
-        const data = await fetchListings({ page: 1, filters: currentFilters });
+        const data = await load(1);
         if (myGeneration !== generation.current) return;
         page.current = 1;
         hasMore.current = data.next !== null;
@@ -66,7 +81,7 @@ export function useListingsFeed(filters: ListingFilters) {
         if (myGeneration === generation.current) setRefreshing(false);
       }
     },
-    [currentFilters],
+    [load],
   );
 
   useEffect(() => {
@@ -81,7 +96,7 @@ export function useListingsFeed(filters: ListingFilters) {
     setLoadMoreFailed(false);
     try {
       const nextPage = page.current + 1;
-      const data = await fetchListings({ page: nextPage, filters: currentFilters });
+      const data = await load(nextPage);
       if (myGeneration !== generation.current) return;
       page.current = nextPage;
       hasMore.current = data.next !== null;
@@ -99,7 +114,7 @@ export function useListingsFeed(filters: ListingFilters) {
         setLoadingMore(false);
       }
     }
-  }, [status, currentFilters]);
+  }, [status, load]);
 
   return {
     items,

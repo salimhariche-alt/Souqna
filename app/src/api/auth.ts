@@ -1,3 +1,6 @@
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
+
 import { getDeviceId } from '@/auth/device-id';
 import type { Language } from '@/i18n';
 
@@ -12,6 +15,8 @@ export type User = {
   wilaya: number | null;
   wilaya_name: string;
   preferred_language: Language;
+  /** Profile photo address, or null. */
+  avatar: string | null;
   phone_verified: boolean;
   phone_verified_at: string | null;
   items_sold: number;
@@ -80,6 +85,60 @@ export function verifyPhoneCodeRequest(code: string) {
     body: { code },
     auth: true,
   });
+}
+
+/** Change my display name and/or wilaya. */
+export function updateProfileRequest(changes: { display_name?: string; wilaya?: number }) {
+  return apiFetch<User>('/api/auth/me/', { method: 'PATCH', body: changes, auth: true });
+}
+
+/** Set my profile photo (a resized photo file). The server removes hidden data. */
+export async function uploadAvatarRequest(fileUri: string) {
+  const form = new FormData();
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(fileUri)).blob();
+    form.append('image', blob, 'avatar.jpg');
+  } else {
+    // Expo's fetch (SDK 58) needs a part that can give its bytes (see uploadListingPhoto).
+    const file = new File(fileUri);
+    const part = { name: 'avatar.jpg', type: 'image/jpeg', bytes: () => file.bytes() };
+    form.append('image', part as unknown as Blob);
+  }
+  return apiFetch<{ user: User }>('/api/auth/me/avatar/', {
+    method: 'POST',
+    form,
+    auth: true,
+    timeoutMs: 60000,
+  });
+}
+
+export function removeAvatarRequest() {
+  return apiFetch<{ user: User }>('/api/auth/me/avatar/', { method: 'DELETE', auth: true });
+}
+
+/** Delete my account. `confirm` = my phone number (or email if I have no phone). */
+export function deleteAccountRequest(confirm: string) {
+  return apiFetch<null>('/api/auth/delete-account/', {
+    method: 'POST',
+    body: { confirm },
+    auth: true,
+  });
+}
+
+/** A seller's public profile (never their phone or email). */
+export type PublicProfile = {
+  id: number;
+  display_name: string;
+  wilaya: number | null;
+  avatar: string | null;
+  phone_verified: boolean;
+  member_since: string;
+  items_sold: number;
+  active_listings: number;
+};
+
+export function fetchPublicProfile(userId: number | string) {
+  return apiFetch<PublicProfile>(`/api/users/${userId}/`, { auth: true });
 }
 
 /** The short code word the backend adds to verification errors, e.g. "wrong_code". */

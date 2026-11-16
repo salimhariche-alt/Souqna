@@ -32,6 +32,23 @@ def strip_hidden_data(uploaded) -> ContentFile:
     return ContentFile(buffer.getvalue(), name=f'{name}.{extension}')
 
 
+AVATAR_SIZE = 600  # profile photos are shown small: 600 x 600 is plenty
+
+
+def make_avatar(uploaded) -> ContentFile:
+    """A profile photo: upright, at most 600 x 600, saved again as a new JPEG (so no
+    hidden data like the GPS location is kept)."""
+    uploaded.seek(0)
+    with Image.open(uploaded) as original:
+        image = ImageOps.exif_transpose(original).convert('RGB')
+        image.thumbnail((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+        clean = Image.new('RGB', image.size)
+        clean.paste(image)
+        buffer = BytesIO()
+        clean.save(buffer, format='JPEG', quality=85, optimize=True)
+    return ContentFile(buffer.getvalue(), name='avatar.jpg')
+
+
 def fingerprint(file) -> str:
     """A 16-character "difference hash": the photo shrunk to 9x8 grey squares, then one
     bit per square saying "brighter than the square on its right?". Copies of the

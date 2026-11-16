@@ -44,6 +44,7 @@ export type ListingDetail = Omit<ListingSummary, 'cover_photo'> & {
     id: number;
     display_name: string;
     wilaya: number | null;
+    avatar: string | null;
     /** Trust info */
     phone_verified: boolean;
     member_since: string;
@@ -79,11 +80,48 @@ export async function removeFavorite(listingId: number) {
 
 /** The seller marks their own listing as sold. */
 export function markListingSold(listingId: number) {
+  return setListingStatus(listingId, 'sold');
+}
+
+/** The seller sets their listing to active (on sale again), reserved or sold. */
+export function setListingStatus(listingId: number, status: ListingSummary['status']) {
   return apiFetch<ListingDetail>(`/api/listings/${listingId}/`, {
     method: 'PATCH',
-    body: { status: 'sold' },
+    body: { status },
     auth: true,
   });
+}
+
+/** The seller deletes their listing (it disappears everywhere). */
+export function deleteListing(listingId: number) {
+  return apiFetch<null>(`/api/listings/${listingId}/`, { method: 'DELETE', auth: true });
+}
+
+export const MY_LISTING_TABS = ['active', 'review', 'reserved', 'sold'] as const;
+export type MyListingTab = (typeof MY_LISTING_TABS)[number];
+export type MyListing = ListingSummary & {
+  review_status: 'approved' | 'pending_review' | 'rejected';
+};
+
+/** My own listings in one tab, with how many are in each tab. */
+export function fetchMyListings(tab: MyListingTab, page = 1) {
+  return apiFetch<{
+    count: number;
+    next: string | null;
+    results: MyListing[];
+    counts: Record<MyListingTab, number>;
+  }>(`/api/listings/mine/?tab=${tab}&page=${page}`, { auth: true });
+}
+
+/** My favourites, as a page of listings (like the Home grid). */
+export async function fetchFavorites(page = 1): Promise<ListingsPage> {
+  const data = await apiFetch<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: { listing: ListingSummary }[];
+  }>(`/api/favorites/?page=${page}`, { auth: true });
+  return { ...data, results: data.results.map((favorite) => favorite.listing) };
 }
 
 /** What the Sell / Edit form sends (photos go separately, one by one). */
@@ -174,6 +212,8 @@ export type ListingFilters = {
   maxPrice?: number | null;
   size?: string;
   condition?: Condition | null;
+  /** Only this seller's listings (public profile). */
+  seller?: number | null;
 };
 
 /** Active listings, newest first, 20 per page. `page` starts at 1. */
@@ -191,6 +231,7 @@ export function fetchListings({ page, filters = {} }: { page: number; filters?: 
   add('max_price', filters.maxPrice);
   add('size', filters.size);
   add('condition', filters.condition);
+  add('seller', filters.seller);
   return apiFetch<ListingsPage>(`/api/listings/?${params}`);
 }
 
