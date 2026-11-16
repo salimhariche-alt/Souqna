@@ -11,16 +11,19 @@ import { Spacing } from '@/constants/theme';
 import { wilayaLabel } from '@/constants/wilayas';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
+import { ListRow } from '@/ui';
 
 type Props = {
   label: string;
   value: number | null;
   onChange: (code: number) => void;
   error?: string;
+  /** 'field' (a text-box look, default) or 'row' (a list row: icon, label, value, arrow). */
+  variant?: 'field' | 'row';
 };
 
 /** A form field that opens a searchable list of the 58 wilayas. */
-export function WilayaPicker({ label, value, onChange, error }: Props) {
+export function WilayaPicker({ label, value, onChange, error, variant = 'field' }: Props) {
   const { t } = useTranslation();
   const { language, direction } = useLanguage();
   const theme = useTheme();
@@ -28,7 +31,17 @@ export function WilayaPicker({ label, value, onChange, error }: Props) {
 
   return (
     <View style={styles.container}>
-      <ThemedText type="smallBold">{label}</ThemedText>
+      {variant === 'row' ? (
+        <ListRow
+          icon="location-outline"
+          label={label}
+          value={value ? wilayaLabel(value, language) : t('auth.chooseWilaya')}
+          onPress={() => setOpen(true)}
+        />
+      ) : (
+        <ThemedText type="smallBold">{label}</ThemedText>
+      )}
+      {variant === 'field' && (
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityRole="button"
@@ -43,8 +56,9 @@ export function WilayaPicker({ label, value, onChange, error }: Props) {
         </ThemedText>
         <Ionicons name="chevron-down" size={18} color={theme.textSecondary} />
       </Pressable>
+      )}
       {error ? (
-        <ThemedText type="small" style={styles.error}>
+        <ThemedText themeColor="danger" type="small" style={styles.error}>
           {error}
         </ThemedText>
       ) : null}
@@ -94,7 +108,7 @@ const styles = StyleSheet.create({
   },
   fieldError: { borderColor: '#D93025' },
   fieldText: { flex: 1 },
-  error: { color: '#D93025' },
+  error: {},
   modal: { flex: 1 },
   modalHeader: {
     flexDirection: 'row',

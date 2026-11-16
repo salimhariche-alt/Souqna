@@ -5,10 +5,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import type { ListingSummary } from '@/api/listings';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import type { Language } from '@/i18n';
+import { useTokens } from '@/theme';
+import { AppText, Badge } from '@/ui';
 import { formatPrice } from '@/utils/format';
 
 type Props = {
@@ -20,7 +19,7 @@ type Props = {
   onUnfavorite?: (listing: ListingSummary) => void;
 };
 
-/** One card in the Home grid: photo, price, size and brand. */
+/** One card in a grid: photo, price, size and brand (and Sold / Reserved). */
 export const ListingCard = memo(function ListingCard({
   listing,
   language,
@@ -28,22 +27,20 @@ export const ListingCard = memo(function ListingCard({
   onPress,
   onUnfavorite,
 }: Props) {
-  const theme = useTheme();
+  const tk = useTokens();
   const { t } = useTranslation();
-  const startCorner = direction === 'rtl' ? { right: Spacing.two } : { left: Spacing.two };
-  const endCorner = direction === 'rtl' ? { left: Spacing.two } : { right: Spacing.two };
   const price = formatPrice(listing.price_dzd, language);
   const details = [listing.size, listing.brand].filter(Boolean).join(' · ');
-  // Latin brand names would otherwise line up left inside the Arabic layout.
-  const align = { textAlign: direction === 'rtl' ? 'right' : 'left', writingDirection: direction } as const;
+  const startCorner = direction === 'rtl' ? { right: tk.space.sm } : { left: tk.space.sm };
+  const endCorner = direction === 'rtl' ? { left: tk.space.sm } : { right: tk.space.sm };
 
   return (
     <Pressable
       onPress={() => onPress(listing)}
       accessibilityRole="button"
       accessibilityLabel={[listing.title, price, details].filter(Boolean).join(', ')}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      <View style={[styles.photo, { backgroundColor: theme.backgroundSelected }]}>
+      style={({ pressed }) => [styles.card, { gap: tk.space.xxs }, pressed && styles.pressed]}>
+      <View style={[styles.photo, { backgroundColor: tk.color.surfaceAlt, borderRadius: tk.radius.lg, marginBottom: tk.space.xs }]}>
         {listing.cover_photo ? (
           <Image
             source={{ uri: listing.cover_photo }}
@@ -53,18 +50,15 @@ export const ListingCard = memo(function ListingCard({
             recyclingKey={String(listing.id)}
           />
         ) : (
-          <Ionicons name="image-outline" size={32} color={theme.textSecondary} />
+          <Ionicons name="image-outline" size={32} color={tk.color.textMuted} />
         )}
         {listing.status !== 'active' && (
-          <View
-            style={[
-              styles.badge,
-              startCorner,
-              listing.status === 'sold' ? styles.sold : styles.reserved,
-            ]}>
-            <ThemedText type="small" style={styles.badgeText}>
-              {listing.status === 'sold' ? t('listing.sold') : t('listing.reserved')}
-            </ThemedText>
+          <View style={[styles.corner, startCorner, { top: tk.space.sm }]}>
+            <Badge
+              label={listing.status === 'sold' ? t('listing.sold') : t('listing.reserved')}
+              tone={listing.status === 'sold' ? 'danger' : 'warning'}
+              solid
+            />
           </View>
         )}
         {onUnfavorite && (
@@ -73,53 +67,34 @@ export const ListingCard = memo(function ListingCard({
             accessibilityRole="button"
             accessibilityLabel={t('listing.removeFavorite')}
             hitSlop={8}
-            style={[styles.heart, endCorner]}>
-            <Ionicons name="heart" size={20} color="#E0245E" />
+            style={[styles.heart, endCorner, { top: tk.space.sm, backgroundColor: tk.color.background }]}>
+            <Ionicons name="heart" size={20} color={tk.color.danger} />
           </Pressable>
         )}
       </View>
-      <ThemedText type="smallBold" style={[styles.price, align]} numberOfLines={1}>
+      <AppText variant="bodyStrong" numberOfLines={1}>
         {price}
-      </ThemedText>
+      </AppText>
       {details ? (
-        <ThemedText type="small" themeColor="textSecondary" style={align} numberOfLines={1}>
+        <AppText variant="small" tone="secondary" numberOfLines={1}>
           {details}
-        </ThemedText>
+        </AppText>
       ) : null}
     </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
-  card: { flex: 1, gap: Spacing.half },
+  card: { flex: 1 },
   pressed: { opacity: 0.8 },
-  photo: {
-    aspectRatio: 4 / 5,
-    borderRadius: Spacing.two,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.one,
-  },
-  price: { fontSize: 16 },
-  badge: {
-    position: 'absolute',
-    top: Spacing.two,
-    paddingVertical: 2,
-    paddingHorizontal: Spacing.two,
-    borderRadius: 999,
-  },
-  sold: { backgroundColor: '#D93025' },
-  reserved: { backgroundColor: '#E37400' },
-  badgeText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  photo: { aspectRatio: 4 / 5, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  corner: { position: 'absolute' },
   heart: {
     position: 'absolute',
-    top: Spacing.two,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
   },
 });

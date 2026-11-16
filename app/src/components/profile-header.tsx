@@ -51,7 +51,7 @@ export function ProfileHeader({
       {phoneVerified ? (
         <View style={styles.verified}>
           <Ionicons name="checkmark-circle" size={16} color="#1E8E3E" />
-          <ThemedText type="smallBold" style={styles.verifiedText}>
+          <ThemedText themeColor="success" type="smallBold" style={styles.verifiedText}>
             {t('listing.phoneVerified')}
           </ThemedText>
         </View>
@@ -79,5 +79,5 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(30,142,62,0.12)',
   },
-  verifiedText: { color: '#1E8E3E' },
+  verifiedText: {},
 });

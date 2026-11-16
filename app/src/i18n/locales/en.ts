@@ -221,6 +221,15 @@ const en: Translations = {
     },
   },
   sell: {
+    screenTitle: 'Sell an item',
+    addPhotos: 'Add photos',
+    addPhotosHint: 'Up to {{max}} photos. The first one is the cover.',
+    aboutItem: 'About your item',
+    itemDetails: 'Item details',
+    pricing: 'Pricing',
+    location: 'Location',
+    choose: 'Choose',
+    optional: 'Optional',
     photos: 'Photos',
     photoCount: '{{count}}/{{max}}',
     photosHint: 'The first photo is the cover. Tap ☆ to choose another one.',
@@ -281,7 +290,7 @@ const en: Translations = {
   safety: {
     screenTitle: 'Tips',
     title: 'Buy safely',
-    intro: 'A few simple habits so everything goes well, before your first conversation.',
+    intro: 'A few simple habits so everything goes well, before you chat with a new seller.',
     moreOptions: 'More options',
     understood: 'Got it',
     tips: {
@@ -369,6 +378,8 @@ const en: Translations = {
     deleteListingTitle: 'Delete the listing?',
     deleteListingText: '"{{title}}" will disappear from Souqna. This can\'t be undone.',
     noFavorites: 'No favourites yet. Tap ♡ on a listing to save it here.',
+    noFavoritesTitle: 'No favourites',
+    viewMyListings: 'View my listings',
     changePhoto: 'Change profile photo',
     removePhoto: 'Remove photo',
     photoHint: "Optional. The photo's location and hidden data are removed.",
@@ -376,6 +387,30 @@ const en: Translations = {
   },
   settings: {
     title: 'Settings',
+  },
+  help: {
+    title: 'Help',
+    intro: 'Answers to the most common questions.',
+    buy: {
+      question: 'How do I buy?',
+      answer:
+        'Find an item, tap "Message the seller" and chat in the app. Meet in a public place and pay in person after checking the item.',
+    },
+    sell: {
+      question: 'How do I sell?',
+      answer:
+        'Tap "Sell", add photos, a title, the category, condition and price, then publish. Find your listings in "My listings".',
+    },
+    verify: {
+      question: 'Why verify my number?',
+      answer:
+        'A verified number is needed to sell and send messages. It makes Souqna safer: buyers see the "Phone verified" badge.',
+    },
+    safety: {
+      question: 'What if something goes wrong?',
+      answer:
+        'Use "⋯" on a listing, a profile or a conversation to report or block. Never send money in advance (CCP, BaridiMob).',
+    },
   },
   deleteAccount: {
     title: 'Delete my account',
@@ -394,6 +429,14 @@ const en: Translations = {
     mismatchPhone: "That's not this account's phone number.",
     mismatchEmail: "That's not this account's email.",
     confirm: 'Delete my account for good',
+  },
+  choice: { ok: 'OK' },
+  browse: {
+    placeholder: 'Search items or members',
+    categories: 'Categories',
+    backToCategories: 'Back to categories',
+    members: 'Members',
+    verified: 'Verified',
   },
   welcome: {
     headline: 'Sell and buy second-hand all over Algeria',

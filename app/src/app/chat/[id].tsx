@@ -37,6 +37,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useTokens } from '@/theme';
 import { codedMessage, formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
 import { refreshUnread } from '@/messages/unread';
@@ -81,6 +82,14 @@ type Row =
 function ChatContent({ id }: { id: string }) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const tk = useTokens();
+  // Warning (yellow) and danger (red) colours that also work in dark mode.
+  const tone = {
+    warnBox: { backgroundColor: tk.color.warningSoft },
+    warnText: { color: tk.color.warning },
+    dangerBox: { backgroundColor: tk.color.dangerSoft },
+    dangerText: { color: tk.color.danger },
+  };
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { language, direction } = useLanguage();
@@ -427,17 +436,17 @@ function ChatContent({ id }: { id: string }) {
           />
         </Pressable>
         {listing.status === 'sold' && (
-          <View style={styles.soldNote}>
-            <ThemedText type="small" style={[styles.soldNoteText, styles.center]}>
+          <View style={[styles.soldNote, tone.dangerBox]}>
+            <ThemedText type="small" style={[tone.dangerText, styles.center]}>
               {t('listing.soldNotice')}
             </ThemedText>
           </View>
         )}
         {/* Shown once, the first time this person receives a voice message. */}
         {!voiceTipSeen && messages.some((m) => !m.is_mine && m.kind === 'voice') && (
-          <View style={styles.voiceTip} accessibilityRole="alert">
-            <Ionicons name="shield-checkmark-outline" size={20} color="#7A5A00" />
-            <ThemedText type="small" style={[styles.flex, styles.warningText, align]}>
+          <View style={[styles.voiceTip, tone.warnBox]} accessibilityRole="alert">
+            <Ionicons name="shield-checkmark-outline" size={20} color={tk.color.warning} />
+            <ThemedText type="small" style={[styles.flex, tone.warnText, align]}>
               {t('voice.tip')}
             </ThemedText>
             <Pressable onPress={dismissVoiceTip} accessibilityRole="button" hitSlop={8}>
@@ -493,8 +502,8 @@ function ChatContent({ id }: { id: string }) {
                       {t('chat.sending')}
                     </ThemedText>
                   ) : item.pending.status === 'rejected' ? (
-                    <View style={styles.rejected} accessibilityRole="alert">
-                      <ThemedText type="smallBold" style={styles.rejectedText}>
+                    <View style={[styles.rejected, tone.dangerBox]} accessibilityRole="alert">
+                      <ThemedText type="smallBold" style={tone.dangerText}>
                         {t('moderation.notSent')}
                       </ThemedText>
                     </View>
@@ -503,7 +512,7 @@ function ChatContent({ id }: { id: string }) {
                       onPress={() => deliver(item.pending)}
                       accessibilityRole="button"
                       hitSlop={8}>
-                      <ThemedText type="smallBold" style={styles.failed}>
+                      <ThemedText type="smallBold" style={tone.dangerText}>
                         {t('chat.failed')}
                       </ThemedText>
                     </Pressable>
@@ -559,9 +568,9 @@ function ChatContent({ id }: { id: string }) {
                   </ThemedText>
                 </Bubble>
                 {!message.is_mine && message.warnings.length > 0 && (
-                  <View style={styles.warning} accessibilityRole="alert">
-                    <Ionicons name="warning-outline" size={18} color="#7A5A00" />
-                    <ThemedText type="small" style={[styles.warningText, align]}>
+                  <View style={[styles.warning, tone.warnBox]} accessibilityRole="alert">
+                    <Ionicons name="warning-outline" size={18} color={tk.color.warning} />
+                    <ThemedText type="small" style={[styles.flex, tone.warnText, align]}>
                       {t('chat.warning')}
                     </ThemedText>
                   </View>
@@ -608,7 +617,7 @@ function ChatContent({ id }: { id: string }) {
               {sendError || hint ? (
                 <ThemedText
                   type="small"
-                  style={[sendError ? styles.failed : styles.hintText, align]}
+                  style={[sendError ? tone.dangerText : tone.warnText, align]}
                   accessibilityLiveRegion="polite">
                   {sendError ?? hint}
                 </ThemedText>
@@ -618,11 +627,11 @@ function ChatContent({ id }: { id: string }) {
                   // While recording: a red dot, the timer, and how to cancel.
                   <View
                     style={[styles.input, styles.recordingRow, { backgroundColor: theme.backgroundElement }]}>
-                    <View style={styles.recordDot} />
+                    <View style={[styles.recordDot, { backgroundColor: tk.color.danger }]} />
                     <ThemedText type="smallBold">{formatDuration(recording.elapsedMs)}</ThemedText>
                     <ThemedText
                       type="small"
-                      style={[styles.flex, align, recording.cancelling ? styles.failed : undefined]}
+                      style={[styles.flex, align, recording.cancelling ? tone.dangerText : undefined]}
                       themeColor={recording.cancelling ? undefined : 'textSecondary'}
                       numberOfLines={1}>
                       {recording.cancelling ? t('voice.releaseToCancel') : t('voice.slideToCancel')}

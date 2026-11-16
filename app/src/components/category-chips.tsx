@@ -3,11 +3,10 @@ import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import type { Category } from '@/api/listings';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Brand, Spacing } from '@/constants/theme';
 import { categoryName } from '@/hooks/use-categories';
 import { useLanguage } from '@/i18n/language-provider';
+import { useTokens } from '@/theme';
+import { AppText } from '@/ui';
 
 // The order asked for in the design; any other main category comes after these.
 const ORDER = ['Women', 'Men', 'Kids', 'Home', 'Electronics'];
@@ -30,6 +29,7 @@ type Props = {
 export function CategoryChips({ categories, selected, onSelect }: Props) {
   const { t } = useTranslation();
   const { language, direction } = useLanguage();
+  const tk = useTokens();
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const chips: { id: number | null; label: string }[] = [
@@ -58,14 +58,17 @@ export function CategoryChips({ categories, selected, onSelect }: Props) {
             key={chip.id ?? 'all'}
             onPress={() => onSelect(chip.id)}
             accessibilityRole="button"
-            accessibilityState={{ selected: isSelected }}>
-            <ThemedView
-              type={isSelected ? undefined : 'backgroundElement'}
-              style={[styles.chip, isSelected && styles.chipSelected]}>
-              <ThemedText type="smallBold" style={isSelected ? styles.chipTextSelected : undefined}>
-                {chip.label}
-              </ThemedText>
-            </ThemedView>
+            accessibilityState={{ selected: isSelected }}
+            style={({ pressed }) => [
+              styles.chip,
+              {
+                borderRadius: tk.radius.full,
+                backgroundColor: isSelected ? tk.color.primary : pressed ? tk.color.surfaceAlt : tk.color.surface,
+              },
+            ]}>
+            <AppText variant="smallStrong" style={{ color: isSelected ? tk.color.onPrimary : tk.color.text }}>
+              {chip.label}
+            </AppText>
           </Pressable>
         );
       })}
@@ -74,12 +77,6 @@ export function CategoryChips({ categories, selected, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  chip: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: 999,
-  },
-  chipSelected: { backgroundColor: Brand.fill },
-  chipTextSelected: { color: '#ffffff' },
+  row: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
+  chip: { paddingVertical: 8, paddingHorizontal: 16, minHeight: 38, justifyContent: 'center' },
 });

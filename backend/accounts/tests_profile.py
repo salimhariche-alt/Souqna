@@ -158,6 +158,37 @@ class PublicProfileTests(ProfileTestCase):
         self.assertEqual([item['id'] for item in response.data['results']], [mine.id])
 
 
+class MemberSearchTests(ProfileTestCase):
+    def search(self, query):
+        return self.client.get('/api/users/', {'search': query})
+
+    def test_find_members_by_name_without_private_data(self):
+        response = self.search('ami')
+        self.assertEqual([u['display_name'] for u in response.data], ['Amina'])
+        self.assertNotIn('0550000001', str(response.content))
+        self.assertNotIn('amina@example.com', str(response.content))
+        self.assertNotIn('phone', response.data[0])
+
+    def test_at_least_two_letters(self):
+        self.assertEqual(self.search('a').data, [])
+        self.assertEqual(self.search('').data, [])
+
+    def test_hidden_suspended_deleted_blocked_and_staff_are_not_found(self):
+        User.objects.create_superuser(phone='0799999999', password=PASSWORD, display_name='Amina Admin')
+        for change in ({'is_active': False}, {'hidden_by_reports': True}):
+            User.objects.filter(pk=self.seller.pk).update(**change)
+            self.assertEqual(self.search('amina').data, [], change)
+            User.objects.filter(pk=self.seller.pk).update(is_active=True, hidden_by_reports=False)
+        Block.objects.create(blocker=self.buyer, blocked=self.seller)
+        self.client.force_authenticate(self.buyer)
+        self.assertEqual(self.search('amina').data, [])
+
+    def test_at_most_10_results(self):
+        for n in range(12):
+            User.objects.create_user(phone=f'07700000{n:02d}', display_name=f'Karim {n}')
+        self.assertEqual(len(self.search('karim').data), 10)
+
+
 # 3. My listings --------------------------------------------------------------------------
 
 class MyListingsTests(ProfileTestCase):

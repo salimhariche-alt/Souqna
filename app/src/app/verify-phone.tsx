@@ -226,7 +226,7 @@ function VerifyPhoneContent({ next }: { next: string | undefined }) {
               })}`}
             />
           ) : message ? (
-            <ThemedText type="small" style={[styles.error, styles.center]}>
+            <ThemedText themeColor="danger" type="small" style={[styles.error, styles.center]}>
               {message}
             </ThemedText>
           ) : busy ? (
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(32,138,239,0.12)',
   },
   center: { textAlign: 'center' },
-  error: { color: '#D93025' },
+  error: {},
   link: {},
   linkButton: { alignItems: 'center', paddingVertical: Spacing.two },
   devHint: { marginTop: Spacing.two },

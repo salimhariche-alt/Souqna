@@ -218,6 +218,15 @@ const ar: Translations = {
     },
   },
   sell: {
+    screenTitle: 'بيع منتج',
+    addPhotos: 'إضافة صور',
+    addPhotosHint: 'حتى {{max}} صور. الأولى ستكون صورة الغلاف.',
+    aboutItem: 'عن المنتج',
+    itemDetails: 'تفاصيل المنتج',
+    pricing: 'السعر',
+    location: 'المكان',
+    choose: 'اختيار',
+    optional: 'اختياري',
     photos: 'الصور',
     photoCount: '{{count}}/{{max}}',
     photosHint: 'الصورة الأولى هي صورة الغلاف. اضغط ☆ لاختيار صورة أخرى.',
@@ -278,7 +287,7 @@ const ar: Translations = {
   safety: {
     screenTitle: 'نصائح',
     title: 'اشترِ بأمان',
-    intro: 'بعض العادات البسيطة لكي يمرّ كل شيء على ما يرام، قبل محادثتك الأولى.',
+    intro: 'بعض العادات البسيطة لكي يمرّ كل شيء على ما يرام، قبل التحدث مع بائع جديد.',
     moreOptions: 'خيارات أخرى',
     understood: 'فهمت',
     tips: {
@@ -366,6 +375,8 @@ const ar: Translations = {
     deleteListingTitle: 'حذف الإعلان؟',
     deleteListingText: 'سيختفي «{{title}}» من سوقنا. لا يمكن التراجع عن ذلك.',
     noFavorites: 'لا توجد مفضلة بعد. اضغط ♡ على إعلان لحفظه هنا.',
+    noFavoritesTitle: 'لا توجد مفضلة',
+    viewMyListings: 'عرض إعلاناتي',
     changePhoto: 'تغيير صورة الملف الشخصي',
     removePhoto: 'حذف الصورة',
     photoHint: 'اختياري. يُحذف موقع الصورة وبياناتها المخفية.',
@@ -373,6 +384,29 @@ const ar: Translations = {
   },
   settings: {
     title: 'الإعدادات',
+  },
+  help: {
+    title: 'المساعدة',
+    intro: 'إجابات عن الأسئلة الأكثر شيوعًا.',
+    buy: {
+      question: 'كيف أشتري؟',
+      answer:
+        'ابحث عن منتج، اضغط «مراسلة البائع» وتحدّث داخل التطبيق. التقِ في مكان عام وادفع يدًا بيد بعد فحص المنتج.',
+    },
+    sell: {
+      question: 'كيف أبيع؟',
+      answer:
+        'اضغط «بيع»، أضف الصور والعنوان والفئة والحالة والسعر، ثم انشر. ستجد إعلاناتك في «إعلاناتي».',
+    },
+    verify: {
+      question: 'لماذا أوثّق رقمي؟',
+      answer: 'الرقم الموثّق ضروري للبيع وإرسال الرسائل. هذا يجعل سوقنا أكثر أمانًا: يرى المشترون شارة «هاتف موثّق».',
+    },
+    safety: {
+      question: 'ماذا أفعل عند حدوث مشكلة؟',
+      answer:
+        'استخدم «⋯» على إعلان أو ملف شخصي أو محادثة للإبلاغ أو الحظر. لا ترسل المال مسبقًا أبدًا (CCP، BaridiMob).',
+    },
   },
   deleteAccount: {
     title: 'حذف حسابي',
@@ -389,6 +423,14 @@ const ar: Translations = {
     mismatchPhone: 'هذا ليس رقم هاتف هذا الحساب.',
     mismatchEmail: 'هذا ليس البريد الإلكتروني لهذا الحساب.',
     confirm: 'حذف حسابي نهائيًا',
+  },
+  choice: { ok: 'موافق' },
+  browse: {
+    placeholder: 'ابحث عن منتجات أو أعضاء',
+    categories: 'الفئات',
+    backToCategories: 'العودة إلى الفئات',
+    members: 'الأعضاء',
+    verified: 'موثّق',
   },
   welcome: {
     headline: 'بِع واشترِ المستعمل في كل أنحاء الجزائر',

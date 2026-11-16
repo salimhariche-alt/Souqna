@@ -122,7 +122,7 @@ function EditProfileContent() {
         <WilayaPicker label={t('auth.wilaya')} value={wilaya} onChange={setWilaya} error={errors.wilaya || undefined} />
 
         {general ? (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText themeColor="danger" type="small" style={styles.error}>
             {general}
           </ThemedText>
         ) : null}
@@ -162,5 +162,5 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#ffffff',
   },
-  error: { color: '#D93025' },
+  error: {},
 });

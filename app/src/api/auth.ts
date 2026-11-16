@@ -137,6 +137,11 @@ export type PublicProfile = {
   active_listings: number;
 };
 
+/** Members whose name contains the words (at least 2 letters, at most 10 results). */
+export function searchMembers(query: string) {
+  return apiFetch<PublicProfile[]>(`/api/users/?search=${encodeURIComponent(query)}`);
+}
+
 export function fetchPublicProfile(userId: number | string) {
   return apiFetch<PublicProfile>(`/api/users/${userId}/`, { auth: true });
 }

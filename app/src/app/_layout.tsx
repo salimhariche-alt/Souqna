@@ -34,7 +34,9 @@ function RootStack() {
       />
       <Stack.Screen name="blocked-users" options={{ title: t('block.listTitle') }} />
       <Stack.Screen name="edit-profile" options={{ title: t('profile.editProfile') }} />
-      <Stack.Screen name="settings" options={{ title: t('settings.title') }} />
+      <Stack.Screen name="my-listings" options={{ title: t('profile.myListings') }} />
+      <Stack.Screen name="favorites" options={{ title: t('profile.myFavorites') }} />
+      <Stack.Screen name="help" options={{ title: t('help.title') }} />
       <Stack.Screen name="delete-account" options={{ title: t('deleteAccount.title') }} />
       <Stack.Screen name="seller/[id]" options={{ title: t('listing.seller') }} />
       <Stack.Screen name="design-preview" options={{ title: t('designPreview.screenTitle') }} />

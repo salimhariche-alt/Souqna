@@ -98,7 +98,7 @@ export function MessageSheet({
               ]}
             />
             {localError || error ? (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText themeColor="danger" type="small" style={styles.error}>
                 {localError ?? error}
               </ThemedText>
             ) : null}
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlignVertical: 'top',
   },
-  error: { color: '#D93025' },
+  error: {},
   cancel: { alignItems: 'center', paddingVertical: Spacing.two },
   cancelText: {},
 });

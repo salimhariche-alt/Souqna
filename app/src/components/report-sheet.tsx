@@ -151,7 +151,7 @@ export function ReportSheet({ target, onClose }: Props) {
                 />
 
                 {error ? (
-                  <ThemedText type="small" style={[styles.error, align]}>
+                  <ThemedText themeColor="danger" type="small" style={[styles.error, align]}>
                     {error}
                   </ThemedText>
                 ) : null}
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlignVertical: 'top',
   },
-  error: { color: '#D93025' },
+  error: {},
   cancel: { alignItems: 'center', paddingVertical: Spacing.two },
   cancelText: {},
 });

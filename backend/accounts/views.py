@@ -188,6 +188,34 @@ class DeleteAccountView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+def visible_users(viewer):
+    """Accounts anyone may see: active, not deleted or hidden, and no block either way."""
+    users = User.objects.filter(is_active=True, deleted_at__isnull=True, hidden_by_reports=False)
+    if viewer.is_authenticated:
+        users = users.exclude(pk__in=Block.objects.filter(blocker=viewer).values('blocked'))
+        users = users.exclude(pk__in=Block.objects.filter(blocked=viewer).values('blocker'))
+    return users
+
+
+class MemberSearchView(generics.ListAPIView):
+    """GET /api/users/?search=amina - members whose display name contains the words
+    (at least 2 letters, at most 10 results). Never phone numbers or emails."""
+
+    serializer_class = PublicProfileSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
+    MAX_RESULTS = 10
+
+    def get_queryset(self):
+        query = self.request.query_params.get('search', '').strip()
+        if len(query) < 2:
+            return User.objects.none()
+        return (visible_users(self.request.user)
+                .filter(display_name__icontains=query)
+                .exclude(is_staff=True)
+                .order_by('-phone_verified', 'display_name')[:self.MAX_RESULTS])
+
+
 class PublicProfileView(generics.RetrieveAPIView):
     """GET /api/users/{id}/ - a seller's public profile (never their phone or email).
 
@@ -199,10 +227,4 @@ class PublicProfileView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        users = User.objects.filter(is_active=True, deleted_at__isnull=True,
-                                    hidden_by_reports=False)
-        me = self.request.user
-        if me.is_authenticated:
-            users = users.exclude(pk__in=Block.objects.filter(blocker=me).values('blocked'))
-            users = users.exclude(pk__in=Block.objects.filter(blocked=me).values('blocker'))
-        return users
+        return visible_users(self.request.user)
