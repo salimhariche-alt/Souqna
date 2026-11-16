@@ -8,6 +8,7 @@ import { useAuth } from '@/auth/auth-provider';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { refreshUnread, setUnread, useUnreadCount } from '@/messages/unread';
 
+import { useTheme } from '@/hooks/use-theme';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 function tabIcon(name: IconName): BottomTabNavigationOptions['tabBarIcon'] {
@@ -29,6 +30,7 @@ export default function TabLayout() {
   const { t } = useTranslation();
   const { status, user } = useAuth();
   const unread = useUnreadCount();
+  const theme = useTheme();
 
   // Keep the badge up to date while logged in; reset it when logged out.
   useEffect(() => {
@@ -54,7 +56,8 @@ export default function TabLayout() {
   });
 
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: '#208AEF', headerTitleAlign: 'center' }}>
+    // Selected tab in the brand colour (lighter in dark mode so its label stays readable).
+    <Tabs screenOptions={{ tabBarActiveTintColor: theme.primary, headerTitleAlign: 'center' }}>
       <Tabs.Screen
         name="index"
         options={{

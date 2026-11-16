@@ -53,7 +53,7 @@ export function ConfirmDialog({
             disabled={loading}
             accessibilityRole="button"
             style={styles.cancel}>
-            <ThemedText type="smallBold" style={styles.cancelText}>
+            <ThemedText type="smallBold" themeColor="primary" style={styles.cancelText}>
               {cancelLabel}
             </ThemedText>
           </Pressable>
@@ -80,5 +80,5 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18 },
   cancel: { alignItems: 'center', paddingVertical: Spacing.two },
-  cancelText: { color: '#208AEF' },
+  cancelText: {},
 });

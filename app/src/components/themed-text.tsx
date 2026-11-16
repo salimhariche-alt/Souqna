@@ -2,6 +2,7 @@ import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
 import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { FontFiles } from '@/theme/typography';
 
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
@@ -11,43 +12,46 @@ export type ThemedTextProps = TextProps & {
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
 
-  return <Text style={[{ color: theme[themeColor ?? 'text'] }, styles[type], style]} {...rest} />;
+  const color = theme[themeColor ?? (type === 'linkPrimary' ? 'primary' : 'text')];
+  return <Text style={[{ color }, styles[type], style]} {...rest} />;
 }
 
+// The app's font (see src/theme/typography.ts): one file per weight.
 const styles = StyleSheet.create({
   small: {
+    fontFamily: FontFiles.medium,
     fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 500,
+    lineHeight: 21,
   },
   smallBold: {
+    fontFamily: FontFiles.bold,
     fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
+    lineHeight: 21,
   },
   default: {
+    fontFamily: FontFiles.medium,
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: 500,
   },
   title: {
+    fontFamily: FontFiles.semibold,
     fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    lineHeight: 60,
   },
   subtitle: {
+    fontFamily: FontFiles.semibold,
     fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    lineHeight: 46,
   },
   link: {
+    fontFamily: FontFiles.regular,
     lineHeight: 30,
     fontSize: 14,
   },
   linkPrimary: {
+    fontFamily: FontFiles.regular,
     lineHeight: 30,
     fontSize: 14,
-    color: '#3c87f7',
   },
   code: {
     fontFamily: Fonts.mono,

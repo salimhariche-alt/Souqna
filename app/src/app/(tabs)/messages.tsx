@@ -10,7 +10,8 @@ import { FeedMessage } from '@/components/feed-message';
 import { RequireAuth } from '@/components/require-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
+import { FontFiles } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
 import { refreshUnread, setUnread } from '@/messages/unread';
@@ -163,7 +164,7 @@ function ConversationRow({ conversation }: { conversation: ConversationSummary }
           <ThemedText
             type="small"
             style={unread ? styles.timeUnread : undefined}
-            themeColor={unread ? undefined : 'textSecondary'}>
+            themeColor={unread ? 'primary' : 'textSecondary'}>
             {shortStamp(last_message?.sent_at ?? conversation.last_activity, words)}
           </ThemedText>
         </View>
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
   middle: { flex: 1, gap: 2 },
   topLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   name: { flex: 1 },
-  timeUnread: { color: '#208AEF', fontWeight: '700' },
+  timeUnread: { fontFamily: FontFiles.bold },
   bottomLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   preview: { flex: 1 },
   badge: {
@@ -229,7 +230,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#208AEF',
+    backgroundColor: Brand.fill,
   },
   badgeText: { color: '#ffffff', fontSize: 12, lineHeight: 16 },
 });

@@ -22,7 +22,7 @@ import {
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
@@ -115,14 +115,14 @@ export function ReportSheet({ target, onClose }: Props) {
                         accessibilityState={{ checked: selected }}
                         style={({ pressed }) => [
                           styles.reason,
-                          { borderColor: selected ? '#208AEF' : theme.backgroundSelected },
+                          { borderColor: selected ? Brand.fill : theme.backgroundSelected },
                           selected && styles.reasonSelected,
                           pressed && styles.pressed,
                         ]}>
                         <Ionicons
                           name={selected ? 'radio-button-on' : 'radio-button-off'}
                           size={22}
-                          color={selected ? '#208AEF' : theme.textSecondary}
+                          color={selected ? Brand.fill : theme.textSecondary}
                         />
                         <ThemedText style={[styles.flex, align]}>
                           {t(`report.reasons.${value}`)}
@@ -161,7 +161,7 @@ export function ReportSheet({ target, onClose }: Props) {
                   disabled={sending}
                   accessibilityRole="button"
                   style={styles.cancel}>
-                  <ThemedText type="smallBold" style={styles.cancelText}>
+                  <ThemedText type="smallBold" themeColor="primary" style={styles.cancelText}>
                     {t('listing.cancel')}
                   </ThemedText>
                 </Pressable>
@@ -224,5 +224,5 @@ const styles = StyleSheet.create({
   },
   error: { color: '#D93025' },
   cancel: { alignItems: 'center', paddingVertical: Spacing.two },
-  cancelText: { color: '#208AEF' },
+  cancelText: {},
 });

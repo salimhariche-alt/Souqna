@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { LANGUAGE_NAMES, LANGUAGES, type Language } from '@/i18n';
 import { useLanguage } from '@/i18n/language-provider';
 
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  buttonSelected: { borderColor: '#208AEF' },
+  buttonSelected: { borderColor: Brand.fill },
   pressed: { opacity: 0.7 },
   compactRow: { gap: Spacing.one, marginHorizontal: Spacing.three },
   compactButton: {
@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     borderRadius: Spacing.two,
   },
-  compactSelected: { backgroundColor: '#208AEF' },
+  compactSelected: { backgroundColor: Brand.fill },
   compactSelectedText: { color: '#ffffff' },
 });

@@ -109,7 +109,7 @@ export function ListingGrid({
               {t('home.loadMoreFailed')}
             </ThemedText>
             <Pressable onPress={feed.loadMore} accessibilityRole="button">
-              <ThemedText type="smallBold" style={styles.link}>
+              <ThemedText type="smallBold" themeColor="primary" style={styles.link}>
                 {t('home.retry')}
               </ThemedText>
             </Pressable>
@@ -133,6 +133,6 @@ const styles = StyleSheet.create({
   cell: { width: '50%', padding: Spacing.two },
   footer: { alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.four },
   center: { textAlign: 'center' },
-  link: { color: '#208AEF' },
+  link: {},
   refreshFailed: { color: '#B3261E', textAlign: 'center', paddingVertical: Spacing.two },
 });

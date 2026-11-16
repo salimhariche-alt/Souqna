@@ -4,7 +4,7 @@ import { FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { WILAYAS, wilayaLabel } from '@/constants/wilayas';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
@@ -89,7 +89,7 @@ export function WilayaList({ value, onSelect, allLabel, autoFocus = false }: Pro
               <ThemedText type={selected ? 'smallBold' : 'default'} style={styles.rowText}>
                 {item.label}
               </ThemedText>
-              {selected && <Ionicons name="checkmark" size={20} color="#208AEF" />}
+              {selected && <Ionicons name="checkmark" size={20} color={Brand.fill} />}
             </Pressable>
           );
         }}

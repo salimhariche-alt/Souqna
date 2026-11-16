@@ -11,7 +11,7 @@ import { PrimaryButton } from '@/components/primary-button';
 import { RequireAuth } from '@/components/require-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/i18n/language-provider';
 
 type Tip = { icon: ComponentProps<typeof Ionicons>['name']; key: string; warn?: boolean };
@@ -66,7 +66,7 @@ function BuySafelyContent() {
           key={tip.key}
           type="backgroundElement"
           style={[styles.tip, tip.warn && styles.warnTip]}>
-          <Ionicons name={tip.icon} size={26} color={tip.warn ? '#B3261E' : '#208AEF'} />
+          <Ionicons name={tip.icon} size={26} color={tip.warn ? '#B3261E' : Brand.fill} />
           <View style={styles.flex}>
             <ThemedText type="smallBold" style={[align, tip.warn && styles.warnText]}>
               {t(`safety.tips.${tip.key}.title`)}

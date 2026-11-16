@@ -113,7 +113,7 @@ export function MessageSheet({
               disabled={sending}
               accessibilityRole="button"
               style={styles.cancel}>
-              <ThemedText type="smallBold" style={styles.cancelText}>
+              <ThemedText type="smallBold" themeColor="primary" style={styles.cancelText}>
                 {t('listing.cancel')}
               </ThemedText>
             </Pressable>
@@ -146,5 +146,5 @@ const styles = StyleSheet.create({
   },
   error: { color: '#D93025' },
   cancel: { alignItems: 'center', paddingVertical: Spacing.two },
-  cancelText: { color: '#208AEF' },
+  cancelText: {},
 });

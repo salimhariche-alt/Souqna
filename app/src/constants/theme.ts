@@ -1,30 +1,48 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
+ * Colours for the screens written before the design system (they use useTheme()).
+ * They now come from the design system (src/theme/tokens.ts), so the whole app shares
+ * one palette in light and dark mode. New code: use useTokens() from '@/theme' and the
+ * building blocks in '@/ui' instead.
  */
 
 import '@/global.css';
 
 import { Platform } from 'react-native';
 
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
-} as const;
+import { BRANDS, CHOSEN_BRAND, colorsFor } from '@/theme';
+
+function legacy(scheme: 'light' | 'dark') {
+  const c = colorsFor(CHOSEN_BRAND, scheme);
+  return {
+    text: c.text,
+    background: c.background,
+    backgroundElement: c.surface,
+    backgroundSelected: c.surfaceAlt,
+    textSecondary: c.textSecondary,
+    // Brand and status colours, so older screens can follow light/dark mode too.
+    primary: c.primary,
+    primarySoft: c.primarySoft,
+    onPrimary: c.onPrimary,
+    border: c.border,
+    danger: c.danger,
+    success: c.success,
+    warning: c.warning,
+  };
+}
+
+export const Colors = { light: legacy('light'), dark: legacy('dark') };
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+/**
+ * The brand colour for FILLS, borders and icons (buttons, selected chips, bubbles).
+ * Readable in both light and dark mode (white text on it: 5.5:1).
+ * For brand-coloured TEXT use the theme's `primary` (lighter in dark mode) instead.
+ */
+export const Brand = {
+  fill: BRANDS[CHOSEN_BRAND].light.primary,
+  onFill: BRANDS[CHOSEN_BRAND].light.onPrimary,
+};
 
 export const Fonts = Platform.select({
   ios: {

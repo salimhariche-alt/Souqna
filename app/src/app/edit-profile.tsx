@@ -14,7 +14,7 @@ import { RequireAuth } from '@/components/require-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WilayaPicker } from '@/components/wilaya-picker';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { formErrorsFrom } from '@/i18n/api-errors';
 import { preparePhoto } from '@/photos/prepare';
 import { usePhotoPicker } from '@/photos/use-photo-picker';
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#208AEF',
+    backgroundColor: Brand.fill,
     borderWidth: 2,
     borderColor: '#ffffff',
   },

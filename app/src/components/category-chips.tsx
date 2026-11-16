@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { Category } from '@/api/listings';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { categoryName } from '@/hooks/use-categories';
 import { useLanguage } from '@/i18n/language-provider';
 
@@ -80,6 +80,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: 999,
   },
-  chipSelected: { backgroundColor: '#208AEF' },
+  chipSelected: { backgroundColor: Brand.fill },
   chipTextSelected: { color: '#ffffff' },
 });

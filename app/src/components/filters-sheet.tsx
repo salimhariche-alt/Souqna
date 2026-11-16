@@ -19,7 +19,7 @@ import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WilayaList } from '@/components/wilaya-list';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { wilayaLabel } from '@/constants/wilayas';
 import { categoryName } from '@/hooks/use-categories';
 import { useTheme } from '@/hooks/use-theme';
@@ -54,7 +54,7 @@ function OptionChip({
       accessibilityState={{ selected }}
       style={[
         styles.option,
-        { backgroundColor: selected ? '#208AEF' : theme.backgroundElement },
+        { backgroundColor: selected ? Brand.fill : theme.backgroundElement },
       ]}>
       <ThemedText type="smallBold" style={selected ? styles.optionTextSelected : undefined}>
         {label}

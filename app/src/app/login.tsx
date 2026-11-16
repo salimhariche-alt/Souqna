@@ -82,7 +82,7 @@ export default function LoginScreen() {
           onPress={() =>
             router.replace({ pathname: '/signup', params: next ? { next } : {} } as Href)
           }>
-          <ThemedText type="smallBold" style={styles.link}>
+          <ThemedText type="smallBold" themeColor="primary" style={styles.link}>
             {t('auth.goToSignup')}
           </ThemedText>
         </Pressable>
@@ -99,5 +99,5 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     marginTop: Spacing.two,
   },
-  link: { color: '#208AEF' },
+  link: {},
 });

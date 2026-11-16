@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
 
@@ -135,8 +135,8 @@ function AddTile({
         { borderColor: theme.backgroundSelected },
         pressed && styles.pressed,
       ]}>
-      <Ionicons name={icon} size={28} color="#208AEF" />
-      <ThemedText type="small" style={styles.addText} numberOfLines={1}>
+      <Ionicons name={icon} size={28} color={Brand.fill} />
+      <ThemedText type="small" themeColor="primary" style={styles.addText} numberOfLines={1}>
         {label}
       </ThemedText>
     </Pressable>
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     paddingHorizontal: Spacing.one,
   },
-  addText: { color: '#208AEF', fontSize: 12 },
+  addText: { fontSize: 12 },
   pressed: { opacity: 0.6 },
   error: { color: '#D93025' },
 });

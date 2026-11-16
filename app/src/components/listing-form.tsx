@@ -20,7 +20,7 @@ import { MAX_PHOTOS, PhotoStrip, type FormPhoto } from '@/components/photo-strip
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { WilayaPicker } from '@/components/wilaya-picker';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { categoryName, useCategories } from '@/hooks/use-categories';
 import { useTheme } from '@/hooks/use-theme';
 import { formErrorsFrom } from '@/i18n/api-errors';
@@ -446,7 +446,7 @@ function Choices<T extends string | number>({
               accessibilityState={{ checked: isSelected }}
               style={[
                 styles.chip,
-                { backgroundColor: isSelected ? '#208AEF' : theme.backgroundElement },
+                { backgroundColor: isSelected ? Brand.fill : theme.backgroundElement },
                 error && !isSelected ? styles.chipError : null,
               ]}>
               <ThemedText type="smallBold" style={isSelected ? styles.chipTextSelected : undefined}>
@@ -489,6 +489,6 @@ const styles = StyleSheet.create({
   chipTextSelected: { color: '#ffffff' },
   progress: { gap: Spacing.one },
   track: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  bar: { height: '100%', borderRadius: 4, backgroundColor: '#208AEF' },
+  bar: { height: '100%', borderRadius: 4, backgroundColor: Brand.fill },
   error: { color: '#D93025' },
 });

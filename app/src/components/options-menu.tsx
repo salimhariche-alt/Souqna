@@ -51,7 +51,7 @@ export function OptionsMenu({ visible, options, onClose }: Props) {
               </Pressable>
             ))}
             <Pressable onPress={onClose} accessibilityRole="button" style={styles.cancel}>
-              <ThemedText type="smallBold" style={styles.cancelText}>
+              <ThemedText type="smallBold" themeColor="primary" style={styles.cancelText}>
                 {t('listing.cancel')}
               </ThemedText>
             </Pressable>
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   danger: { color: '#D93025' },
   pressed: { opacity: 0.6 },
   cancel: { alignItems: 'center', paddingVertical: Spacing.three },
-  cancelText: { color: '#208AEF' },
+  cancelText: {},
   more: {
     width: 36,
     height: 36,

@@ -4,7 +4,8 @@ import { StyleSheet, View } from 'react-native';
 import { absoluteUrl } from '@/api/client';
 import { ThemedText } from '@/components/themed-text';
 
-const COLORS = ['#208AEF', '#1E8E3E', '#E37400', '#8E44AD', '#D93025', '#00897B'];
+import { Brand } from '@/constants/theme';
+const COLORS = [Brand.fill, '#1E8E3E', '#E37400', '#8E44AD', '#D93025', '#00897B'];
 
 /** A round profile photo, or the first letter of the name on a coloured circle. */
 export function Avatar({ uri, name, size = 44 }: { uri?: string | null; name: string; size?: number }) {

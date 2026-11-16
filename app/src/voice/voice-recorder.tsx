@@ -14,6 +14,7 @@ import { useLanguage } from '@/i18n/language-provider';
 
 import { MAX_VOICE_SECONDS, MIN_VOICE_MS, VOICE_RECORDING } from './recording';
 
+import { Brand } from '@/constants/theme';
 /** Slide this far towards the start of the line to cancel. */
 const CANCEL_DISTANCE = 80;
 
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#208AEF',
+    backgroundColor: Brand.fill,
   },
   disabled: { backgroundColor: '#9AA0A6' },
   recording: { backgroundColor: '#D93025', transform: [{ scale: 1.15 }] },

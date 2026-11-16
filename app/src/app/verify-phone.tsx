@@ -21,7 +21,7 @@ import { FormField } from '@/components/form-field';
 import { PrimaryButton } from '@/components/primary-button';
 import { RequireAuth } from '@/components/require-auth';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useCountdown } from '@/hooks/use-countdown';
 import { useTheme } from '@/hooks/use-theme';
 import { maskPhone } from '@/utils/phone';
@@ -177,7 +177,7 @@ function VerifyPhoneContent({ next }: { next: string | undefined }) {
     <AuthFormLayout>
       <View style={styles.header}>
         <View style={styles.icon}>
-          <Ionicons name="shield-checkmark-outline" size={34} color="#208AEF" />
+          <Ionicons name="shield-checkmark-outline" size={34} color={Brand.fill} />
         </View>
         <ThemedText type="subtitle" style={styles.center}>
           {t('verify.title')}
@@ -242,7 +242,7 @@ function VerifyPhoneContent({ next }: { next: string | undefined }) {
             style={styles.linkButton}>
             <ThemedText
               type="smallBold"
-              style={resend.left > 0 || lock.left > 0 ? { color: theme.textSecondary } : styles.link}>
+              themeColor={resend.left > 0 || lock.left > 0 ? 'textSecondary' : 'primary'}>
               {resend.left > 0
                 ? t('verify.resendIn', { seconds: resend.left })
                 : t('verify.resend')}
@@ -257,7 +257,7 @@ function VerifyPhoneContent({ next }: { next: string | undefined }) {
               }}
               accessibilityRole="button"
               style={styles.linkButton}>
-              <ThemedText type="smallBold" style={styles.link}>
+              <ThemedText type="smallBold" themeColor="primary" style={styles.link}>
                 {t('verify.changeNumber')}
               </ThemedText>
             </Pressable>
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   center: { textAlign: 'center' },
   error: { color: '#D93025' },
-  link: { color: '#208AEF' },
+  link: {},
   linkButton: { alignItems: 'center', paddingVertical: Spacing.two },
   devHint: { marginTop: Spacing.two },
 });

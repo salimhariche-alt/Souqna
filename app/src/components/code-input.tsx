@@ -2,7 +2,7 @@ import { type ComponentRef, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { onlyDigits } from '@/utils/digits';
 
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  boxCurrent: { borderColor: '#208AEF' },
+  boxCurrent: { borderColor: Brand.fill },
   boxError: { borderColor: '#D93025' },
   boxDisabled: { opacity: 0.5 },
   digit: { lineHeight: 40 },
