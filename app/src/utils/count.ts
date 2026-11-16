@@ -1,0 +1,25 @@
+/**
+ * "45 articles" / "45 items" / "45 منتجًا".
+ * Written by hand (like time-ago.ts) because Arabic has different words for
+ * 1, 2, 3-10 and 11-99, and React Native's JavaScript engine lacks full plural support.
+ */
+import type { Language } from '@/i18n';
+
+const NBSP = ' ';
+
+function withSpaces(n: number) {
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+}
+
+export function itemsCount(n: number, language: Language): string {
+  const number = withSpaces(n);
+  if (language === 'fr') return `${number} ${n <= 1 ? 'article' : 'articles'}`; // 0 and 1: singular
+  if (language === 'en') return `${number} ${n === 1 ? 'item' : 'items'}`;
+
+  if (n === 1) return 'منتج واحد';
+  if (n === 2) return 'منتجان';
+  const lastTwo = n % 100;
+  if (lastTwo >= 3 && lastTwo <= 10) return `${number} منتجات`;
+  if (lastTwo >= 11 && lastTwo <= 99) return `${number} منتجًا`;
+  return `${number} منتج`; // 0, 100, 101, 102, ...
+}
