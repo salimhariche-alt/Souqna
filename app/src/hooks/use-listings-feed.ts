@@ -1,31 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { fetchListings, type ListingSummary } from '@/api/listings';
+import { fetchListings, type ListingFilters, type ListingSummary } from '@/api/listings';
 
 export type FeedStatus = 'loading' | 'ready' | 'error';
 
 /**
- * The Home feed: active listings, newest first, 20 at a time.
+ * A list of active listings, newest first, 20 at a time (used by Home and Search).
  *
  * - loadMore(): add the next page (call it when the user scrolls near the bottom)
  * - refresh():  reload from page 1 (pull down to refresh)
  * - retry():    try the first page again after an error
- * Changing `categoryId` starts again from page 1.
+ * - count:      how many listings match in total (e.g. "45 articles")
+ * Changing any filter starts again from page 1.
  */
-export function useListingsFeed(categoryId: number | null) {
+export function useListingsFeed(filters: ListingFilters) {
   const [items, setItems] = useState<ListingSummary[]>([]);
+  const [count, setCount] = useState(0);
   const [status, setStatus] = useState<FeedStatus>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
 
+  // The filters as text, so a new object with the same values doesn't reload.
+  const filtersKey = JSON.stringify(filters);
+  const currentFilters = useMemo(() => JSON.parse(filtersKey) as ListingFilters, [filtersKey]);
+
   // Kept in refs so that quick repeated scroll events see the latest values.
   const page = useRef(0);
   const hasMore = useRef(false);
   const busyLoadingMore = useRef(false);
   // Each new first-page load gets a number; answers for older loads are ignored
-  // (e.g. the user tapped another category before the first one finished).
+  // (e.g. the user kept typing, or changed a filter before the last search finished).
   const generation = useRef(0);
 
   const loadFirstPage = useCallback(
@@ -42,11 +48,12 @@ export function useListingsFeed(categoryId: number | null) {
         setRefreshing(true);
       }
       try {
-        const data = await fetchListings({ page: 1, category: categoryId });
+        const data = await fetchListings({ page: 1, filters: currentFilters });
         if (myGeneration !== generation.current) return;
         page.current = 1;
         hasMore.current = data.next !== null;
         setItems(data.results);
+        setCount(data.count);
         setStatus('ready');
       } catch {
         if (myGeneration !== generation.current) return;
@@ -59,7 +66,7 @@ export function useListingsFeed(categoryId: number | null) {
         if (myGeneration === generation.current) setRefreshing(false);
       }
     },
-    [categoryId],
+    [currentFilters],
   );
 
   useEffect(() => {
@@ -74,10 +81,11 @@ export function useListingsFeed(categoryId: number | null) {
     setLoadMoreFailed(false);
     try {
       const nextPage = page.current + 1;
-      const data = await fetchListings({ page: nextPage, category: categoryId });
+      const data = await fetchListings({ page: nextPage, filters: currentFilters });
       if (myGeneration !== generation.current) return;
       page.current = nextPage;
       hasMore.current = data.next !== null;
+      setCount(data.count);
       // New listings posted meanwhile shift the pages; skip ones we already show.
       setItems((current) => {
         const seen = new Set(current.map((item) => item.id));
@@ -91,10 +99,11 @@ export function useListingsFeed(categoryId: number | null) {
         setLoadingMore(false);
       }
     }
-  }, [status, categoryId]);
+  }, [status, currentFilters]);
 
   return {
     items,
+    count,
     status,
     refreshing,
     refreshFailed,
@@ -105,3 +114,5 @@ export function useListingsFeed(categoryId: number | null) {
     retry: () => loadFirstPage('initial'),
   };
 }
+
+export type ListingsFeed = ReturnType<typeof useListingsFeed>;

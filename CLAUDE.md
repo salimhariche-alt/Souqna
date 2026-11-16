@@ -76,6 +76,10 @@ npx expo-doctor
 - Write commit messages to a temporary file and use `git commit -F <file>`: Windows
   PowerShell 5.1 breaks double quotes inside `git commit -m`.
 - PowerShell 5.1 shows Arabic/accented JSON as garbled text; check API text with Python instead.
+- After moving or renaming a screen file in `app/src/app/`, restart Expo with `npx expo start -c`
+  (clears the cache). Otherwise the old route survives, two screens claim the same address, and
+  tapping a link silently does nothing ("Found conflicting screens with the same pattern" in the log).
+- Run only one `npx expo start` at a time; several servers end up on 8081/8082/8083 and confuse Expo Go.
 - Add app packages with `npx expo install <package>` (keeps versions matching SDK 58).
   Expo changes often: read `app/AGENTS.md` and check the SDK 58 docs instead of relying on memory.
 - RTL: don't use `I18nManager.forceRTL` + reload (doesn't work in Expo Go on SDK 58). The app sets

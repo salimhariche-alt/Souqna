@@ -73,10 +73,41 @@ export function markListingSold(listingId: number) {
   });
 }
 
-/** Active listings, newest first. `page` starts at 1. */
-export function fetchListings({ page, category }: { page: number; category?: number | null }) {
+export const CONDITIONS = [
+  'new_with_tags',
+  'new_without_tags',
+  'very_good',
+  'good',
+  'satisfactory',
+] as const;
+export type Condition = (typeof CONDITIONS)[number];
+
+/** Everything the listings can be filtered by. Empty values are simply not sent. */
+export type ListingFilters = {
+  search?: string;
+  category?: number | null;
+  wilaya?: number | null;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  size?: string;
+  condition?: Condition | null;
+};
+
+/** Active listings, newest first, 20 per page. `page` starts at 1. */
+export function fetchListings({ page, filters = {} }: { page: number; filters?: ListingFilters }) {
   const params = new URLSearchParams({ page: String(page) });
-  if (category) params.set('category', String(category));
+  const add = (name: string, value: string | number | null | undefined) => {
+    if (value !== null && value !== undefined && String(value).trim() !== '') {
+      params.set(name, String(value).trim());
+    }
+  };
+  add('search', filters.search);
+  add('category', filters.category);
+  add('wilaya', filters.wilaya);
+  add('min_price', filters.minPrice);
+  add('max_price', filters.maxPrice);
+  add('size', filters.size);
+  add('condition', filters.condition);
   return apiFetch<ListingsPage>(`/api/listings/?${params}`);
 }
 
