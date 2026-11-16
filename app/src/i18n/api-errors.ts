@@ -22,6 +22,8 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   [/password is too common/i, 'errors.passwordCommon'],
   [/password is entirely numeric/i, 'errors.passwordNumeric'],
   [/password is too similar/i, 'errors.passwordSimilar'],
+  [/^This phone number can't be used/, 'errors.phoneBlocked'],
+  [/^Sign up isn't possible from this device/, 'errors.deviceBlocked'],
   [/^Message can't be empty/, 'errors.messageEmpty'],
   [/^Messages can be at most/, 'errors.messageTooLong'],
   [/^You can't start a conversation about your own listing/, 'errors.ownListing'],
@@ -40,6 +42,36 @@ export function translateApiMessage(message: string, t: TFunction): string {
 export type FormErrors = { fields: Record<string, string>; general?: string };
 
 /**
+ * Errors that come with a code word (e.g. {"code": "daily_limit", "limit": 10}):
+ * use the code and its numbers rather than the English sentence.
+ */
+function codedMessage(data: unknown, t: TFunction): string | null {
+  if (!data || typeof data !== 'object') return null;
+  const { code, kind, limit, retry_in } = data as {
+    code?: string;
+    kind?: string;
+    limit?: number;
+    retry_in?: number;
+  };
+  switch (code) {
+    case 'daily_limit':
+      return kind === 'conversations'
+        ? t('errors.dailyLimitConversations', { limit })
+        : t('errors.dailyLimitListings', { limit });
+    case 'too_many_attempts':
+      return t('errors.tooManyWrongPasswords', {
+        minutes: Math.max(1, Math.ceil((retry_in ?? 900) / 60)),
+      });
+    case 'account_suspended':
+      return t('errors.accountSuspended');
+    case 'account_banned':
+      return t('errors.accountBanned');
+    default:
+      return null;
+  }
+}
+
+/**
  * Turn any error into messages for a form.
  * `fieldMap` says which form field shows each backend field, e.g. { phone: 'identifier' }.
  */
@@ -50,6 +82,9 @@ export function formErrorsFrom(
 ): FormErrors {
   if (!(error instanceof ApiError)) return { fields: {}, general: t('errors.unknown') };
   if (error.isNetworkError) return { fields: {}, general: t('errors.network') };
+
+  const coded = codedMessage(error.data, t);
+  if (coded) return { fields: {}, general: coded };
 
   const result: FormErrors = { fields: {} };
   const data = error.data;

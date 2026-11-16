@@ -24,6 +24,8 @@ type AuthContextValue = {
   login: (phoneOrEmail: string, password: string) => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
   logout: () => Promise<void>;
+  /** Replace my profile (e.g. after verifying my phone), here and in the saved copy. */
+  updateUser: (user: User) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -93,6 +95,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [finishLogin],
   );
 
+  const updateUser = useCallback(async (user: User) => {
+    await tokenStorage.saveUser(user);
+    setState({ status: 'signedIn', user });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status: state.status,
@@ -100,8 +107,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       login,
       signup,
       logout: signOutLocally,
+      updateUser,
     }),
-    [state, login, signup, signOutLocally],
+    [state, login, signup, signOutLocally, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -37,10 +37,20 @@ export type Category = {
 /** One listing with everything (GET /api/listings/{id}/). */
 export type ListingDetail = Omit<ListingSummary, 'cover_photo'> & {
   description: string;
-  seller: { id: number; display_name: string; wilaya: number | null };
+  seller: {
+    id: number;
+    display_name: string;
+    wilaya: number | null;
+    /** Trust info */
+    phone_verified: boolean;
+    member_since: string;
+    items_sold: number;
+  };
   photos: { id: number; image: string; position: number }[];
   /** True if it's in the logged-in user's favorites (always false when logged out). */
   is_favorited: boolean;
+  /** Only the seller ever sees a listing that isn't "approved". */
+  review_status: 'approved' | 'pending_review' | 'rejected';
 };
 
 /** One listing. With `auth`, the answer also says whether it's in my favorites. */

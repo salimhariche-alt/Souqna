@@ -1,0 +1,10 @@
+{% extends "admin/change_form.html" %}
+{# The "Needs review" page for one listing: Approve / Reject instead of Save. #}
+
+{% block submit_buttons_bottom %}
+<div class="submit-row">
+  <input type="submit" name="_approve" value="✓ Approve" class="default">
+  <input type="submit" name="_reject" value="✗ Reject"
+         style="background: #ba2121; color: #fff; border-color: #ba2121;">
+</div>
+{% endblock %}

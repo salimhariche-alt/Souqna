@@ -23,3 +23,18 @@ export function itemsCount(n: number, language: Language): string {
   if (lastTwo >= 11 && lastTwo <= 99) return `${number} منتجًا`;
   return `${number} منتج`; // 0, 100, 101, 102, ...
 }
+
+/** "12 articles vendus" / "12 items sold" / "المنتجات المباعة: 12" (seller trust info). */
+export function soldCount(n: number, language: Language): string {
+  const number = withSpaces(n);
+  if (language === 'fr') {
+    if (n === 0) return 'Aucun article vendu pour le moment';
+    return `${number} ${n === 1 ? 'article vendu' : 'articles vendus'}`;
+  }
+  if (language === 'en') {
+    if (n === 0) return 'No items sold yet';
+    return `${number} ${n === 1 ? 'item sold' : 'items sold'}`;
+  }
+  if (n === 0) return 'لم يبع أي منتج بعد';
+  return `المنتجات المباعة: ${number}`;
+}

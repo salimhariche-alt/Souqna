@@ -38,10 +38,11 @@ class ApiTestCase(APITestCase):
 
     @classmethod
     def setUpTestData(cls):
+        # Verified phones: posting and messaging need one (tested in accounts/tests.py).
         cls.seller = User.objects.create_user(phone='0550000001', display_name='Amina',
-                                              wilaya=Wilaya.ALGER)
+                                              wilaya=Wilaya.ALGER, phone_verified=True)
         cls.other = User.objects.create_user(phone='0660000002', display_name='Yacine',
-                                             wilaya=Wilaya.ORAN)
+                                             wilaya=Wilaya.ORAN, phone_verified=True)
         cls.women = Category.objects.create(name_en='Women', name_fr='Femmes', name_ar='نساء')
         cls.men = Category.objects.create(name_en='Men', name_fr='Hommes', name_ar='رجال')
         cls.dresses = Category.objects.create(name_en='Dresses', name_fr='Robes',
@@ -183,8 +184,12 @@ class ListingDetailTests(ApiTestCase):
         response = self.client.get(f'/api/listings/{listing.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['description'], 'Robe faite main')
-        self.assertEqual(response.data['seller'],
-                         {'id': self.seller.id, 'display_name': 'Amina', 'wilaya': Wilaya.ALGER})
+        seller = response.data['seller']
+        self.assertEqual(
+            {k: seller[k] for k in ('id', 'display_name', 'wilaya', 'phone_verified', 'items_sold')},
+            {'id': self.seller.id, 'display_name': 'Amina', 'wilaya': Wilaya.ALGER,
+             'phone_verified': True, 'items_sold': 0})
+        self.assertTrue(seller['member_since'].startswith(str(self.seller.date_joined.year)))
         self.assertEqual(len(response.data['photos']), 1)
         self.assertEqual(response.data['photos'][0]['position'], 1)
         self.assertNotIn('phone', response.data['seller'])  # don't leak phone numbers

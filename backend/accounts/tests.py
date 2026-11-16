@@ -181,7 +181,14 @@ class LoginTests(AuthTestCase):
     def test_disabled_account_cannot_log_in(self):
         self.user.is_active = False
         self.user.save()
-        self.assertEqual(self.login('0555123456').status_code, status.HTTP_401_UNAUTHORIZED)
+        # Right password: told clearly that the account is suspended (no tokens).
+        response = self.login('0555123456')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'account_suspended')
+        self.assertNotIn('access', response.data)
+        # Wrong password: the usual message, so nothing is revealed.
+        response = self.login('0555123456', password='wrong-password')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_missing_fields(self):
         response = self.client.post('/api/auth/login/', {}, format='json')
@@ -189,10 +196,33 @@ class LoginTests(AuthTestCase):
         self.assertEqual(response.data['phone_or_email'][0], 'Enter your phone number or email.')
         self.assertEqual(response.data['password'][0], 'Enter your password.')
 
-    def test_too_many_attempts_are_slowed_down(self):
-        codes = [self.login('0555123456', password='wrong').status_code for _ in range(11)]
+    def test_too_many_attempts_from_one_connection_are_slowed_down(self):
+        # Different accounts each time, so only the per-connection limit applies.
+        codes = [self.login(f'06990000{i:02d}', password='wrong').status_code for i in range(11)]
         self.assertEqual(codes[:10], [status.HTTP_401_UNAUTHORIZED] * 10)
         self.assertEqual(codes[10], status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_5_wrong_passwords_lock_the_account_for_15_minutes(self):
+        codes = [self.login('0555123456', password='wrong').status_code for _ in range(5)]
+        self.assertEqual(codes, [status.HTTP_401_UNAUTHORIZED] * 5)
+        # Now even the right password is refused for a while.
+        response = self.login('0555123456')
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(response.data['code'], 'too_many_attempts')
+        self.assertGreater(response.data['retry_in'], 14 * 60)
+        # Writing the number differently doesn't get around it.
+        self.assertEqual(self.login('05 55 12 34 56').data['code'], 'too_many_attempts')
+        # After 15 minutes (simulated by clearing the counter) it works again.
+        cache.clear()
+        self.assertEqual(self.login('0555123456').status_code, status.HTTP_200_OK)
+
+    def test_right_password_resets_the_count(self):
+        for _ in range(4):
+            self.login('0555123456', password='wrong')
+        self.assertEqual(self.login('0555123456').status_code, status.HTTP_200_OK)
+        for _ in range(4):
+            self.login('0555123456', password='wrong')
+        self.assertEqual(self.login('0555123456').status_code, status.HTTP_200_OK)
 
     def test_opening_the_page_does_not_use_up_attempts(self):
         for _ in range(15):
@@ -293,6 +323,7 @@ class TokensWithListingsTests(AuthTestCase):
         super().setUp()
         self.category = Category.objects.create(name_en='Men', name_fr='Hommes', name_ar='رجال')
         response = self.signup(phone='0661234567', display_name='Yacine', wilaya=31)
+        User.objects.filter(phone='0661234567').update(phone_verified=True)
         self.user = User.objects.get(phone='0661234567')
         self.use_token(response.data['access'])
 

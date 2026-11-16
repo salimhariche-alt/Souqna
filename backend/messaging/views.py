@@ -5,6 +5,9 @@ from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from accounts.permissions import IsPhoneVerified
+from moderation.limits import check_daily_limit
+
 from .models import Conversation, Message
 from .serializers import (
     ConversationDetailSerializer,
@@ -53,6 +56,12 @@ class ConversationViewSet(mixins.ListModelMixin,
 
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        # Starting a conversation or sending a message needs a verified phone number.
+        if self.action in ('create', 'messages'):
+            return [permissions.IsAuthenticated(), IsPhoneVerified()]
+        return super().get_permissions()
+
     def get_queryset(self):
         me = self.request.user
         conversations = (
@@ -89,6 +98,10 @@ class ConversationViewSet(mixins.ListModelMixin,
                                                  context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
         listing = serializer.validated_data['listing']
+
+        # Only a NEW conversation counts towards the daily limit (not more messages).
+        if not Conversation.objects.filter(listing=listing, buyer=request.user).exists():
+            check_daily_limit(request.user, 'conversations')
 
         with transaction.atomic():
             conversation, created = Conversation.objects.get_or_create(

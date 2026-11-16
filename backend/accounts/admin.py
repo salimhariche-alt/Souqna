@@ -1,8 +1,14 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+from django.db.models import Count, Q
+from django.utils import timezone
+from django.utils.html import format_html
 
-from .models import User
+from moderation import actions as moderation_actions
+from moderation.models import ModerationLog
+
+from .models import PhoneVerification, User
 
 
 class SouqnaUserCreationForm(UserCreationForm):
@@ -22,15 +28,17 @@ class UserAdmin(BaseUserAdmin):
     form = SouqnaUserChangeForm
     add_form = SouqnaUserCreationForm
 
-    list_display = ('phone', 'display_name', 'email', 'wilaya', 'preferred_language',
-                    'is_staff', 'is_active', 'date_joined')
-    list_filter = ('preferred_language', 'wilaya', 'is_staff', 'is_active')
+    list_display = ('phone', 'display_name', 'email', 'wilaya', 'phone_verified', 'items_sold_count',
+                    'account_status', 'preferred_language', 'is_staff', 'date_joined')
+    list_filter = ('phone_verified', 'is_active', 'preferred_language', 'wilaya', 'is_staff')
     search_fields = ('phone', 'display_name', 'email')
     ordering = ('-date_joined',)
+    actions = ['mark_phone_verified', 'suspend_users', 'reactivate_users', 'ban_users']
 
     fieldsets = (
         (None, {'fields': ('phone', 'password')}),
         ('Profile', {'fields': ('display_name', 'email', 'wilaya', 'preferred_language')}),
+        ('Trust', {'fields': ('phone_verified', 'phone_verified_at', 'banned_at')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser',
                                     'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
@@ -42,3 +50,67 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('phone', 'email', 'display_name', 'password1', 'password2'),
         }),
     )
+
+    def get_queryset(self, request):
+        # Count sold listings for the whole page at once (not one query per user).
+        return super().get_queryset(request).annotate(
+            _items_sold=Count('listings', filter=Q(listings__status='sold')),
+        )
+
+    @admin.display(description='items sold', ordering='_items_sold')
+    def items_sold_count(self, user):
+        return user._items_sold
+
+    @admin.display(description='account')
+    def account_status(self, user):
+        if user.banned_at:
+            return format_html('<b style="color:#ba2121">banned</b>')
+        if not user.is_active:
+            return format_html('<b style="color:#b06000">suspended</b>')
+        return 'active'
+
+    @admin.action(description='Mark phone as verified')
+    def mark_phone_verified(self, request, queryset):
+        count = 0
+        for user in queryset.filter(phone_verified=False, phone__isnull=False):
+            user.phone_verified = True
+            user.phone_verified_at = timezone.now()
+            user.save(update_fields=['phone_verified', 'phone_verified_at'])
+            moderation_actions.log(request.user, ModerationLog.Action.VERIFY_PHONE, user)
+            count += 1
+        self.message_user(request, f'{count} user(s) marked as verified.')
+
+    @admin.action(description='Suspend selected users (can be undone)')
+    def suspend_users(self, request, queryset):
+        users = list(queryset.exclude(pk=request.user.pk))  # never yourself
+        for user in users:
+            moderation_actions.suspend_user(user, request.user)
+        self.message_user(request, f'{len(users)} user(s) suspended.', messages.WARNING)
+
+    @admin.action(description='Reactivate selected users')
+    def reactivate_users(self, request, queryset):
+        users = list(queryset.filter(is_active=False))
+        for user in users:
+            moderation_actions.reactivate_user(user, request.user)
+        self.message_user(request, f'{len(users)} user(s) reactivated.')
+
+    @admin.action(description='Ban selected users (also blocks their phone and devices)')
+    def ban_users(self, request, queryset):
+        users = list(queryset.exclude(pk=request.user.pk))  # never yourself
+        for user in users:
+            moderation_actions.ban_user(user, request.user)
+        self.message_user(request, f'{len(users)} user(s) banned.', messages.WARNING)
+
+
+@admin.register(PhoneVerification)
+class PhoneVerificationAdmin(admin.ModelAdmin):
+    """Pending SMS codes. The code itself is never shown (only a scrambled version is stored)."""
+
+    list_display = ('user', 'phone', 'sent_at', 'expires_at', 'failed_attempts', 'locked_until')
+    search_fields = ('user__phone', 'user__display_name', 'phone')
+    readonly_fields = ('user', 'phone', 'sent_at', 'expires_at', 'failed_attempts')
+    exclude = ('code_hash',)
+    list_select_related = ('user',)
+
+    def has_add_permission(self, request):
+        return False
