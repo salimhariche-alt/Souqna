@@ -37,6 +37,12 @@ export function dayLabel(date: string | Date, language: Language, words: Words, 
   return d.getFullYear() === now.getFullYear() ? label : `${label} ${d.getFullYear()}`;
 }
 
+/** "22 novembre, 14:05" */
+export function dateAndTime(date: string | Date, language: Language): string {
+  const d = new Date(date);
+  return `${d.getDate()} ${MONTHS[language][d.getMonth()]}, ${clock(d)}`;
+}
+
 /** In the list of conversations: "14:05" today, "Yesterday", else "12/11". */
 export function shortStamp(date: string | Date, words: Words, now = new Date()) {
   const ago = daysAgo(date, now);

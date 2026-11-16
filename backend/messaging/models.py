@@ -66,6 +66,9 @@ class Message(models.Model):
     # For later: the voice message written out, so the same safety checks as text can
     # run on it. Not filled yet.
     transcript = models.TextField(blank=True)
+    # Harassment / sexual content: delivered, but the receiver sees it hidden until they
+    # tap it. Empty = shown normally. Cleared if an admin dismisses the flag.
+    hidden_reason = models.CharField(max_length=12, blank=True)
     sent_at = models.DateTimeField(auto_now_add=True, db_index=True)
     read = models.BooleanField(default=False)
     # Safety: the message contains a phone number, a link, WhatsApp/Telegram or

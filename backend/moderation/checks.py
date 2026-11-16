@@ -101,9 +101,22 @@ def flag(listing, reasons):
     return True
 
 
+def _content_flags(listing):
+    """Insults, harassment, sexual content, threats, extremism (Safety step 4)."""
+    from .content import scan
+    from .flags import record_listing_flag
+
+    reasons = []
+    for match in scan(f'{listing.title}\n{listing.description}'):
+        record_listing_flag(match, listing)
+        reasons.append({'code': f'offensive_{match.category}',
+                        'detail': 'Matched: ' + ', '.join(match.phrases)})
+    return reasons
+
+
 def check_listing(listing):
-    """Run the price and text checks (after creating or editing a listing)."""
-    return flag(listing, [_price_flag(listing), *_text_flags(listing)])
+    """Run the price, text and content checks (after creating or editing a listing)."""
+    return flag(listing, [_price_flag(listing), *_text_flags(listing), *_content_flags(listing)])
 
 
 def check_photo(photo):

@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> ›
+  <a href="{% url 'admin:moderation_contentterm_changelist' %}">Content terms</a> › Test a text
+</div>
+{% endblock %}
+
+{% block content %}
+<p>Type a message, listing text or name to see what the content checks find.
+Nothing is saved and nobody is flagged.</p>
+<form method="post">
+  {% csrf_token %}
+  <textarea name="text" rows="4" style="width:100%;max-width:640px" autofocus>{{ text }}</textarea>
+  <p><input type="submit" value="Test" class="default"></p>
+</form>
+
+{% if tested %}
+  {% if matches %}
+    <h2>Found</h2>
+    <table>
+      <tr><th>Category</th><th>What happens</th><th>Matched words</th></tr>
+      {% for m in matches %}
+        <tr>
+          <td>{{ m.category }}</td>
+          <td><b style="color:{{ m.color }}">{{ m.severity }}</b></td>
+          <td>{{ m.phrases }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+    <p>For a message, the first (most severe) line decides what happens.</p>
+  {% else %}
+    <h2 style="color:#1e8e3e">Nothing found: this text would pass.</h2>
+  {% endif %}
+  <h3>How the text was cleaned before comparing</h3>
+  <p>Digits kept (for Darija in Latin letters): <code>{{ forms.0 }}</code><br>
+     Numbers turned into letters: <code>{{ forms.1 }}</code></p>
+{% endif %}
+{% endblock %}

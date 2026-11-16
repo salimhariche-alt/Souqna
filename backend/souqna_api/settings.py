@@ -138,6 +138,15 @@ if DEBUG:
 # like accounts.sms.ConsoleSMSBackend and set DJANGO_SMS_BACKEND in .env.
 SMS_BACKEND = os.environ.get('DJANGO_SMS_BACKEND', 'accounts.sms.ConsoleSMSBackend')
 
+# Alerts for URGENT content (threats, terrorism). Default: printed in the Django
+# terminal. Later: DJANGO_MODERATION_ALERT_BACKEND=moderation.alerts.EmailAlertBackend
+# plus DJANGO_MODERATION_ALERT_EMAILS=me@example.com (and Django's email settings).
+MODERATION_ALERT_BACKEND = os.environ.get('DJANGO_MODERATION_ALERT_BACKEND',
+                                          'moderation.alerts.ConsoleAlertBackend')
+MODERATION_ALERT_EMAILS = [e.strip() for e in
+                           os.environ.get('DJANGO_MODERATION_ALERT_EMAILS', '').split(',')
+                           if e.strip()]
+
 # Login tokens (djangorestframework-simplejwt)
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),

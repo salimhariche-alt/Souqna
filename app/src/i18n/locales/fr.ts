@@ -144,6 +144,19 @@ const fr = {
       notSupported: "Ce message vocal n'a pas pu être envoyé. Réessayez.",
     },
   },
+  moderation: {
+    mayBeOffensiveTitle: 'Message peut-être offensant',
+    mayBeOffensiveText: "Ce message peut être offensant. L'envoyer quand même ?",
+    sendAnyway: 'Envoyer quand même',
+    edit: 'Modifier',
+    hidden: 'Masqué : peut être offensant. Touchez pour voir.',
+    hiddenPreview: '🙈 Message masqué',
+    notSent: "Votre message n'a pas pu être envoyé.",
+    messagingBlocked:
+      "À cause de messages offensants, vous ne pouvez plus envoyer de messages jusqu'au {{date}}.",
+    voiceBlocked:
+      'Les messages vocaux sont désactivés pendant 30 jours après un message offensant.',
+  },
   messages: {
     loading: 'Chargement des messages…',
     empty:
@@ -371,6 +384,7 @@ const fr = {
     phoneBlocked: 'Ce numéro de téléphone ne peut pas être utilisé.',
     deviceBlocked: "L'inscription n'est pas possible depuis cet appareil.",
     blockedUser: "Vous ne pouvez pas envoyer de message à cette personne.",
+    nameNotAllowed: "Ce nom n'est pas autorisé. Merci d'en choisir un autre.",
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion.',
     unknown: 'Une erreur est survenue. Veuillez réessayer.',
   },

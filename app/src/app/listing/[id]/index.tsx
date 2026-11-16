@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
-import { findConversationForListing, startConversation } from '@/api/conversations';
+import { errorCode, findConversationForListing, startConversation } from '@/api/conversations';
 import {
   addFavorite,
   fetchListing,
@@ -182,6 +182,8 @@ export default function ListingDetailsScreen() {
   const [blocking, setBlocking] = useState(false);
   const [blockError, setBlockError] = useState<string>();
   const [blocked, setBlocked] = useState(false);
+  // The first message was "may be offensive": sending the same text again = send anyway.
+  const [warnedText, setWarnedText] = useState<string | null>(null);
 
   const needsLogin = () => {
     if (signedIn) return false;
@@ -216,16 +218,21 @@ export default function ListingDetailsScreen() {
     setSending(true);
     setSendError(undefined);
     try {
-      const conversation = await startConversation(listing.id, text);
+      // Same text as the one we warned about = the user chose "Send anyway".
+      const conversation = await startConversation(listing.id, text, warnedText === text);
       setMessageOpen(false);
+      setWarnedText(null);
       router.push(`/chat/${conversation.id}` as Href);
     } catch (error) {
-      if (
-        error instanceof ApiError &&
-        (error.data as { code?: string } | null)?.code === 'phone_not_verified'
-      ) {
+      const code = errorCode(error);
+      if (code === 'phone_not_verified') {
         setMessageOpen(false);
         askToVerify(); // the backend says the phone isn't verified (e.g. changed elsewhere)
+        return;
+      }
+      if (code === 'may_be_offensive') {
+        setWarnedText(text);
+        setSendError(t('moderation.mayBeOffensiveText'));
         return;
       }
       const errors = formErrorsFrom(error, t, { text: 'text', listing: 'text' });
@@ -539,10 +546,19 @@ export default function ListingDetailsScreen() {
         sellerName={listing.seller.display_name}
         sending={sending}
         error={sendError}
+        sendLabel={warnedText ? t('moderation.sendAnyway') : undefined}
+        onTextChange={() => {
+          // Changed the words after the warning: check again normally.
+          if (warnedText) {
+            setWarnedText(null);
+            setSendError(undefined);
+          }
+        }}
         onSend={sendFirstMessage}
         onCancel={() => {
           setMessageOpen(false);
           setSendError(undefined);
+          setWarnedText(null);
         }}
       />
     </ThemedView>

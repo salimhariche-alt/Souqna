@@ -1,23 +1,30 @@
 from django.contrib import admin, messages
 from django.db.models import Count
 from django.http import HttpResponseRedirect
-from django.urls import reverse
+from django.template.response import TemplateResponse
+from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 
 from listings.models import Listing
 
 from . import actions
+from .content import forms, scan
 from .models import (
     Block,
     BlockedPhone,
+    ContentCategory,
+    ContentFlag,
+    ContentTerm,
     Device,
     DeviceAccount,
     FlaggedKeyword,
     ListingReview,
     ModerationLog,
     Report,
+    Severity,
 )
 from .reports import AUTO_HIDE_REPORTERS, verified_reporters
+from .strikes import strike_count
 
 REASON_LABELS = {
     'low_price': 'Price much lower than usual',
@@ -27,6 +34,11 @@ REASON_LABELS = {
     'advance_payment': 'Asks for payment in advance',
     'messaging_app': 'Mentions WhatsApp / Telegram / another app',
     'reported': 'Reported by users',
+    'offensive_insult': 'Insult',
+    'offensive_harassment': 'Harassment',
+    'offensive_sexual': 'Sexual content',
+    'offensive_threat': 'THREAT of violence',
+    'offensive_extremism': 'TERRORISM / extremism',
 }
 
 
@@ -249,6 +261,176 @@ class BlockAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+# Content moderation (Safety step 4) ---------------------------------------------------
+
+SEVERITY_COLORS = {Severity.WARN: '#b06000', Severity.HIDE: '#8a2be2', Severity.BLOCK: '#ba2121'}
+
+
+@admin.register(ContentTerm)
+class ContentTermAdmin(admin.ModelAdmin):
+    """Insults, harassment, sexual content, threats, extremism: the words to look for.
+    Use "Test a text" (top right) to try a sentence."""
+
+    change_list_template = 'admin/moderation/contentterm/change_list.html'
+    list_display = ('phrase', 'category', 'level', 'language', 'active', 'note')
+    list_editable = ('active',)
+    list_filter = ('category', 'language', 'active')
+    search_fields = ('phrase', 'note')
+
+    @admin.display(description='what happens')
+    def level(self, term):
+        return format_html('<b style="color:{}">{}</b>', SEVERITY_COLORS[term.severity],
+                           Severity(term.severity).label)
+
+    def get_urls(self):
+        return [path('test/', self.admin_site.admin_view(self.test_view),
+                     name='moderation_contentterm_test'),
+                *super().get_urls()]
+
+    def test_view(self, request):
+        """Type any text and see what the checks find (and the cleaned versions)."""
+        text = request.POST.get('text', '') if request.method == 'POST' else ''
+        matches = scan(text) if text else []
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'Test a text',
+            'opts': self.model._meta,
+            'text': text,
+            'tested': bool(text),
+            'matches': [{'category': ContentCategory(m.category).label,
+                         'severity': Severity(m.severity).label,
+                         'color': SEVERITY_COLORS[m.severity],
+                         'phrases': ', '.join(m.phrases)} for m in matches],
+            'forms': forms(text) if text else None,
+        }
+        return TemplateResponse(request, 'admin/moderation/contentterm/test.html', context)
+
+
+class UrgentFirst(admin.SimpleListFilter):
+    title = 'status'
+    parameter_name = 'queue'
+
+    def lookups(self, request, model_admin):
+        return [('todo', 'To review (pending)'), ('urgent', 'Urgent only'),
+                ('done', 'Reviewed')]
+
+    def queryset(self, request, queryset):
+        if self.value() == 'todo':
+            return queryset.filter(status=ContentFlag.Status.PENDING)
+        if self.value() == 'urgent':
+            return queryset.filter(urgent=True)
+        if self.value() == 'done':
+            return queryset.exclude(status=ContentFlag.Status.PENDING)
+        return queryset
+
+
+@admin.register(ContentFlag)
+class ContentFlagAdmin(admin.ModelAdmin):
+    """The moderation queue: urgent items first. Open one for the context and buttons."""
+
+    change_form_template = 'admin/moderation/contentflag/change_form.html'
+    list_display = ('priority', 'created_at', 'category', 'source', 'user_label', 'snippet',
+                    'strikes_30_days', 'status')
+    list_display_links = ('priority', 'created_at', 'snippet')
+    list_filter = (UrgentFirst, 'category', 'severity', 'source', 'status')
+    search_fields = ('content', 'user_label', 'user_phone')
+    ordering = ('-urgent', 'status', '-created_at')
+    readonly_fields = ('priority', 'status', 'category', 'severity', 'source', 'user_link',
+                       'user_phone', 'content_box', 'matched', 'where', 'conversation_context',
+                       'strike', 'strike_history', 'created_at', 'reviewed_at', 'reviewed_by')
+    fields = readonly_fields
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # evidence is kept
+
+    @admin.display(description='priority', ordering='urgent')
+    def priority(self, flag):
+        if flag.urgent:
+            return format_html('<b style="color:#fff;background:#ba2121;padding:2px 6px;'
+                               'border-radius:4px">{}</b>', 'URGENT')
+        return format_html('<span style="color:{}">{}</span>', SEVERITY_COLORS[flag.severity],
+                           flag.get_severity_display())
+
+    @admin.display(description='text')
+    def snippet(self, flag):
+        return flag.content if len(flag.content) <= 70 else flag.content[:70] + '…'
+
+    @admin.display(description='strikes (30 days)')
+    def strikes_30_days(self, flag):
+        return strike_count(flag.user) if flag.user_id else '—'
+
+    @admin.display(description='user')
+    def user_link(self, flag):
+        if flag.user_id is None:
+            return f'{flag.user_label} (account deleted)'
+        return admin_link(flag.user, flag.user_label)
+
+    @admin.display(description='flagged text')
+    def content_box(self, flag):
+        return format_html('<div style="white-space:pre-wrap;padding:8px;background:#fff4cc;'
+                           'border-radius:6px;max-width:640px">{}</div>', flag.content)
+
+    @admin.display(description='where')
+    def where(self, flag):
+        if flag.listing_id:
+            return admin_link(flag.listing, f'Listing: {flag.listing}')
+        if flag.conversation_id:
+            return admin_link(flag.conversation, f'Conversation #{flag.conversation_id}')
+        return '—'
+
+    @admin.display(description='conversation around it (copy)')
+    def conversation_context(self, flag):
+        if not flag.context:
+            return '—'
+        return format_html_join(
+            '', '<div style="margin:2px 0"><span style="color:#666">{}</span> <b>{}</b>: {}</div>',
+            ((row.get('sent_at', '')[:16].replace('T', ' '), row.get('sender', ''),
+              row.get('text', '')) for row in flag.context))
+
+    @admin.display(description="this user's strike history")
+    def strike_history(self, flag):
+        if flag.user_id is None:
+            return '—'
+        rows = (ContentFlag.objects.filter(user_id=flag.user_id)
+                .exclude(pk=flag.pk).order_by('-created_at')[:20])
+        if not rows:
+            return 'No other flags.'
+        return format_html_join(
+            '', '<div>{} — <b>{}</b> ({}){}: {}</div>',
+            ((r.created_at.strftime('%Y-%m-%d %H:%M'), r.get_category_display(),
+              r.get_status_display(), ' · strike' if r.strike else '',
+              r.content[:80]) for r in rows))
+
+    def response_change(self, request, flag):
+        """The Dismiss / Confirm / Suspend / Ban buttons."""
+        if '_dismiss' in request.POST:
+            actions.dismiss_flag(flag, request.user)
+            self.message_user(request, 'Dismissed: the strike was removed.')
+        elif '_confirm' in request.POST:
+            actions.confirm_flag(flag, request.user)
+            self.message_user(request, 'Confirmed.', messages.WARNING)
+        elif '_suspend' in request.POST or '_ban' in request.POST:
+            if flag.user_id is None:
+                self.message_user(request, 'This account no longer exists.', messages.ERROR)
+                return HttpResponseRedirect(request.path)
+            if flag.user_id == request.user.pk:
+                self.message_user(request, "You can't suspend or ban yourself.", messages.ERROR)
+                return HttpResponseRedirect(request.path)
+            actions.confirm_flag(flag, request.user)
+            if '_ban' in request.POST:
+                actions.ban_user(flag.user, request.user, f'Flag #{flag.pk}')
+                self.message_user(request, f'Banned: {flag.user}', messages.WARNING)
+            else:
+                actions.suspend_user(flag.user, request.user, f'Flag #{flag.pk}')
+                self.message_user(request, f'Suspended: {flag.user}', messages.WARNING)
+        else:
+            return super().response_change(request, flag)
+        return HttpResponseRedirect(reverse('admin:moderation_contentflag_changelist'))
 
 
 # Suspicious words -------------------------------------------------------------------

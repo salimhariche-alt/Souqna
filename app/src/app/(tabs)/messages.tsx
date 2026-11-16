@@ -130,9 +130,11 @@ function ConversationRow({ conversation }: { conversation: ConversationSummary }
 
   const preview = last_message
     ? (last_message.is_mine ? t('messages.you') : '') +
-      (last_message.is_voice
-        ? t('voice.preview', { duration: formatDuration(last_message.duration_ms) })
-        : last_message.text.replace(/\s+/g, ' '))
+      (last_message.hidden
+        ? t('moderation.hiddenPreview')
+        : last_message.is_voice
+          ? t('voice.preview', { duration: formatDuration(last_message.duration_ms) })
+          : last_message.text.replace(/\s+/g, ' '))
     : '';
 
   return (

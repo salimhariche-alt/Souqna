@@ -83,6 +83,10 @@ class ModerationLog(models.Model):
         VERIFY_PHONE = 'verify_phone', 'Marked phone as verified'
         BAN_DEVICE = 'ban_device', 'Banned device'
         DISMISS_REPORTS = 'dismiss_reports', 'Dismissed reports'
+        CONFIRM_FLAG = 'confirm_flag', 'Confirmed flagged content'
+        DISMISS_FLAG = 'dismiss_flag', 'Dismissed flag (mistake)'
+        AUTO_BLOCK_MESSAGES = 'auto_block_messages', 'Messages blocked (3 strikes)'
+        AUTO_SUSPEND = 'auto_suspend', 'Suspended automatically (strikes)'
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
                               related_name='moderation_actions')
@@ -195,6 +199,121 @@ class Block(models.Model):
         return Block.objects.filter(
             models.Q(blocker=user_a, blocked=user_b) | models.Q(blocker=user_b, blocked=user_a)
         ).exists()
+
+
+class ContentCategory(models.TextChoices):
+    INSULT = 'insult', 'Insult'
+    HARASSMENT = 'harassment', 'Harassment'
+    SEXUAL = 'sexual', 'Sexual content'
+    THREAT = 'threat', 'Threat of violence'
+    EXTREMISM = 'extremism', 'Terrorism / extremism'
+
+
+class Severity(models.TextChoices):
+    WARN = 'warn', 'Warn the sender'      # insults: "send anyway?", delivered, strike
+    HIDE = 'hide', 'Hide until tapped'    # harassment, sexual: delivered blurred, review
+    BLOCK = 'block', 'Block + urgent'     # threats, extremism: not delivered, alert
+
+
+SEVERITY_OF = {
+    ContentCategory.INSULT: Severity.WARN,
+    ContentCategory.HARASSMENT: Severity.HIDE,
+    ContentCategory.SEXUAL: Severity.HIDE,
+    ContentCategory.THREAT: Severity.BLOCK,
+    ContentCategory.EXTREMISM: Severity.BLOCK,
+}
+SEVERITY_RANK = {Severity.WARN: 1, Severity.HIDE: 2, Severity.BLOCK: 3}
+
+
+class ContentTerm(models.Model):
+    """A word or phrase that is offensive, sexual, threatening or extremist.
+
+    Editable in the admin. Matching ignores capitals, accents, repeated letters,
+    dots/spaces between letters and number-for-letter swaps (see moderation/content.py).
+    """
+
+    class Language(models.TextChoices):
+        FRENCH = 'fr', 'French'
+        ARABIC = 'ar', 'Arabic'
+        ENGLISH = 'en', 'English'
+        DARIJA = 'darija', 'Darija (Arabic letters)'
+        DARIJA_LATIN = 'darija_latin', 'Darija (Latin letters, e.g. 3 = ع, 9 = ق)'
+
+    phrase = models.CharField(max_length=80)
+    category = models.CharField(max_length=12, choices=ContentCategory.choices)
+    language = models.CharField(max_length=12, choices=Language.choices)
+    note = models.CharField(max_length=120, blank=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['category', 'language', 'phrase']
+        constraints = [
+            models.UniqueConstraint(fields=['phrase', 'category'], name='unique_term_per_category'),
+        ]
+
+    def __str__(self):
+        return self.phrase
+
+    @property
+    def severity(self):
+        return SEVERITY_OF[self.category]
+
+
+class ContentFlag(models.Model):
+    """Something offensive that was found: the evidence, kept even if the user, the
+    message or the listing is deleted later (copies of the text and context are stored)."""
+
+    class Source(models.TextChoices):
+        MESSAGE = 'message', 'Message'
+        BLOCKED_MESSAGE = 'blocked_message', 'Message (not delivered)'
+        LISTING = 'listing', 'Listing'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Waiting for review'
+        CONFIRMED = 'confirmed', 'Confirmed'
+        DISMISSED = 'dismissed', 'Dismissed (mistake)'
+
+    source = models.CharField(max_length=16, choices=Source.choices)
+    category = models.CharField(max_length=12, choices=ContentCategory.choices)
+    severity = models.CharField(max_length=8, choices=Severity.choices)
+    urgent = models.BooleanField(default=False, db_index=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING,
+                              db_index=True)
+    # Counts towards the user's strikes (removed when an admin dismisses it).
+    strike = models.BooleanField(default=False, db_index=True)
+
+    # Who - the link may disappear if the account is deleted, the copies stay.
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                             on_delete=models.SET_NULL, related_name='content_flags')
+    user_label = models.CharField(max_length=200)
+    user_phone = models.CharField(max_length=20, blank=True)
+
+    # What - links (may disappear) and copies (stay).
+    message = models.ForeignKey('messaging.Message', null=True, blank=True,
+                                on_delete=models.SET_NULL, related_name='content_flags')
+    conversation = models.ForeignKey('messaging.Conversation', null=True, blank=True,
+                                     on_delete=models.SET_NULL, related_name='content_flags')
+    listing = models.ForeignKey(Listing, null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name='content_flags')
+    content = models.TextField(help_text='Copy of the flagged text.')
+    matched = models.JSONField(default=list, help_text='The words that matched.')
+    # The messages around it in the conversation, copied at the time.
+    context = models.JSONField(default=list, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        ordering = ['-urgent', 'status', '-created_at']
+        verbose_name = 'flagged content'
+        verbose_name_plural = 'Moderation queue'
+
+    def __str__(self):
+        preview = self.content if len(self.content) <= 50 else self.content[:50] + '…'
+        return f'{self.get_category_display()}: {preview}'
 
 
 class ListingReview(Listing):

@@ -89,6 +89,8 @@ class User(AbstractUser):
     # Reported by 3 different verified users: their listings are hidden from
     # everyone else until an admin reviews the reports.
     hidden_by_reports = models.BooleanField(default=False)
+    # 3 strikes (offensive messages) in 30 days: no messages or voice until this date.
+    messaging_blocked_until = models.DateTimeField(null=True, blank=True)
     # When they saw the "Buy safely" tips (shown once, before their first conversation).
     safety_tips_seen_at = models.DateTimeField(null=True, blank=True)
 

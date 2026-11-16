@@ -4,6 +4,7 @@ from listings.models import Listing
 from listings.serializers import cover_photo_url
 from listings.visibility import visible_listing_q
 from moderation.models import Block
+from moderation.strikes import has_recent_strike, messaging_blocked_until
 
 from .models import MAX_MESSAGE_LENGTH, Message
 from .voice import voice_status
@@ -52,15 +53,20 @@ class MessageSerializer(serializers.ModelSerializer):
     warnings = serializers.SerializerMethodField()
     kind = serializers.SerializerMethodField()
     audio = serializers.SerializerMethodField()
+    hidden = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = ['id', 'sender', 'is_mine', 'kind', 'text', 'audio', 'duration_ms', 'sent_at',
-                  'read', 'warnings']
+                  'read', 'warnings', 'hidden']
         read_only_fields = ['sent_at', 'read', 'duration_ms']
 
     def get_is_mine(self, message):
         return message.sender_id == self.context['request'].user.id
+
+    def get_hidden(self, message) -> bool:
+        """Harassment / sexual content: the RECEIVER sees it hidden until they tap it."""
+        return bool(message.hidden_reason) and not self.get_is_mine(message)
 
     def get_kind(self, message) -> str:
         return 'voice' if message.is_voice else 'text'
@@ -126,12 +132,16 @@ class ConversationListSerializer(serializers.Serializer):
     def get_last_message(self, conversation):
         if conversation.last_text is None:
             return None
+        is_mine = conversation.last_sender_id == self.context['request'].user.id
+        # A hidden message (harassment / sexual) isn't shown in the receiver's list either.
+        hidden = bool(conversation.last_hidden_reason) and not is_mine
         return {
-            'text': conversation.last_text,
+            'text': '' if hidden else conversation.last_text,
+            'hidden': hidden,
             'is_voice': bool(conversation.last_audio),
             'duration_ms': conversation.last_duration_ms,
             'sent_at': serializers.DateTimeField().to_representation(conversation.last_sent_at),
-            'is_mine': conversation.last_sender_id == self.context['request'].user.id,
+            'is_mine': is_mine,
         }
 
 
@@ -146,7 +156,16 @@ class ConversationDetailSerializer(serializers.Serializer):
     messages = serializers.SerializerMethodField()
     blocked = serializers.SerializerMethodField()
     voice = serializers.SerializerMethodField()
+    restrictions = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+
+    def get_restrictions(self, conversation):
+        """After offensive messages: {"messaging_blocked_until": date or null,
+        "voice_blocked": true/false} for me."""
+        me = self.context['request'].user
+        until = messaging_blocked_until(me)
+        return {'messaging_blocked_until': until.isoformat() if until else None,
+                'voice_blocked': has_recent_strike(me)}
 
     def get_voice(self, conversation):
         """How many voice messages can I still send here today? {"limit", "left_today"}"""
