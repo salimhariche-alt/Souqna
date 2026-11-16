@@ -2,6 +2,7 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.db.models import Count, Q
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -29,8 +30,10 @@ class UserAdmin(BaseUserAdmin):
     add_form = SouqnaUserCreationForm
 
     list_display = ('phone', 'display_name', 'email', 'wilaya', 'phone_verified', 'items_sold_count',
-                    'account_status', 'preferred_language', 'is_staff', 'date_joined')
-    list_filter = ('phone_verified', 'is_active', 'preferred_language', 'wilaya', 'is_staff')
+                    'suspicious_messages', 'open_reports', 'account_status', 'preferred_language',
+                    'is_staff', 'date_joined')
+    list_filter = ('phone_verified', 'is_active', 'hidden_by_reports', 'preferred_language',
+                   'wilaya', 'is_staff')
     search_fields = ('phone', 'display_name', 'email')
     ordering = ('-date_joined',)
     actions = ['mark_phone_verified', 'suspend_users', 'reactivate_users', 'ban_users']
@@ -38,7 +41,8 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = (
         (None, {'fields': ('phone', 'password')}),
         ('Profile', {'fields': ('display_name', 'email', 'wilaya', 'preferred_language')}),
-        ('Trust', {'fields': ('phone_verified', 'phone_verified_at', 'banned_at')}),
+        ('Trust', {'fields': ('phone_verified', 'phone_verified_at', 'banned_at',
+                              'hidden_by_reports', 'safety_tips_seen_at')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser',
                                     'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
@@ -52,14 +56,38 @@ class UserAdmin(BaseUserAdmin):
     )
 
     def get_queryset(self, request):
-        # Count sold listings for the whole page at once (not one query per user).
+        # Count for the whole page at once (not one query per user). "distinct" because
+        # several counts in one query would otherwise multiply each other.
         return super().get_queryset(request).annotate(
-            _items_sold=Count('listings', filter=Q(listings__status='sold')),
+            _items_sold=Count('listings', filter=Q(listings__status='sold'), distinct=True),
+            _suspicious_messages=Count('messages_sent', filter=Q(messages_sent__flagged=True),
+                                       distinct=True),
+            _open_reports=Count('reports_received', filter=Q(reports_received__status='open'),
+                                distinct=True),
         )
 
     @admin.display(description='items sold', ordering='_items_sold')
     def items_sold_count(self, user):
         return user._items_sold
+
+    @admin.display(description='suspicious messages', ordering='_suspicious_messages')
+    def suspicious_messages(self, user):
+        """Messages with a phone number, link, WhatsApp/Telegram or payment words."""
+        n = user._suspicious_messages
+        if not n:
+            return 0
+        url = reverse('admin:messaging_message_changelist')
+        return format_html('<a href="{}?flagged__exact=1&sender__id__exact={}">{}</a>',
+                           url, user.pk, n)
+
+    @admin.display(description='open reports', ordering='_open_reports')
+    def open_reports(self, user):
+        n = user._open_reports
+        if not n:
+            return 0
+        url = reverse('admin:moderation_report_changelist')
+        return format_html('<a href="{}?status__exact=open&reported_user__id__exact={}">'
+                           '<b style="color:#ba2121">{}</b></a>', url, user.pk, n)
 
     @admin.display(description='account')
     def account_status(self, user):
@@ -67,6 +95,8 @@ class UserAdmin(BaseUserAdmin):
             return format_html('<b style="color:#ba2121">banned</b>')
         if not user.is_active:
             return format_html('<b style="color:#b06000">suspended</b>')
+        if user.hidden_by_reports:
+            return format_html('<b style="color:#b06000">hidden (reported)</b>')
         return 'active'
 
     @admin.action(description='Mark phone as verified')

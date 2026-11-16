@@ -86,6 +86,11 @@ class User(AbstractUser):
     # Moderation: "suspended" = is_active False (can be undone). "Banned" = suspended
     # + this date; the phone number and devices are also blocked from new accounts.
     banned_at = models.DateTimeField(null=True, blank=True)
+    # Reported by 3 different verified users: their listings are hidden from
+    # everyone else until an admin reviews the reports.
+    hidden_by_reports = models.BooleanField(default=False)
+    # When they saw the "Buy safely" tips (shown once, before their first conversation).
+    safety_tips_seen_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = 'phone'
     REQUIRED_FIELDS = ['display_name']

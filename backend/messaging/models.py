@@ -50,6 +50,11 @@ class Message(models.Model):
     text = models.TextField(max_length=MAX_MESSAGE_LENGTH)
     sent_at = models.DateTimeField(auto_now_add=True, db_index=True)
     read = models.BooleanField(default=False)
+    # Safety: the message contains a phone number, a link, WhatsApp/Telegram or
+    # payment-in-advance words. It is still delivered; the receiver sees a warning.
+    flagged = models.BooleanField(default=False, db_index=True)
+    # e.g. [{"code": "contact_phone", "detail": "..."}] (details for admins only).
+    flag_reasons = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ['sent_at']

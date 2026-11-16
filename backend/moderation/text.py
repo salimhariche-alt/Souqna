@@ -38,6 +38,20 @@ def find_link(text: str) -> str | None:
     return match.group(0) if match else None
 
 
+# Asking to continue outside the app ("écris-moi sur WhatsApp") is a classic first step
+# of a scam: no record, no reports. Common spellings in Latin and Arabic letters.
+_MESSAGING_APP = re.compile(
+    r'(?<![a-z0-9])(?:whats?\s?app|watsapp|wats?ap+|wh?atsap+|wtsp|wtsap|whatsap+|'
+    r'telegram+e?|telegrame|viber|signal\s?app)(?![a-z0-9])|'
+    r'واتساب|واتس\s?اب|واتسب|وتساب|الواتس|تيليجرام|تيلجرام|تلغرام|تليغرام|تيليغرام|فايبر'
+)
+
+
+def find_messaging_app(text: str) -> str | None:
+    match = _MESSAGING_APP.search(simplify(text))
+    return match.group(0).strip() if match else None
+
+
 def _is_latin(phrase: str) -> bool:
     return all(ord(c) < 0x0600 for c in phrase)
 

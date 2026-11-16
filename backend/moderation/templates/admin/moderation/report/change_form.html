@@ -1,0 +1,18 @@
+{% extends "admin/change_form.html" %}
+
+{% block submit_buttons_bottom %}
+{% if original.status == "open" %}
+<div class="submit-row">
+  <input type="submit" value="✓ Approve (the report is right: reject the listing / suspend the user)" name="_approve" class="default">
+  <input type="submit" value="Dismiss (nothing wrong, show it again)" name="_dismiss">
+  <input type="submit" value="⛔ Ban the reported user" name="_ban" style="background:#ba2121"
+         onclick="return confirm('Ban this user? Their phone number and devices will also be blocked from new accounts.');">
+</div>
+{% else %}
+<div class="submit-row">
+  <p>This report was handled ({{ original.get_status_display }}).</p>
+  <input type="submit" value="⛔ Ban the reported user" name="_ban" style="background:#ba2121"
+         onclick="return confirm('Ban this user? Their phone number and devices will also be blocked from new accounts.');">
+</div>
+{% endif %}
+{% endblock %}

@@ -66,6 +66,8 @@ function codedMessage(data: unknown, t: TFunction): string | null {
       return t('errors.accountSuspended');
     case 'account_banned':
       return t('errors.accountBanned');
+    case 'blocked':
+      return t('errors.blockedUser');
     default:
       return null;
   }

@@ -1,4 +1,5 @@
 from django.contrib.auth.models import update_last_login
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -93,6 +94,20 @@ class VerifyPhoneCodeView(APIView):
             user = phone_verification.verify_code(request.user, request.data.get('code'))
         except phone_verification.VerificationError as error:
             return Response(error.as_data(), status=error.status)
+        return Response({'user': ProfileSerializer(user).data})
+
+
+class SafetyTipsSeenView(APIView):
+    """POST /api/auth/safety-tips/seen/ - I've read the "Buy safely" tips; don't show
+    them again (on any phone). Returns my updated profile."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.safety_tips_seen_at is None:
+            user.safety_tips_seen_at = timezone.now()
+            user.save(update_fields=['safety_tips_seen_at'])
         return Response({'user': ProfileSerializer(user).data})
 
 

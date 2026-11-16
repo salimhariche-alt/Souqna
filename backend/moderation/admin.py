@@ -8,13 +8,16 @@ from listings.models import Listing
 
 from . import actions
 from .models import (
+    Block,
     BlockedPhone,
     Device,
     DeviceAccount,
     FlaggedKeyword,
     ListingReview,
     ModerationLog,
+    Report,
 )
+from .reports import AUTO_HIDE_REPORTERS, verified_reporters
 
 REASON_LABELS = {
     'low_price': 'Price much lower than usual',
@@ -22,6 +25,8 @@ REASON_LABELS = {
     'contact_phone': 'Phone number in the text',
     'contact_link': 'Link in the text',
     'advance_payment': 'Asks for payment in advance',
+    'messaging_app': 'Mentions WhatsApp / Telegram / another app',
+    'reported': 'Reported by users',
 }
 
 
@@ -113,6 +118,134 @@ class ListingReviewAdmin(admin.ModelAdmin):
         else:
             return super().response_change(request, listing)
         return HttpResponseRedirect(reverse('admin:moderation_listingreview_changelist'))
+
+
+# Reports ----------------------------------------------------------------------------
+
+def admin_link(obj, label=None):
+    if obj is None:
+        return '—'
+    url = reverse(f'admin:{obj._meta.app_label}_{obj._meta.model_name}_change', args=[obj.pk])
+    return format_html('<a href="{}">{}</a>', url, label or str(obj))
+
+
+@admin.register(Report)
+class ReportAdmin(admin.ModelAdmin):
+    """Reports from users. Open one to Approve (take action), Dismiss or Ban."""
+
+    change_form_template = 'admin/moderation/report/change_form.html'
+    list_display = ('created_at', 'target_type', 'what', 'reported_user', 'reason',
+                    'reporter', 'reporter_verified', 'reports_on_it', 'status')
+    list_filter = ('status', 'target_type', 'reason', 'created_at')
+    search_fields = ('text', 'listing__title', 'message__text', 'reported_user__phone',
+                     'reported_user__display_name', 'reporter__phone', 'reporter__display_name')
+    list_select_related = ('listing', 'message', 'reported_user', 'reporter')
+    readonly_fields = ('status', 'target_type', 'what', 'hidden_now', 'reported_user',
+                       'reason', 'text', 'reporter', 'reporter_verified', 'reports_on_it',
+                       'other_reports', 'created_at', 'handled_at', 'handled_by')
+    fields = readonly_fields
+    actions = ['approve_selected', 'dismiss_selected']
+
+    def changelist_view(self, request, extra_context=None):
+        # Opening "Reports" shows the ones waiting for review first.
+        if request.method == 'GET' and not request.GET:
+            return HttpResponseRedirect(request.path + '?status__exact=open')
+        return super().changelist_view(request, extra_context)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description='reported item')
+    def what(self, report):
+        if report.target_type == Report.Target.LISTING:
+            return admin_link(report.listing, f'Listing: {report.listing}')
+        if report.target_type == Report.Target.MESSAGE:
+            text = report.message.text
+            return format_html('Message: “{}”', text if len(text) <= 120 else text[:120] + '…')
+        return admin_link(report.reported_user, f'User: {report.reported_user}')
+
+    @admin.display(description='reporter phone verified', boolean=True)
+    def reporter_verified(self, report):
+        return report.reporter.phone_verified
+
+    @admin.display(description='verified reporters (open)')
+    def reports_on_it(self, report):
+        n = verified_reporters(report.same_target())
+        if n >= AUTO_HIDE_REPORTERS and report.target_type != Report.Target.MESSAGE:
+            return format_html('<b style="color:#ba2121">{} — hidden automatically</b>', n)
+        return n
+
+    @admin.display(description='hidden right now?')
+    def hidden_now(self, report):
+        if report.target_type == Report.Target.LISTING:
+            return report.listing.get_review_status_display()
+        user = report.reported_user
+        if user.banned_at:
+            return 'User banned'
+        if not user.is_active:
+            return 'User suspended'
+        return 'User hidden (reported)' if user.hidden_by_reports else 'Visible'
+
+    @admin.display(description='all reports about this item')
+    def other_reports(self, report):
+        rows = report.same_target().select_related('reporter')
+        return format_html_join(
+            '', '<div>{} — <b>{}</b> by {} ({}){}</div>',
+            ((r.created_at.strftime('%Y-%m-%d %H:%M'), r.get_reason_display(), r.reporter,
+              r.get_status_display(), f': “{r.text}”' if r.text else '') for r in rows))
+
+    @admin.action(description='Approve: take action (reject listing / suspend user)')
+    def approve_selected(self, request, queryset):
+        count = 0
+        for report in queryset.filter(status=Report.Status.OPEN):
+            report.refresh_from_db()
+            if report.status == Report.Status.OPEN:  # not already closed with another one
+                actions.approve_report(report, request.user)
+                count += 1
+        self.message_user(request, f'{count} report(s) approved.', messages.WARNING)
+
+    @admin.action(description='Dismiss: nothing wrong, show it again')
+    def dismiss_selected(self, request, queryset):
+        count = 0
+        for report in queryset.filter(status=Report.Status.OPEN):
+            report.refresh_from_db()
+            if report.status == Report.Status.OPEN:
+                actions.dismiss_report(report, request.user)
+                count += 1
+        self.message_user(request, f'{count} report(s) dismissed.')
+
+    def response_change(self, request, report):
+        """The Approve / Dismiss / Ban buttons on a report's page."""
+        if '_approve' in request.POST:
+            actions.approve_report(report, request.user)
+            self.message_user(request, f'Approved: {report}', messages.WARNING)
+        elif '_dismiss' in request.POST:
+            actions.dismiss_report(report, request.user)
+            self.message_user(request, f'Dismissed: {report}')
+        elif '_ban' in request.POST:
+            if report.reported_user_id == request.user.pk:
+                self.message_user(request, "You can't ban yourself.", messages.ERROR)
+            else:
+                actions.ban_from_report(report, request.user)
+                self.message_user(request, f'Banned: {report.reported_user}', messages.WARNING)
+        else:
+            return super().response_change(request, report)
+        return HttpResponseRedirect(reverse('admin:moderation_report_changelist'))
+
+
+@admin.register(Block)
+class BlockAdmin(admin.ModelAdmin):
+    list_display = ('blocker', 'blocked', 'created_at')
+    search_fields = ('blocker__phone', 'blocker__display_name',
+                     'blocked__phone', 'blocked__display_name')
+    list_select_related = ('blocker', 'blocked')
+    readonly_fields = ('blocker', 'blocked', 'created_at')
+
+    def has_add_permission(self, request):
+        return False
 
 
 # Suspicious words -------------------------------------------------------------------

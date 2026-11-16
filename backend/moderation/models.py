@@ -82,6 +82,7 @@ class ModerationLog(models.Model):
         BAN_USER = 'ban_user', 'Banned user'
         VERIFY_PHONE = 'verify_phone', 'Marked phone as verified'
         BAN_DEVICE = 'ban_device', 'Banned device'
+        DISMISS_REPORTS = 'dismiss_reports', 'Dismissed reports'
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
                               related_name='moderation_actions')
@@ -97,6 +98,103 @@ class ModerationLog(models.Model):
 
     def __str__(self):
         return f'{self.get_action_display()}: {self.target_label}'
+
+
+class Report(models.Model):
+    """A user reporting a listing, another user or a message. One per user per item."""
+
+    class Target(models.TextChoices):
+        LISTING = 'listing', 'Listing'
+        USER = 'user', 'User'
+        MESSAGE = 'message', 'Message'
+
+    class Reason(models.TextChoices):
+        SCAM = 'scam', 'Scam or fraud'
+        ADVANCE_PAYMENT = 'advance_payment', 'Asks for payment in advance'
+        FAKE_ITEM = 'fake_item', 'Fake or stolen item'
+        OFFENSIVE = 'offensive', 'Offensive'
+        OTHER = 'other', 'Other'
+
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Waiting for review'
+        ACTIONED = 'actioned', 'Action taken'
+        DISMISSED = 'dismissed', 'Dismissed'
+
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                 related_name='reports_made')
+    target_type = models.CharField(max_length=10, choices=Target.choices)
+    listing = models.ForeignKey(Listing, null=True, blank=True, on_delete=models.CASCADE,
+                                related_name='reports')
+    message = models.ForeignKey('messaging.Message', null=True, blank=True,
+                                on_delete=models.CASCADE, related_name='reports')
+    # Always filled: the reported user, the listing's seller or the message's sender.
+    reported_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                      related_name='reports_received')
+    reason = models.CharField(max_length=20, choices=Reason.choices)
+    text = models.CharField(max_length=500, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN,
+                              db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    handled_at = models.DateTimeField(null=True, blank=True)
+    handled_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                   on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            # One report per user per item.
+            models.UniqueConstraint(fields=['reporter', 'listing'],
+                                    condition=models.Q(target_type='listing'),
+                                    name='one_report_per_listing'),
+            models.UniqueConstraint(fields=['reporter', 'reported_user'],
+                                    condition=models.Q(target_type='user'),
+                                    name='one_report_per_user'),
+            models.UniqueConstraint(fields=['reporter', 'message'],
+                                    condition=models.Q(target_type='message'),
+                                    name='one_report_per_message'),
+            models.CheckConstraint(condition=~models.Q(reporter=models.F('reported_user')),
+                                   name='cannot_report_yourself'),
+        ]
+
+    def __str__(self):
+        return f'Report #{self.pk}: {self.get_reason_display()} ({self.target_type})'
+
+    def same_target(self):
+        """All reports about the same listing / user / message as this one."""
+        if self.target_type == self.Target.LISTING:
+            return Report.objects.filter(target_type=self.target_type, listing_id=self.listing_id)
+        if self.target_type == self.Target.MESSAGE:
+            return Report.objects.filter(target_type=self.target_type, message_id=self.message_id)
+        return Report.objects.filter(target_type=self.target_type,
+                                     reported_user_id=self.reported_user_id)
+
+
+class Block(models.Model):
+    """`blocker` blocked `blocked`: no messages between them, no listings of each other."""
+
+    blocker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                related_name='blocks_made')
+    blocked = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                related_name='blocked_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['blocker', 'blocked'], name='unique_block'),
+            models.CheckConstraint(condition=~models.Q(blocker=models.F('blocked')),
+                                   name='cannot_block_yourself'),
+        ]
+
+    def __str__(self):
+        return f'{self.blocker} blocked {self.blocked}'
+
+    @staticmethod
+    def between(user_a, user_b) -> bool:
+        """Has either of them blocked the other?"""
+        return Block.objects.filter(
+            models.Q(blocker=user_a, blocked=user_b) | models.Q(blocker=user_b, blocked=user_a)
+        ).exists()
 
 
 class ListingReview(Listing):

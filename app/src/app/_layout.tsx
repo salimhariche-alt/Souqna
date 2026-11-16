@@ -26,6 +26,11 @@ function RootStack() {
         name="verify-phone"
         options={{ presentation: 'modal', title: t('verify.screenTitle') }}
       />
+      <Stack.Screen
+        name="buy-safely"
+        options={{ presentation: 'modal', title: t('safety.screenTitle') }}
+      />
+      <Stack.Screen name="blocked-users" options={{ title: t('block.listTitle') }} />
       <Stack.Screen name="listing/[id]/index" options={{ title: t('listing.title') }} />
       <Stack.Screen name="listing/[id]/edit" options={{ title: t('listing.editTitle') }} />
       <Stack.Screen name="chat/[id]" options={{ title: t('chat.title') }} />

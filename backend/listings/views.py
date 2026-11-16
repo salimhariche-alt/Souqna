@@ -21,6 +21,7 @@ from .serializers import (
     ListingListSerializer,
     ListingPhotoSerializer,
 )
+from .visibility import visible_listing_q
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -67,14 +68,14 @@ class ListingViewSet(mixins.ListModelMixin,
             .prefetch_related('photos')
             .order_by('-created_at', '-id')
         )
-        # Moderation: only approved listings from active (not suspended/banned) sellers
-        # are visible. A seller still sees their own flagged/rejected listings.
-        visible = Q(review_status=Listing.Review.APPROVED, seller__is_active=True)
+        # Moderation and blocks (see visibility.py). A seller still sees their own
+        # flagged/rejected listings.
+        user = self.request.user
+        visible = visible_listing_q(user)
         if self.action == 'list':
             # The public list only shows items that can still be bought.
             # A single listing stays viewable after it is reserved or sold.
             return queryset.filter(visible, status=Listing.Status.ACTIVE)
-        user = self.request.user
         if user.is_authenticated:
             return queryset.filter(visible | Q(seller=user))
         return queryset.filter(visible)
@@ -164,9 +165,9 @@ class FavoriteViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         return (
             Favorite.objects
             .filter(user=self.request.user)
-            # Hide listings that are flagged/rejected or whose seller is suspended/banned.
-            .filter(listing__review_status=Listing.Review.APPROVED,
-                    listing__seller__is_active=True)
+            # Hide listings that are flagged/rejected, whose seller is suspended/banned/
+            # hidden, or whose seller and I have blocked each other.
+            .filter(visible_listing_q(self.request.user, prefix='listing__'))
             .select_related('listing__category')
             .prefetch_related('listing__photos')
             .order_by('-created_at', '-id')

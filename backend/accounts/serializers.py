@@ -36,12 +36,14 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     wilaya_name = serializers.CharField(source='get_wilaya_display', read_only=True)
     items_sold = serializers.IntegerField(read_only=True)
+    # Has this user already seen the "Buy safely" tips? (Shown once, before the first chat.)
+    safety_tips_seen = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'phone', 'email', 'display_name', 'wilaya', 'wilaya_name',
                   'preferred_language', 'phone_verified', 'phone_verified_at', 'items_sold',
-                  'date_joined']
+                  'safety_tips_seen', 'date_joined']
         read_only_fields = ['id', 'phone', 'email', 'phone_verified', 'phone_verified_at',
                             'date_joined']
         extra_kwargs = {
@@ -49,6 +51,9 @@ class ProfileSerializer(serializers.ModelSerializer):
             'preferred_language': {'error_messages': {
                 'invalid_choice': 'Language must be "ar", "fr" or "en".'}},
         }
+
+    def get_safety_tips_seen(self, user) -> bool:
+        return user.safety_tips_seen_at is not None
 
 
 class SignupSerializer(serializers.Serializer):
