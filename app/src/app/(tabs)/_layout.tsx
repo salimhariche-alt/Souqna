@@ -2,37 +2,54 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, type Href } from 'expo-router';
 import { type BottomTabNavigationOptions, Tabs } from 'expo-router/js-tabs';
 import { useEffect, type ComponentProps } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/auth/auth-provider';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { refreshUnread, setUnread, useUnreadCount } from '@/messages/unread';
+import { FontFiles, useTokens } from '@/theme';
 
-import { useTheme } from '@/hooks/use-theme';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-function tabIcon(name: IconName): BottomTabNavigationOptions['tabBarIcon'] {
-  return ({ color, size }) => (
-    <Ionicons name={name} size={size} color={typeof color === 'string' ? color : undefined} />
+/** The outline icon normally, the filled one when the tab is selected. */
+function tabIcon(outline: IconName, filled: IconName): BottomTabNavigationOptions['tabBarIcon'] {
+  return ({ color, focused }) => (
+    <Ionicons
+      name={focused ? filled : outline}
+      size={24}
+      color={typeof color === 'string' ? color : undefined}
+    />
   );
 }
 
-/**
- * The bottom tab bar: Home, Search, Sell, Messages, Profile.
- * Home and Search are open to everyone. Sell, Messages and Profile need a login:
- * when a logged-out user taps one, the Log in screen opens first.
- * Sell also needs a verified phone: unverified users go to the verification screen.
- */
-/** How often the red badge checks for new messages when the Messages tab isn't open. */
+/** Sell: a round brand-coloured "+" that stands out in the middle of the bar. */
+function SellIcon() {
+  const tk = useTokens();
+  return (
+    <View style={[styles.sell, { backgroundColor: tk.color.primary }]}>
+      <Ionicons name="add" size={26} color={tk.color.onPrimary} />
+    </View>
+  );
+}
+
+/** How often the red dot checks for new messages when the Inbox tab isn't open. */
 const BADGE_CHECK_MS = 30000;
 
+/**
+ * The bottom tab bar: Home, Browse, Sell, Inbox, Profile.
+ * Home, Browse and Profile are open to everyone (logged-out visitors see a welcome on
+ * Profile). Sell and Inbox need a login: tapping them opens Log in first.
+ * Sell also needs a verified phone: unverified users go to the verification screen.
+ * (The screens' files keep their old names - search.tsx, messages.tsx - so links work.)
+ */
 export default function TabLayout() {
   const { t } = useTranslation();
   const { status, user } = useAuth();
   const unread = useUnreadCount();
-  const theme = useTheme();
+  const tk = useTokens();
 
-  // Keep the badge up to date while logged in; reset it when logged out.
+  // Keep the dot up to date while logged in; reset it when logged out.
   useEffect(() => {
     if (status !== 'signedIn') {
       setUnread(0);
@@ -56,41 +73,81 @@ export default function TabLayout() {
   });
 
   return (
-    // Selected tab in the brand colour (lighter in dark mode so its label stays readable).
-    <Tabs screenOptions={{ tabBarActiveTintColor: theme.primary, headerTitleAlign: 'center' }}>
+    <Tabs
+      screenOptions={{
+        headerTitleAlign: 'center',
+        // Selected tab in the brand colour (lighter in dark mode, so labels stay readable).
+        tabBarActiveTintColor: tk.color.primary,
+        tabBarInactiveTintColor: tk.color.textSecondary,
+        tabBarLabelStyle: styles.label,
+        tabBarStyle: {
+          backgroundColor: tk.color.background,
+          borderTopColor: tk.color.border,
+          minHeight: 60,
+        },
+        headerStyle: { backgroundColor: tk.color.background },
+        headerShadowVisible: false,
+      }}>
       <Tabs.Screen
         name="index"
         options={{
           title: t('tabs.home'),
-          tabBarIcon: tabIcon('home-outline'),
-          // Logged-out visitors can't open Profile, so they switch language here.
+          tabBarIcon: tabIcon('home-outline', 'home'),
+          // Logged-out visitors can switch language here (and on the Profile welcome).
           headerRight: () => <LanguageSwitcher compact />,
         }}
       />
       <Tabs.Screen
         name="search"
-        options={{ title: t('tabs.search'), tabBarIcon: tabIcon('search-outline') }}
+        options={{ title: t('tabs.search'), tabBarIcon: tabIcon('grid-outline', 'grid') }}
       />
       <Tabs.Screen
         name="sell"
-        options={{ title: t('tabs.sell'), tabBarIcon: tabIcon('add-circle-outline') }}
+        options={{
+          title: t('tabs.sell'),
+          tabBarIcon: () => <SellIcon />,
+          tabBarAccessibilityLabel: t('tabs.sell'),
+        }}
         listeners={needsLogin('sell', true)}
       />
       <Tabs.Screen
         name="messages"
         options={{
           title: t('tabs.messages'),
-          tabBarIcon: tabIcon('chatbubbles-outline'),
-          // Red badge with the number of unread messages ("99+" above 99).
-          tabBarBadge: unread > 0 ? (unread > 99 ? '99+' : unread) : undefined,
+          tabBarIcon: tabIcon('chatbubbles-outline', 'chatbubbles'),
+          // A small red dot when there are unread messages (the number is read aloud).
+          tabBarBadge: unread > 0 ? '' : undefined,
+          tabBarBadgeStyle: [styles.dot, { backgroundColor: tk.color.danger }],
+          tabBarAccessibilityLabel:
+            unread > 0 ? t('tabs.messagesUnread', { count: unread }) : t('tabs.messages'),
         }}
         listeners={needsLogin('messages')}
       />
       <Tabs.Screen
         name="profile"
-        // Open to everyone: logged-out visitors see a welcome with Log in / Sign up.
-        options={{ title: t('tabs.profile'), tabBarIcon: tabIcon('person-outline') }}
+        options={{ title: t('tabs.profile'), tabBarIcon: tabIcon('person-outline', 'person') }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  label: { fontFamily: FontFiles.medium, fontSize: 12 },
+  sell: {
+    width: 40,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dot: {
+    minWidth: 10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    top: 2,
+    fontSize: 1,
+    lineHeight: 10,
+    color: 'transparent',
+  },
+});

@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { router, useFocusEffect, type Href } from 'expo-router';
-import { type ComponentProps, useCallback, useRef, useState } from 'react';
+import { router, useFocusEffect, useNavigation, type Href } from 'expo-router';
+import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -19,12 +19,12 @@ import {
 import { useAuth } from '@/auth/auth-provider';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FeedMessage } from '@/components/feed-message';
-import { LanguageSwitcher } from '@/components/language-switcher';
 import { ListingGrid } from '@/components/listing-grid';
 import { PrimaryButton } from '@/components/primary-button';
 import { ProfileHeader } from '@/components/profile-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WelcomeScreen } from '@/components/welcome-screen';
 import { Brand, Spacing } from '@/constants/theme';
 import { useListingsFeed } from '@/hooks/use-listings-feed';
 import { useTheme } from '@/hooks/use-theme';
@@ -33,42 +33,6 @@ import { formatPrice } from '@/utils/format';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 const NO_FILTERS = {};
-
-/** Logged out: a friendly welcome. */
-function Welcome() {
-  const { t } = useTranslation();
-  return (
-    <ScrollView contentContainerStyle={styles.welcome}>
-      <View style={styles.welcomeIcon}>
-        <Ionicons name="person-circle-outline" size={72} color={Brand.fill} />
-      </View>
-      <ThemedText type="subtitle" style={styles.center}>
-        {t('profile.welcomeTitle')}
-      </ThemedText>
-      <ThemedText themeColor="textSecondary" style={styles.center}>
-        {t('profile.welcomeText')}
-      </ThemedText>
-      <PrimaryButton
-        title={t('auth.loginButton')}
-        onPress={() => router.push({ pathname: '/login', params: { next: '/profile' } } as Href)}
-      />
-      <PrimaryButton
-        title={t('auth.goToSignup')}
-        variant="secondary"
-        onPress={() => router.push({ pathname: '/signup', params: { next: '/profile' } } as Href)}
-      />
-      <LanguageSwitcher />
-      {/* Development only: the design system preview (brand colour options). */}
-      {__DEV__ && (
-        <PrimaryButton
-          title={t('designPreview.screenTitle')}
-          variant="secondary"
-          onPress={() => router.push('/design-preview' as Href)}
-        />
-      )}
-    </ScrollView>
-  );
-}
 
 /** A row like "Edit profile  >". */
 function MenuRow({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
@@ -438,9 +402,17 @@ function Favorites({ header }: { header: React.ReactElement }) {
 
 export default function ProfileScreen() {
   const { status } = useAuth();
+  const navigation = useNavigation();
+  // Logged out: the full-screen welcome has no header bar.
+  useEffect(() => {
+    navigation.setOptions({ headerShown: status === 'signedIn' });
+  }, [navigation, status]);
+
   if (status === 'loading') return <ActivityIndicator style={styles.loading} />;
   return (
-    <ThemedView style={styles.flex}>{status === 'signedIn' ? <ProfileHome /> : <Welcome />}</ThemedView>
+    <ThemedView style={styles.flex}>
+      {status === 'signedIn' ? <ProfileHome /> : <WelcomeScreen />}
+    </ThemedView>
   );
 }
 

@@ -3,9 +3,10 @@ import type { Translations } from './fr';
 const en: Translations = {
   tabs: {
     home: 'Home',
-    search: 'Search',
+    search: 'Browse',
     sell: 'Sell',
-    messages: 'Messages',
+    messages: 'Inbox',
+    messagesUnread: 'Inbox, {{count}} unread',
     profile: 'Profile',
   },
   home: {
@@ -393,6 +394,12 @@ const en: Translations = {
     mismatchPhone: "That's not this account's phone number.",
     mismatchEmail: "That's not this account's email.",
     confirm: 'Delete my account for good',
+  },
+  welcome: {
+    headline: 'Sell and buy second-hand all over Algeria',
+    subline: 'Items near you, sellers with verified phone numbers, and you pay in person.',
+    signup: 'Sign up',
+    haveAccount: 'I already have an account',
   },
   designPreview: {
     screenTitle: 'Design preview',

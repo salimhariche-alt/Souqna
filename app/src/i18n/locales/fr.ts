@@ -2,9 +2,10 @@
 const fr = {
   tabs: {
     home: 'Accueil',
-    search: 'Rechercher',
+    search: 'Parcourir',
     sell: 'Vendre',
-    messages: 'Messages',
+    messages: 'Messagerie',
+    messagesUnread: 'Messagerie, {{count}} non lu(s)',
     profile: 'Profil',
   },
   home: {
@@ -398,6 +399,12 @@ const fr = {
     mismatchPhone: "Ce n'est pas le numéro de ce compte.",
     mismatchEmail: "Ce n'est pas l'e-mail de ce compte.",
     confirm: 'Supprimer définitivement mon compte',
+  },
+  welcome: {
+    headline: 'Vendez et achetez en seconde main partout en Algérie',
+    subline: 'Des articles près de chez vous, des vendeurs au numéro vérifié, et vous payez en main propre.',
+    signup: 'Créer un compte',
+    haveAccount: "J'ai déjà un compte",
   },
   designPreview: {
     screenTitle: 'Aperçu du design',

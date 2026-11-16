@@ -3,9 +3,10 @@ import type { Translations } from './fr';
 const ar: Translations = {
   tabs: {
     home: 'الرئيسية',
-    search: 'بحث',
+    search: 'تصفّح',
     sell: 'بيع',
     messages: 'الرسائل',
+    messagesUnread: 'الرسائل، {{count}} غير مقروءة',
     profile: 'حسابي',
   },
   home: {
@@ -388,6 +389,12 @@ const ar: Translations = {
     mismatchPhone: 'هذا ليس رقم هاتف هذا الحساب.',
     mismatchEmail: 'هذا ليس البريد الإلكتروني لهذا الحساب.',
     confirm: 'حذف حسابي نهائيًا',
+  },
+  welcome: {
+    headline: 'بِع واشترِ المستعمل في كل أنحاء الجزائر',
+    subline: 'منتجات قريبة منك، بائعون بأرقام موثّقة، والدفع يدًا بيد.',
+    signup: 'إنشاء حساب',
+    haveAccount: 'لدي حساب بالفعل',
   },
   designPreview: {
     screenTitle: 'معاينة التصميم',
