@@ -46,6 +46,8 @@ class ListingViewSet(mixins.ListModelMixin,
     - GET    /api/listings/{id}/            one listing with photos and seller
     - PATCH  /api/listings/{id}/            edit, or set status to reserved/sold (seller only)
     - POST   /api/listings/{id}/photos/     upload a photo (seller only, max 8)
+    - DELETE /api/listings/{id}/photos/{photo_id}/   remove a photo (seller only)
+    - POST   /api/listings/{id}/photos/order/        {"order": [ids]}: first = cover
     - POST   /api/listings/{id}/favorite/   add to my favorites (logged in)
     - DELETE /api/listings/{id}/favorite/   remove from my favorites (logged in)
     """
@@ -137,6 +139,42 @@ class ListingViewSet(mixins.ListModelMixin,
                             status=status.HTTP_409_CONFLICT)
         check_photo(photo)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path=r'photos/(?P<photo_id>\d+)')
+    def delete_photo(self, request, pk=None, photo_id=None):
+        """DELETE /api/listings/{id}/photos/{photo_id}/ - remove one photo (seller only)."""
+        listing = self.get_object()  # also checks that you are the seller
+        photo = listing.photos.filter(pk=photo_id).first()
+        if photo is None:
+            return Response({'detail': 'This photo does not exist.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        image = photo.image
+        photo.delete()
+        image.delete(save=False)  # also remove the file from the server's disk
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], url_path='photos/order')
+    def order_photos(self, request, pk=None):
+        """POST /api/listings/{id}/photos/order/ - {"order": [photo ids]}: the first one
+        becomes the cover. Must list every photo of the listing exactly once."""
+        listing = self.get_object()  # also checks that you are the seller
+        order = request.data.get('order')
+        photos = {photo.pk: photo for photo in listing.photos.all()}
+        if (not isinstance(order, list) or not all(isinstance(i, int) for i in order)
+                or sorted(order) != sorted(photos)):
+            return Response({'detail': 'Send "order": a list with each photo id once.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # Positions must stay 1-8 and unique at every moment, so the rows are replaced
+        # in one go (same files, same fingerprints, new positions).
+        with transaction.atomic():
+            rows = [ListingPhoto(listing=listing, image=photos[i].image.name, position=n,
+                                 fingerprint=photos[i].fingerprint)
+                    for n, i in enumerate(order, start=1)]
+            listing.photos.all().delete()
+            ListingPhoto.objects.bulk_create(rows)
+        data = ListingPhotoSerializer(listing.photos.all(), many=True,
+                                      context={'request': request}).data
+        return Response(data)
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])

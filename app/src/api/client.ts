@@ -31,6 +31,10 @@ type RequestOptions = {
   body?: unknown;
   /** Send the logged-in user's token (and refresh it if it expired). */
   auth?: boolean;
+  /** Send a form with files (e.g. a photo) instead of JSON. */
+  form?: FormData;
+  /** How long to wait before giving up, in milliseconds. */
+  timeoutMs?: number;
 };
 
 // Called when the session can't be renewed (refresh token expired or revoked).
@@ -39,17 +43,25 @@ export function setSessionExpiredHandler(handler: (() => void) | null) {
   sessionExpiredHandler = handler;
 }
 
-async function send(path: string, method: string, body: unknown, token: string | null) {
+async function send(
+  path: string,
+  method: string,
+  body: unknown,
+  token: string | null,
+  form?: FormData,
+  timeoutMs = TIMEOUT_MS,
+) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // For a form, the phone sets the Content-Type itself (it includes a "boundary").
+  if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
     return await fetch(`${API_URL}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: form ?? (body === undefined ? undefined : JSON.stringify(body)),
       signal: controller.signal,
     });
   } catch {
@@ -97,10 +109,10 @@ function refreshAccessToken(): Promise<RefreshResult> {
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, auth = false } = options;
+  const { method = 'GET', body, auth = false, form, timeoutMs } = options;
 
   let token = auth ? await tokenStorage.getAccess() : null;
-  let response = await send(path, method, body, token);
+  let response = await send(path, method, body, token, form, timeoutMs);
 
   if (auth && response.status === 401) {
     const result = await refreshAccessToken();
@@ -109,7 +121,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       sessionExpiredHandler?.();
     } else {
       token = result.token;
-      response = await send(path, method, body, token);
+      response = await send(path, method, body, token, form, timeoutMs);
       if (response.status === 401) sessionExpiredHandler?.();
     }
   }

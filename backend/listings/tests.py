@@ -1,5 +1,6 @@
 """Tests for the /api/ endpoints. Run with:  python manage.py test"""
 
+import os
 import shutil
 import tempfile
 from datetime import timedelta
@@ -388,6 +389,64 @@ class PhotoUploadTests(ApiTestCase):
         response = self.client.post(f'/api/listings/{listing.id}/photos/', {},
                                     format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class PhotoEditTests(ApiTestCase):
+    """Removing photos and choosing the cover (used by the app's Edit screen)."""
+
+    def setUp(self):
+        self.listing = self.make_listing()
+        self.client.force_authenticate(self.seller)
+        self.ids = [self.client.post(f'/api/listings/{self.listing.id}/photos/',
+                                     {'image': make_image(f'{n}.jpg')},
+                                     format='multipart').data['id'] for n in range(3)]
+
+    def test_delete_a_photo_and_its_file(self):
+        photo = ListingPhoto.objects.get(pk=self.ids[1])
+        path = photo.image.path
+        response = self.client.delete(f'/api/listings/{self.listing.id}/photos/{self.ids[1]}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(self.listing.photos.count(), 2)
+        self.assertFalse(os.path.exists(path))
+
+    def test_delete_unknown_photo(self):
+        response = self.client.delete(f'/api/listings/{self.listing.id}/photos/999999/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_only_the_seller_can_delete_or_reorder(self):
+        self.client.force_authenticate(self.other)
+        self.assertNotOwner(
+            self.client.delete(f'/api/listings/{self.listing.id}/photos/{self.ids[0]}/'))
+        self.assertNotOwner(self.client.post(f'/api/listings/{self.listing.id}/photos/order/',
+                                             {'order': self.ids[::-1]}, format='json'))
+        self.assertEqual(self.listing.photos.count(), 3)
+
+    def test_move_a_photo_to_be_the_cover(self):
+        images = dict(ListingPhoto.objects.values_list('pk', 'image'))
+        order = [self.ids[2], self.ids[0], self.ids[1]]
+        response = self.client.post(f'/api/listings/{self.listing.id}/photos/order/',
+                                    {'order': order}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([p['position'] for p in response.data], [1, 2, 3])
+        saved = list(self.listing.photos.order_by('position').values_list('image', flat=True))
+        self.assertEqual(saved, [images[i] for i in order])  # same files, new order
+
+    def test_order_with_8_photos(self):
+        for n in range(5):
+            self.client.post(f'/api/listings/{self.listing.id}/photos/',
+                             {'image': make_image()}, format='multipart')
+        ids = list(self.listing.photos.order_by('position').values_list('pk', flat=True))
+        self.assertEqual(len(ids), 8)
+        response = self.client.post(f'/api/listings/{self.listing.id}/photos/order/',
+                                    {'order': ids[::-1]}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_order_must_list_every_photo_once(self):
+        url = f'/api/listings/{self.listing.id}/photos/order/'
+        for bad in ([self.ids[0]], self.ids + [self.ids[0]], [*self.ids[:2], 999999], 'abc'):
+            response = self.client.post(url, {'order': bad}, format='json')
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, bad)
+        self.assertEqual(self.listing.photos.count(), 3)
 
 
 # 5. Favorites ----------------------------------------------------------------------

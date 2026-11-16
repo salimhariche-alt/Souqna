@@ -33,7 +33,14 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Souqna uses your photos so you can add them to the items you sell.",
+          "cameraPermission": "Souqna uses the camera so you can take photos of the items you sell."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

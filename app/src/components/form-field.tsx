@@ -39,6 +39,7 @@ export function FormField({ label, error, hint, password = false, ...inputProps 
           accessibilityLabel={label}
           style={[
             styles.input,
+            inputProps.multiline && styles.multiline,
             {
               color: theme.text,
               textAlign: direction === 'rtl' ? 'right' : 'left',
@@ -86,6 +87,7 @@ const styles = StyleSheet.create({
   },
   inputRowError: { borderColor: '#D93025' },
   input: { flex: 1, paddingVertical: Spacing.three, fontSize: 16 },
+  multiline: { minHeight: 110, maxHeight: 220, textAlignVertical: 'top' },
   eye: { paddingStart: Spacing.two },
   error: { color: '#D93025' },
 });
