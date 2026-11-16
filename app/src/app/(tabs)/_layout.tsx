@@ -41,7 +41,7 @@ export default function TabLayout() {
     return () => clearInterval(timer);
   }, [status]);
 
-  const needsLogin = (tab: 'sell' | 'messages' | 'profile', needsVerifiedPhone = false) => ({
+  const needsLogin = (tab: 'sell' | 'messages', needsVerifiedPhone = false) => ({
     tabPress: (event: { preventDefault: () => void }) => {
       if (status !== 'signedIn') {
         event.preventDefault(); // stay on the current tab
@@ -85,8 +85,8 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="profile"
+        // Open to everyone: logged-out visitors see a welcome with Log in / Sign up.
         options={{ title: t('tabs.profile'), tabBarIcon: tabIcon('person-outline') }}
-        listeners={needsLogin('profile')}
       />
     </Tabs>
   );

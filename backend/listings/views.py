@@ -1,5 +1,6 @@
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -20,6 +21,7 @@ from .serializers import (
     ListingDetailSerializer,
     ListingListSerializer,
     ListingPhotoSerializer,
+    MyListingSerializer,
 )
 from .visibility import visible_listing_q
 
@@ -37,6 +39,7 @@ class ListingViewSet(mixins.ListModelMixin,
                      mixins.RetrieveModelMixin,
                      mixins.CreateModelMixin,
                      mixins.UpdateModelMixin,
+                     mixins.DestroyModelMixin,
                      viewsets.GenericViewSet):
     """
     Listings.
@@ -45,6 +48,9 @@ class ListingViewSet(mixins.ListModelMixin,
     - POST   /api/listings/                 create a listing (logged in)
     - GET    /api/listings/{id}/            one listing with photos and seller
     - PATCH  /api/listings/{id}/            edit, or set status to reserved/sold (seller only)
+    - DELETE /api/listings/{id}/            delete it (seller only; hidden, not erased)
+    - GET    /api/listings/mine/?tab=active|review|reserved|sold   my own listings
+    - GET    /api/listings/?seller=<id>     one seller's active listings (public profile)
     - POST   /api/listings/{id}/photos/     upload a photo (seller only, max 8)
     - DELETE /api/listings/{id}/photos/{photo_id}/   remove a photo (seller only)
     - POST   /api/listings/{id}/photos/order/        {"order": [ids]}: first = cover
@@ -66,10 +72,13 @@ class ListingViewSet(mixins.ListModelMixin,
     def get_queryset(self):
         queryset = (
             Listing.objects
+            .filter(deleted_at__isnull=True)  # deleted listings are gone for everyone
             .select_related('seller', 'category')
             .prefetch_related('photos')
             .order_by('-created_at', '-id')
         )
+        if self.action == 'mine':
+            return queryset.filter(seller=self.request.user)
         # Moderation and blocks (see visibility.py). A seller still sees their own
         # flagged/rejected listings.
         user = self.request.user
@@ -91,6 +100,8 @@ class ListingViewSet(mixins.ListModelMixin,
     def get_serializer_class(self):
         if self.action == 'list':
             return ListingListSerializer
+        if self.action == 'mine':
+            return MyListingSerializer
         if self.action == 'photos':
             return ListingPhotoSerializer
         return ListingDetailSerializer
@@ -112,6 +123,38 @@ class ListingViewSet(mixins.ListModelMixin,
         # Check again only if the text, price or category changed (not for "mark as sold").
         if any(getattr(listing, field) != value for field, value in old.items()):
             check_listing(listing)
+
+    def destroy(self, request, *args, **kwargs):
+        """DELETE /api/listings/{id}/ - the seller deletes it. It disappears everywhere,
+        but is kept (hidden) so reports and conversations about it still make sense."""
+        listing = self.get_object()  # also checks that you are the seller
+        listing.deleted_at = timezone.now()
+        listing.save(update_fields=['deleted_at'])
+        Favorite.objects.filter(listing=listing).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def mine(self, request):
+        """GET /api/listings/mine/?tab=active|review|reserved|sold - my own listings,
+        including the ones under review that only I can see."""
+        tabs = {
+            'active': Q(status=Listing.Status.ACTIVE, review_status=Listing.Review.APPROVED),
+            'review': ~Q(review_status=Listing.Review.APPROVED),
+            'reserved': Q(status=Listing.Status.RESERVED, review_status=Listing.Review.APPROVED),
+            'sold': Q(status=Listing.Status.SOLD, review_status=Listing.Review.APPROVED),
+        }
+        tab = request.query_params.get('tab', 'active')
+        if tab not in tabs:
+            return Response({'detail': 'tab must be active, review, reserved or sold.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        listings = self.get_queryset().filter(tabs[tab])
+        page = self.paginate_queryset(listings)
+        data = MyListingSerializer(page, many=True, context=self.get_serializer_context()).data
+        response = self.get_paginated_response(data)
+        # How many in each tab, for the tab labels ("Active (3)").
+        mine = self.get_queryset()
+        response.data['counts'] = {name: mine.filter(q).count() for name, q in tabs.items()}
+        return response
 
     @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
     def photos(self, request, pk=None):

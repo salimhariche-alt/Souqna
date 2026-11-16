@@ -19,13 +19,24 @@ type Props = {
   headerComponent?: ReactElement;
   /** "Try again" after a connection error (defaults to retrying the feed). */
   onRetry?: () => void;
+  /** Favourites: a heart on each card to remove it. */
+  onUnfavorite?: (listing: ListingSummary) => void;
+  /** Listings to leave out (e.g. just removed from favourites). */
+  hiddenIds?: Set<number>;
 };
 
 /**
  * The 2-column grid of listing cards used by Home and Search: loading spinner,
  * error with "Try again", pull to refresh, and the next 20 when scrolling down.
  */
-export function ListingGrid({ feed, emptyComponent, headerComponent, onRetry }: Props) {
+export function ListingGrid({
+  feed,
+  emptyComponent,
+  headerComponent,
+  onRetry,
+  onUnfavorite,
+  hiddenIds,
+}: Props) {
   const { t } = useTranslation();
   const { language, direction } = useLanguage();
 
@@ -36,10 +47,16 @@ export function ListingGrid({ feed, emptyComponent, headerComponent, onRetry }: 
   const renderItem = useCallback(
     ({ item }: { item: ListingSummary }) => (
       <View style={styles.cell}>
-        <ListingCard listing={item} language={language} direction={direction} onPress={openListing} />
+        <ListingCard
+          listing={item}
+          language={language}
+          direction={direction}
+          onPress={openListing}
+          onUnfavorite={onUnfavorite}
+        />
       </View>
     ),
-    [language, direction, openListing],
+    [language, direction, openListing, onUnfavorite],
   );
 
   if (feed.status === 'loading') {
@@ -59,7 +76,7 @@ export function ListingGrid({ feed, emptyComponent, headerComponent, onRetry }: 
 
   return (
     <FlatList
-      data={feed.items}
+      data={hiddenIds?.size ? feed.items.filter((item) => !hiddenIds.has(item.id)) : feed.items}
       keyExtractor={(item) => String(item.id)}
       renderItem={renderItem}
       numColumns={2}

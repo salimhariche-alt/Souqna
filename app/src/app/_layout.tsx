@@ -31,6 +31,10 @@ function RootStack() {
         options={{ presentation: 'modal', title: t('safety.screenTitle') }}
       />
       <Stack.Screen name="blocked-users" options={{ title: t('block.listTitle') }} />
+      <Stack.Screen name="edit-profile" options={{ title: t('profile.editProfile') }} />
+      <Stack.Screen name="settings" options={{ title: t('settings.title') }} />
+      <Stack.Screen name="delete-account" options={{ title: t('deleteAccount.title') }} />
+      <Stack.Screen name="seller/[id]" options={{ title: t('listing.seller') }} />
       <Stack.Screen name="listing/[id]/index" options={{ title: t('listing.title') }} />
       <Stack.Screen name="listing/[id]/edit" options={{ title: t('listing.editTitle') }} />
       <Stack.Screen name="chat/[id]" options={{ title: t('chat.title') }} />

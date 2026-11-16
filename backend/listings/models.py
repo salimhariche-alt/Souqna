@@ -82,6 +82,9 @@ class Listing(models.Model):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
         related_name='+',
     )
+    # Deleted by the seller (or with their account): hidden everywhere, but kept so
+    # reports, flags and conversations about it still make sense.
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         ordering = ['-created_at']

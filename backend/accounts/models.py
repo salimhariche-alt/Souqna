@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import re
+import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -8,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from souqna_api.wilayas import Wilaya
 
@@ -29,6 +31,11 @@ def normalize_phone(value):
 def normalize_email_address(value):
     """Emails are stored lowercase so 'A@Mail.com' and 'a@mail.com' count as the same."""
     return (value or '').strip().lower()
+
+
+def avatar_file_name(user, filename):
+    """avatars/2026/11/<random>.jpg - a random name nobody can guess."""
+    return f'avatars/{timezone.now():%Y/%m}/{uuid.uuid4().hex}.jpg'
 
 
 class UserManager(BaseUserManager):
@@ -91,6 +98,11 @@ class User(AbstractUser):
     hidden_by_reports = models.BooleanField(default=False)
     # 3 strikes (offensive messages) in 30 days: no messages or voice until this date.
     messaging_blocked_until = models.DateTimeField(null=True, blank=True)
+    # Optional profile photo (cleaned and resized to 600 x 600 when uploaded).
+    avatar = models.ImageField(upload_to=avatar_file_name, blank=True)
+    # The user deleted their account: personal data erased, listings hidden. The row
+    # stays so moderation evidence (flags, reports, log) still points somewhere.
+    deleted_at = models.DateTimeField(null=True, blank=True)
     # When they saw the "Buy safely" tips (shown once, before their first conversation).
     safety_tips_seen_at = models.DateTimeField(null=True, blank=True)
 

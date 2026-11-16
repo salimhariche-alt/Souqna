@@ -1,13 +1,26 @@
 from django.contrib.auth.models import update_last_login
 from django.utils import timezone
+from PIL import UnidentifiedImageError
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from listings.serializers import MAX_PHOTO_BYTES
+from moderation.images import make_avatar
+from moderation.models import Block
+
 from . import phone_verification
-from .serializers import LoginSerializer, ProfileSerializer, SignupSerializer
+from .deletion import delete_account
+from .models import User, normalize_email_address, normalize_phone
+from .serializers import (
+    LoginSerializer,
+    ProfileSerializer,
+    PublicProfileSerializer,
+    SignupSerializer,
+)
 
 
 class LimitAttemptsMixin:
@@ -119,3 +132,77 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class AvatarView(APIView):
+    """POST /api/auth/me/avatar/ (form field "image") - set my profile photo.
+    DELETE /api/auth/me/avatar/ - remove it.
+
+    The photo is always saved again by the server: upright, max 600 x 600, JPEG, and
+    without hidden data (GPS location, phone model...)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        uploaded = request.FILES.get('image')
+        if uploaded is None:
+            return Response({'image': ['Choose a photo.']}, status=status.HTTP_400_BAD_REQUEST)
+        if uploaded.size > MAX_PHOTO_BYTES:
+            return Response({'image': ['Photos must be 10 MB or smaller.']},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            clean = make_avatar(uploaded)
+        except (UnidentifiedImageError, OSError, ValueError):
+            return Response({'image': ['This file is not a photo.']},
+                            status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        old = user.avatar.name if user.avatar else None
+        user.avatar.save('avatar.jpg', clean, save=True)
+        if old:
+            user.avatar.storage.delete(old)
+        return Response({'user': ProfileSerializer(user, context={'request': request}).data})
+
+    def delete(self, request):
+        user = request.user
+        if user.avatar:
+            user.avatar.delete(save=True)
+        return Response({'user': ProfileSerializer(user, context={'request': request}).data})
+
+
+class DeleteAccountView(APIView):
+    """POST /api/auth/delete-account/ - {"confirm": "<my phone number>"} (or my email if
+    the account has no phone). Erases my personal data and hides my listings."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        typed = str(request.data.get('confirm', '')).strip()
+        expected_ok = (normalize_phone(typed) == user.phone) if user.phone else (
+            normalize_email_address(typed) == user.email)
+        if not typed or not expected_ok:
+            return Response({'detail': 'Type your phone number to confirm.',
+                             'code': 'confirm_mismatch'}, status=status.HTTP_400_BAD_REQUEST)
+        delete_account(user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PublicProfileView(generics.RetrieveAPIView):
+    """GET /api/users/{id}/ - a seller's public profile (never their phone or email).
+
+    "Not found" for suspended, banned, deleted or hidden accounts, and when one of you
+    blocked the other. Their listings: /api/listings/?seller={id}
+    """
+
+    serializer_class = PublicProfileSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        users = User.objects.filter(is_active=True, deleted_at__isnull=True,
+                                    hidden_by_reports=False)
+        me = self.request.user
+        if me.is_authenticated:
+            users = users.exclude(pk__in=Block.objects.filter(blocker=me).values('blocked'))
+            users = users.exclude(pk__in=Block.objects.filter(blocked=me).values('blocker'))
+        return users

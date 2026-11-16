@@ -18,10 +18,11 @@ class ListingFilter(django_filters.FilterSet):
     max_price = django_filters.NumberFilter(field_name='price_dzd', lookup_expr='lte')
     size = django_filters.CharFilter(field_name='size', lookup_expr='iexact')
     condition = django_filters.ChoiceFilter(choices=Listing.Condition.choices)
+    seller = django_filters.NumberFilter(field_name='seller_id', label='Seller id')
 
     class Meta:
         model = Listing
-        fields = ['category', 'wilaya', 'min_price', 'max_price', 'size', 'condition']
+        fields = ['category', 'wilaya', 'min_price', 'max_price', 'size', 'condition', 'seller']
 
     def filter_category(self, queryset, name, value):
         return queryset.filter(Q(category_id=value) | Q(category__parent_id=value))

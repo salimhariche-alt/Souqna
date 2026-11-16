@@ -11,6 +11,12 @@ import { API_URL } from '@/config';
 
 const TIMEOUT_MS = 15000;
 
+/** "/media/x.jpg" -> "http://192.168.1.68:8000/media/x.jpg" (full addresses stay as they are). */
+export function absoluteUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith('/') ? `${API_URL}${url}` : url;
+}
+
 /** An error answer from the backend, or status 0 when the server couldn't be reached. */
 export class ApiError extends Error {
   constructor(

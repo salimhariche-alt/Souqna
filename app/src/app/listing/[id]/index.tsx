@@ -18,6 +18,7 @@ import { useAuth } from '@/auth/auth-provider';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FeedMessage } from '@/components/feed-message';
 import { blockUser } from '@/api/safety';
+import { Avatar } from '@/components/avatar';
 import { MessageSheet } from '@/components/message-sheet';
 import { MoreButton, OptionsMenu, type MenuOption } from '@/components/options-menu';
 import { ReportSheet } from '@/components/report-sheet';
@@ -425,13 +426,15 @@ export default function ListingDetailsScreen() {
             {t('listing.seller')}
           </ThemedText>
           <ThemedView type="backgroundElement" style={[styles.card, styles.sellerCard]}>
-            <View style={styles.avatar}>
-              <ThemedText type="smallBold" style={styles.avatarText}>
-                {listing.seller.display_name.trim().charAt(0).toUpperCase() || '?'}
-              </ThemedText>
-            </View>
+            {/* Tapping the seller opens their public profile. */}
+            <Pressable
+              onPress={() => router.push(`/seller/${listing.seller.id}` as Href)}
+              accessibilityRole="button"
+              accessibilityLabel={t('seller.open', { name: listing.seller.display_name })}
+              style={({ pressed }) => [styles.sellerLink, pressed && styles.pressed]}>
+            <Avatar uri={listing.seller.avatar} name={listing.seller.display_name} size={44} />
             <View style={styles.flex}>
-              <ThemedText type="smallBold" style={align}>
+              <ThemedText type="smallBold" style={[align, styles.sellerName]}>
                 {listing.seller.display_name}
               </ThemedText>
               {listing.seller.wilaya ? (
@@ -457,6 +460,7 @@ export default function ListingDetailsScreen() {
                 {soldCount(listing.seller.items_sold, language)}
               </ThemedText>
             </View>
+            </Pressable>
             {!isOwner && <MoreButton onPress={() => setMenu('seller')} />}
           </ThemedView>
 
@@ -619,6 +623,8 @@ const styles = StyleSheet.create({
   },
   detailValue: { flexShrink: 1 },
   sellerCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  sellerLink: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  sellerName: { color: '#208AEF' },
   avatar: {
     width: 44,
     height: 44,

@@ -1,7 +1,9 @@
 """All /api/ endpoints in one router, so the /api/ home page lists them all."""
 
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from accounts.views import PublicProfileView
 from listings.views import CategoryViewSet, FavoriteViewSet, ListingViewSet
 from messaging.views import ConversationViewSet
 from moderation.views import BlockViewSet, ReportViewSet
@@ -14,4 +16,8 @@ router.register('conversations', ConversationViewSet, basename='conversation')
 router.register('reports', ReportViewSet, basename='report')
 router.register('blocks', BlockViewSet, basename='block')
 
-urlpatterns = router.urls
+urlpatterns = [
+    # A seller's public profile (never their phone or email).
+    path('users/<int:pk>/', PublicProfileView.as_view(), name='public-profile'),
+    *router.urls,
+]

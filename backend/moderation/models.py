@@ -87,6 +87,8 @@ class ModerationLog(models.Model):
         DISMISS_FLAG = 'dismiss_flag', 'Dismissed flag (mistake)'
         AUTO_BLOCK_MESSAGES = 'auto_block_messages', 'Messages blocked (3 strikes)'
         AUTO_SUSPEND = 'auto_suspend', 'Suspended automatically (strikes)'
+        DELETE_ACCOUNT = 'delete_account', 'User deleted their account'
+        REMOVE_AVATAR = 'remove_avatar', 'Removed profile photo'
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
                               related_name='moderation_actions')

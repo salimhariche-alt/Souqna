@@ -20,6 +20,7 @@ def visible_listing_q(viewer=None, prefix=''):
         return prefix + name
 
     q = Q(**{field('review_status'): Listing.Review.APPROVED,
+             field('deleted_at__isnull'): True,
              field('seller__is_active'): True,
              field('seller__hidden_by_reports'): False})
     if viewer is not None and viewer.is_authenticated:

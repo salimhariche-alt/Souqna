@@ -38,12 +38,13 @@ class ProfileSerializer(serializers.ModelSerializer):
     items_sold = serializers.IntegerField(read_only=True)
     # Has this user already seen the "Buy safely" tips? (Shown once, before the first chat.)
     safety_tips_seen = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'phone', 'email', 'display_name', 'wilaya', 'wilaya_name',
-                  'preferred_language', 'phone_verified', 'phone_verified_at', 'items_sold',
-                  'safety_tips_seen', 'date_joined']
+                  'preferred_language', 'avatar', 'phone_verified', 'phone_verified_at',
+                  'items_sold', 'safety_tips_seen', 'date_joined']
         read_only_fields = ['id', 'phone', 'email', 'phone_verified', 'phone_verified_at',
                             'date_joined']
         extra_kwargs = {
@@ -58,8 +59,38 @@ class ProfileSerializer(serializers.ModelSerializer):
     def validate_display_name(self, value):
         return check_display_name(value)
 
+    def get_avatar(self, user):
+        from listings.serializers import avatar_url
+        return avatar_url(user, self.context.get('request'))
 
-NAME_NOT_ALLOWED = "This name isn't allowed. Please choose another one."
+
+class PublicProfileSerializer(serializers.ModelSerializer):
+    """A seller's public profile. NEVER add the phone number or email here."""
+
+    member_since = serializers.DateTimeField(source='date_joined', read_only=True)
+    items_sold = serializers.IntegerField(read_only=True)
+    avatar = serializers.SerializerMethodField()
+    active_listings = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'display_name', 'wilaya', 'avatar', 'phone_verified', 'member_since',
+                  'items_sold', 'active_listings']
+
+    def get_avatar(self, user):
+        from listings.serializers import avatar_url
+        return avatar_url(user, self.context.get('request'))
+
+    def get_active_listings(self, user) -> int:
+        from listings.models import Listing
+        from listings.visibility import visible_listing_q
+
+        viewer = getattr(self.context.get('request'), 'user', None)
+        return (Listing.objects.filter(visible_listing_q(viewer), seller=user,
+                                       status=Listing.Status.ACTIVE).count())
+
+
+NAME_NOT_ALLOWED ="This name isn't allowed. Please choose another one."
 
 
 def check_display_name(value):
