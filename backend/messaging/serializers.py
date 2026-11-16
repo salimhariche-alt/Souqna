@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from listings.models import Listing
 from listings.serializers import cover_photo_url
+from listings.visibility import visible_listing_q
 
 from .models import MAX_MESSAGE_LENGTH, Message
 
@@ -46,23 +47,34 @@ class MessageSerializer(serializers.ModelSerializer):
     text = message_text_field()
     sender = PersonSerializer(read_only=True)
     is_mine = serializers.SerializerMethodField()
+    warnings = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'is_mine', 'text', 'sent_at', 'read']
+        fields = ['id', 'sender', 'is_mine', 'text', 'sent_at', 'read', 'warnings']
         read_only_fields = ['sent_at', 'read']
 
     def get_is_mine(self, message):
         return message.sender_id == self.context['request'].user.id
 
+    def get_warnings(self, message):
+        """Why the RECEIVER should be careful, e.g. ["contact_phone", "advance_payment"].
+
+        Codes only (no details), and always empty for my own messages, so senders
+        can't use it to learn what gets noticed.
+        """
+        if self.get_is_mine(message):
+            return []
+        return [reason['code'] for reason in message.flag_reasons]
+
 
 class StartConversationSerializer(serializers.Serializer):
     """Input for starting a conversation: which listing, and the first message."""
 
-    # Only visible listings: not flagged/rejected, seller not suspended or banned.
+    # Only listings I can see (checked in validate_listing): not flagged/rejected, seller
+    # not suspended/banned/hidden, and the seller and I haven't blocked each other.
     listing = serializers.PrimaryKeyRelatedField(
-        queryset=Listing.objects.filter(review_status=Listing.Review.APPROVED,
-                                        seller__is_active=True),
+        queryset=Listing.objects.all(),
         error_messages={
             'required': 'Choose the listing you want to ask about.',
             'null': 'Choose the listing you want to ask about.',
@@ -73,9 +85,12 @@ class StartConversationSerializer(serializers.Serializer):
     text = message_text_field()
 
     def validate_listing(self, listing):
-        if listing.seller_id == self.context['request'].user.id:
+        me = self.context['request'].user
+        if listing.seller_id == me.id:
             raise serializers.ValidationError(
                 "You can't start a conversation about your own listing.")
+        if not Listing.objects.filter(visible_listing_q(me), pk=listing.pk).exists():
+            raise serializers.ValidationError("This listing doesn't exist.")
         return listing
 
 

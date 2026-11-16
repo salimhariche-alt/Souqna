@@ -13,7 +13,7 @@ from listings.models import Listing, ListingPhoto
 
 from .images import SIMILAR_MAX_DIFFERENT_BITS, different_bits, is_too_plain
 from .models import FlaggedKeyword
-from .text import find_keywords, find_link, find_phone_number
+from .text import find_keywords, find_link, find_messaging_app, find_phone_number
 
 LOW_PRICE_RATIO = 0.30        # less than 30% of the usual price...
 MIN_LISTINGS_FOR_PRICE = 10   # ...once the category has at least 10 listings
@@ -36,7 +36,23 @@ def _price_flag(listing):
 
 
 def _text_flags(listing):
-    text = f'{listing.title}\n{listing.description}'
+    return text_flags(f'{listing.title}\n{listing.description}')
+
+
+def message_flags(text):
+    """Warnings for a chat message: the listing checks plus WhatsApp/Telegram mentions.
+
+    Messages are never blocked for this; the receiver just sees a warning.
+    """
+    flags = text_flags(text)
+    app = find_messaging_app(text)
+    if app:
+        flags.append({'code': 'messaging_app', 'detail': f'Mentions another app: {app}'})
+    return flags
+
+
+def text_flags(text):
+    """Phone number, link, and suspicious words (the editable keyword list)."""
     flags = []
     phone = find_phone_number(text)
     if phone:

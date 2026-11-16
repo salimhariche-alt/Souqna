@@ -5,6 +5,7 @@ from .views import (
     MeView,
     PhoneStatusView,
     RefreshView,
+    SafetyTipsSeenView,
     SendPhoneCodeView,
     SignupView,
     VerifyPhoneCodeView,
@@ -18,4 +19,5 @@ urlpatterns = [
     path('phone/status/', PhoneStatusView.as_view(), name='auth-phone-status'),
     path('phone/send-code/', SendPhoneCodeView.as_view(), name='auth-phone-send'),
     path('phone/verify/', VerifyPhoneCodeView.as_view(), name='auth-phone-verify'),
+    path('safety-tips/seen/', SafetyTipsSeenView.as_view(), name='auth-safety-tips-seen'),
 ]

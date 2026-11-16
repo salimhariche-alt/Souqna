@@ -46,8 +46,10 @@ class ConversationAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ('short_text', 'sender', 'conversation', 'sent_at', 'read')
-    list_filter = ('read', 'sent_at')
+    list_display = ('short_text', 'sender', 'conversation', 'sent_at', 'read', 'flagged',
+                    'warnings')
+    # "flagged" = phone number, link, WhatsApp/Telegram or payment-in-advance words.
+    list_filter = ('flagged', 'read', 'sent_at')
     search_fields = ('text', 'sender__phone', 'sender__display_name')
     autocomplete_fields = ('conversation', 'sender')
     list_select_related = ('sender', 'conversation__listing', 'conversation__buyer',
@@ -57,3 +59,7 @@ class MessageAdmin(admin.ModelAdmin):
     @admin.display(description='text')
     def short_text(self, obj):
         return obj.text if len(obj.text) <= 60 else obj.text[:60] + '…'
+
+    @admin.display(description='why it was marked')
+    def warnings(self, obj):
+        return '; '.join(r.get('detail', r.get('code', '')) for r in obj.flag_reasons) or '—'

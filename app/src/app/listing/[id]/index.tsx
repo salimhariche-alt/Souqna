@@ -17,7 +17,10 @@ import {
 import { useAuth } from '@/auth/auth-provider';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FeedMessage } from '@/components/feed-message';
+import { blockUser } from '@/api/safety';
 import { MessageSheet } from '@/components/message-sheet';
+import { MoreButton, OptionsMenu, type MenuOption } from '@/components/options-menu';
+import { ReportSheet } from '@/components/report-sheet';
 import { PhotoCarousel } from '@/components/photo-carousel';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
@@ -95,6 +98,14 @@ export default function ListingDetailsScreen() {
     router.push({ pathname: '/verify-phone', params: { next: `/listing/${id}` } } as Href);
   }, [id]);
 
+  // Before the very first conversation: the "Buy safely" tips (once, then never again).
+  const tipsAsked = useRef(false);
+  const askToReadTips = useCallback(() => {
+    pending.current = 'message';
+    tipsAsked.current = true;
+    router.push('/buy-safely' as Href);
+  }, []);
+
   const toggleFavorite = useCallback(
     async (target?: boolean) => {
       if (!listing) return;
@@ -140,20 +151,61 @@ export default function ListingDetailsScreen() {
       pending.current = null;
       toggleFavorite(true);
     } else if (pending.current === 'message' && !isSold) {
-      if (user?.phone_verified) {
+      if (!user?.phone_verified) {
+        if (!verifyAsked.current) askToVerify(); // just logged in, phone not verified yet
+      } else if (!user.safety_tips_seen) {
+        if (!tipsAsked.current) askToReadTips(); // verified now; show the tips first
+      } else {
         pending.current = null;
         openConversation();
-      } else if (!verifyAsked.current) {
-        askToVerify(); // just logged in, but the phone isn't verified yet
       }
     }
-  }, [signedIn, listing, user, isSold, toggleFavorite, openConversation, askToVerify]);
+  }, [signedIn, listing, user, isSold, toggleFavorite, openConversation, askToVerify, askToReadTips]);
 
   const onHeart = () => (signedIn ? toggleFavorite() : askToLogIn('favorite'));
   const onMessage = () => {
     if (!signedIn) askToLogIn('message');
     else if (!user?.phone_verified) askToVerify();
+    else if (!user.safety_tips_seen) askToReadTips();
     else openConversation();
+  };
+
+  // "⋯" menus: report the listing or the seller, block the seller.
+  const [menu, setMenu] = useState<'listing' | 'seller' | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: 'listing' | 'user'; id: number } | null>(
+    null,
+  );
+  const [confirmBlock, setConfirmBlock] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [blockError, setBlockError] = useState<string>();
+  const [blocked, setBlocked] = useState(false);
+
+  const needsLogin = () => {
+    if (signedIn) return false;
+    router.push({ pathname: '/login', params: { next: `/listing/${id}` } } as Href);
+    return true;
+  };
+  const report = (type: 'listing' | 'user') => {
+    if (!listing || needsLogin()) return;
+    setReportTarget({ type, id: type === 'listing' ? listing.id : listing.seller.id });
+  };
+  const askBlock = () => {
+    if (needsLogin()) return;
+    setBlockError(undefined);
+    setConfirmBlock(true);
+  };
+  const block = async () => {
+    if (!listing) return;
+    setBlocking(true);
+    try {
+      await blockUser(listing.seller.id);
+      setConfirmBlock(false);
+      setBlocked(true);
+    } catch {
+      setBlockError(t('listing.actionFailed'));
+    } finally {
+      setBlocking(false);
+    }
   };
 
   const sendFirstMessage = async (text: string) => {
@@ -217,6 +269,29 @@ export default function ListingDetailsScreen() {
       />
     );
   }
+  if (blocked) {
+    return (
+      <FeedMessage
+        kind="message"
+        icon="ban-outline"
+        text={t('block.done', { name: listing.seller.display_name })}
+        buttonLabel={t('block.back')}
+        onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+      />
+    );
+  }
+
+  const menuOptions: MenuOption[] =
+    menu === 'listing'
+      ? [
+          { label: t('report.reportListing'), icon: 'flag-outline', onPress: () => report('listing') },
+          { label: t('report.reportSeller'), icon: 'person-outline', onPress: () => report('user') },
+          { label: t('block.blockSeller'), icon: 'ban-outline', onPress: askBlock, danger: true },
+        ]
+      : [
+          { label: t('report.reportSeller'), icon: 'flag-outline', onPress: () => report('user') },
+          { label: t('block.blockSeller'), icon: 'ban-outline', onPress: askBlock, danger: true },
+        ];
 
   const details: [string, string][] = [
     [t('listing.size'), listing.size],
@@ -254,6 +329,16 @@ export default function ListingDetailsScreen() {
               <ThemedText type="smallBold" style={styles.badgeText}>
                 {isSold ? t('listing.sold') : t('listing.reserved')}
               </ThemedText>
+            </View>
+          )}
+          {!isOwner && (
+            // "⋯" in the other top corner: right in French/English, left in Arabic.
+            <View
+              style={[
+                styles.photoMenu,
+                direction === 'rtl' ? { left: Spacing.three } : { right: Spacing.three },
+              ]}>
+              <MoreButton onPhoto onPress={() => setMenu('listing')} />
             </View>
           )}
         </View>
@@ -362,6 +447,7 @@ export default function ListingDetailsScreen() {
                 {soldCount(listing.seller.items_sold, language)}
               </ThemedText>
             </View>
+            {!isOwner && <MoreButton onPress={() => setMenu('seller')} />}
           </ThemedView>
 
           {isSold && (
@@ -432,6 +518,19 @@ export default function ListingDetailsScreen() {
         loading={markingSold}
         danger
       />
+      <OptionsMenu visible={menu !== null} options={menuOptions} onClose={() => setMenu(null)} />
+      <ReportSheet target={reportTarget} onClose={() => setReportTarget(null)} />
+      <ConfirmDialog
+        visible={confirmBlock}
+        title={t('block.confirmTitle', { name: listing.seller.display_name })}
+        message={blockError ?? t('block.confirmMessage')}
+        confirmLabel={t('block.confirm')}
+        cancelLabel={t('listing.cancel')}
+        onConfirm={block}
+        onCancel={() => setConfirmBlock(false)}
+        loading={blocking}
+        danger
+      />
       <MessageSheet
         visible={messageOpen}
         sellerName={listing.seller.display_name}
@@ -486,6 +585,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: 999,
   },
+  photoMenu: { position: 'absolute', top: Spacing.three },
   badgeSold: { backgroundColor: '#D93025' },
   badgeReserved: { backgroundColor: '#E37400' },
   badgeText: { color: '#ffffff' },

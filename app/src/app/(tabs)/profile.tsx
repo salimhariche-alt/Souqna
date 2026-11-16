@@ -85,6 +85,12 @@ function ProfileContent() {
       <LanguageSwitcher />
 
       <PrimaryButton
+        title={t('block.listTitle')}
+        variant="secondary"
+        onPress={() => router.push('/blocked-users' as Href)}
+      />
+
+      <PrimaryButton
         title={t('profile.logout')}
         onPress={onLogout}
         loading={loggingOut}

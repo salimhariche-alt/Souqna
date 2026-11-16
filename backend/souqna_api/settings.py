@@ -110,6 +110,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'auth': '10/minute',
         'sms': '10/hour',  # verification codes: SMS cost money
+        'reports': '30/day',  # reports per user (stops someone flooding the admin)
     },
     # Anyone can read; you must be logged in to create or change anything.
     'DEFAULT_PERMISSION_CLASSES': [

@@ -6,7 +6,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from accounts.permissions import IsPhoneVerified
+from moderation.checks import message_flags
 from moderation.limits import check_daily_limit
+from moderation.models import Block
+from souqna_api.exceptions import DetailedAPIException
 
 from .models import Conversation, Message
 from .serializers import (
@@ -15,6 +18,20 @@ from .serializers import (
     MessageSerializer,
     StartConversationSerializer,
 )
+
+
+class BlockedConversation(DetailedAPIException):
+    status_code = status.HTTP_403_FORBIDDEN
+
+
+def warning_fields(text):
+    """Check a new message (phone number, link, WhatsApp/Telegram, payment in advance).
+
+    The message is always sent; if something is found it is marked, so the receiver's
+    app can show a warning, and admins can count these per user.
+    """
+    reasons = message_flags(text)
+    return {'flagged': bool(reasons), 'flag_reasons': reasons}
 
 
 def with_activity(conversations, me):
@@ -103,12 +120,13 @@ class ConversationViewSet(mixins.ListModelMixin,
         if not Conversation.objects.filter(listing=listing, buyer=request.user).exists():
             check_daily_limit(request.user, 'conversations')
 
+        text = serializer.validated_data['text']
         with transaction.atomic():
             conversation, created = Conversation.objects.get_or_create(
                 listing=listing, buyer=request.user, defaults={'seller': listing.seller},
             )
-            Message.objects.create(conversation=conversation, sender=request.user,
-                                   text=serializer.validated_data['text'])
+            Message.objects.create(conversation=conversation, sender=request.user, text=text,
+                                   **warning_fields(text))
 
         return self.detail_response(
             conversation, status.HTTP_201_CREATED if created else status.HTTP_200_OK)
@@ -123,7 +141,11 @@ class ConversationViewSet(mixins.ListModelMixin,
     def messages(self, request, pk=None):
         """Send a message in this conversation."""
         conversation = self.get_object()  # "not found" if it isn't yours
+        if Block.between(conversation.buyer, conversation.seller):
+            raise BlockedConversation({'detail': "You can't send messages to this person.",
+                                       'code': 'blocked'})
         serializer = MessageSerializer(data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
-        serializer.save(conversation=conversation, sender=request.user)
+        text = serializer.validated_data['text']
+        serializer.save(conversation=conversation, sender=request.user, **warning_fields(text))
         return Response(serializer.data, status=status.HTTP_201_CREATED)

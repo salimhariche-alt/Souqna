@@ -15,6 +15,8 @@ export type User = {
   phone_verified: boolean;
   phone_verified_at: string | null;
   items_sold: number;
+  /** Already saw the "Buy safely" tips (shown once, before the first conversation). */
+  safety_tips_seen: boolean;
   date_joined: string;
 };
 
