@@ -24,12 +24,25 @@ type Props = {
   sellerName: string;
   sending: boolean;
   error?: string;
+  /** Replaces "Send", e.g. "Send anyway" after a warning. */
+  sendLabel?: string;
+  /** Called when the user changes the text. */
+  onTextChange?: () => void;
   onSend: (text: string) => void;
   onCancel: () => void;
 };
 
 /** Slides up from the bottom: a pre-filled first message to the seller, editable. */
-export function MessageSheet({ visible, sellerName, sending, error, onSend, onCancel }: Props) {
+export function MessageSheet({
+  visible,
+  sellerName,
+  sending,
+  error,
+  sendLabel,
+  onTextChange,
+  onSend,
+  onCancel,
+}: Props) {
   const { t } = useTranslation();
   const { direction } = useLanguage();
   const theme = useTheme();
@@ -65,7 +78,10 @@ export function MessageSheet({ visible, sellerName, sending, error, onSend, onCa
             </ThemedText>
             <TextInput
               value={text}
-              onChangeText={setText}
+              onChangeText={(value) => {
+                setText(value);
+                onTextChange?.();
+              }}
               multiline
               maxLength={MAX_MESSAGE_LENGTH + 50}
               placeholder={t('message.placeholder')}
@@ -86,7 +102,12 @@ export function MessageSheet({ visible, sellerName, sending, error, onSend, onCa
                 {localError ?? error}
               </ThemedText>
             ) : null}
-            <PrimaryButton title={t('message.send')} onPress={send} loading={sending} />
+            <PrimaryButton
+              title={sendLabel ?? t('message.send')}
+              onPress={send}
+              loading={sending}
+              variant={sendLabel ? 'danger' : 'primary'}
+            />
             <Pressable
               onPress={onCancel}
               disabled={sending}

@@ -8,8 +8,11 @@ from rest_framework.response import Response
 
 from accounts.permissions import IsPhoneVerified
 from moderation.checks import message_flags
+from moderation.content import worst
+from moderation.flags import record_message_flag
 from moderation.limits import check_daily_limit
-from moderation.models import Block
+from moderation.models import Block, Severity
+from moderation.strikes import has_recent_strike, messaging_blocked_until
 from souqna_api.exceptions import DetailedAPIException
 
 from .audio import AudioError, inspect_audio
@@ -25,6 +28,61 @@ from .serializers import (
 
 class BlockedConversation(DetailedAPIException):
     status_code = status.HTTP_403_FORBIDDEN
+
+
+class MayBeOffensive(DetailedAPIException):
+    """Insult found: the app asks "Send anyway?" and sends again with confirm_offensive."""
+    status_code = status.HTTP_409_CONFLICT
+
+
+class MessageNotSent(DetailedAPIException):
+    """Threat or terrorism/extremism: never delivered."""
+    status_code = status.HTTP_403_FORBIDDEN
+
+
+class MessagingRestricted(DetailedAPIException):
+    status_code = status.HTTP_403_FORBIDDEN
+
+
+def check_can_message(user, voice=False):
+    """3 strikes in 30 days: no messages for 7 days. Any recent strike: no voice."""
+    until = messaging_blocked_until(user)
+    if until:
+        raise MessagingRestricted({
+            'detail': "You can't send messages for now because of earlier offensive messages.",
+            'code': 'messaging_blocked',
+            'until': until.isoformat(),
+        })
+    if voice and has_recent_strike(user):
+        raise MessagingRestricted({
+            'detail': "Voice messages are turned off for 30 days after an offensive message.",
+            'code': 'voice_strike',
+        })
+
+
+def moderate_text(request, text, conversation=None):
+    """Check a text message before it is saved (Safety step 4).
+
+    Returns (extra message fields, match or None). Raises if it must not be sent yet.
+    """
+    match = worst(text)
+    if match is None:
+        return {}, None
+    if match.severity == Severity.BLOCK:
+        record_message_flag(match, user=request.user, text=text, conversation=conversation)
+        raise MessageNotSent({'detail': "Your message couldn't be sent.",
+                              'code': 'message_blocked'})
+    if match.severity == Severity.WARN and not _confirmed(request):
+        raise MayBeOffensive({'detail': 'This message may be offensive. Send anyway?',
+                              'code': 'may_be_offensive'})
+    if match.severity == Severity.HIDE:
+        return {'hidden_reason': match.category}, match
+    return {}, match
+
+
+def _confirmed(request) -> bool:
+    value = request.data.get('confirm_offensive')
+    return value is True or str(value).lower() in ('true', '1', 'yes')
 
 
 def warning_fields(text):
@@ -53,6 +111,7 @@ def with_activity(conversations, me):
         last_text=Subquery(latest.values('text')[:1]),
         last_audio=Subquery(latest.values('audio')[:1]),
         last_duration_ms=Subquery(latest.values('duration_ms')[:1]),
+        last_hidden_reason=Subquery(latest.values('hidden_reason')[:1]),
         last_sender_id=Subquery(latest.values('sender_id')[:1]),
         last_sent_at=Subquery(latest.values('sent_at')[:1]),
         last_activity=Coalesce(Subquery(latest.values('sent_at')[:1]), F('created_at')),
@@ -123,17 +182,23 @@ class ConversationViewSet(mixins.ListModelMixin,
         serializer.is_valid(raise_exception=True)
         listing = serializer.validated_data['listing']
 
+        check_can_message(request.user)
         # Only a NEW conversation counts towards the daily limit (not more messages).
-        if not Conversation.objects.filter(listing=listing, buyer=request.user).exists():
+        existing = Conversation.objects.filter(listing=listing, buyer=request.user).first()
+        if existing is None:
             check_daily_limit(request.user, 'conversations')
 
         text = serializer.validated_data['text']
+        extra, match = moderate_text(request, text, existing)
         with transaction.atomic():
             conversation, created = Conversation.objects.get_or_create(
                 listing=listing, buyer=request.user, defaults={'seller': listing.seller},
             )
-            Message.objects.create(conversation=conversation, sender=request.user, text=text,
-                                   **warning_fields(text))
+            message = Message.objects.create(conversation=conversation, sender=request.user,
+                                             text=text, **warning_fields(text), **extra)
+        if match:
+            record_message_flag(match, user=request.user, text=text,
+                                conversation=conversation, message=message)
 
         return self.detail_response(
             conversation, status.HTTP_201_CREATED if created else status.HTTP_200_OK)
@@ -173,6 +238,7 @@ class ConversationViewSet(mixins.ListModelMixin,
         """
         conversation = self.get_object()  # "not found" if it isn't yours
         self.check_not_blocked(conversation)
+        check_can_message(request.user, voice=True)
         check_can_send_voice(conversation, request.user)
 
         uploaded = request.FILES.get('audio')
@@ -202,8 +268,14 @@ class ConversationViewSet(mixins.ListModelMixin,
         """Send a message in this conversation."""
         conversation = self.get_object()  # "not found" if it isn't yours
         self.check_not_blocked(conversation)
+        check_can_message(request.user)
         serializer = MessageSerializer(data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
         text = serializer.validated_data['text']
-        serializer.save(conversation=conversation, sender=request.user, **warning_fields(text))
+        extra, match = moderate_text(request, text, conversation)
+        message = serializer.save(conversation=conversation, sender=request.user,
+                                  **warning_fields(text), **extra)
+        if match:
+            record_message_flag(match, user=request.user, text=text,
+                                conversation=conversation, message=message)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -55,6 +55,21 @@ class ProfileSerializer(serializers.ModelSerializer):
     def get_safety_tips_seen(self, user) -> bool:
         return user.safety_tips_seen_at is not None
 
+    def validate_display_name(self, value):
+        return check_display_name(value)
+
+
+NAME_NOT_ALLOWED = "This name isn't allowed. Please choose another one."
+
+
+def check_display_name(value):
+    """Offensive display names (insults, sexual, threats, extremism) are refused politely."""
+    from moderation.content import scan
+
+    if scan(value):
+        raise serializers.ValidationError(NAME_NOT_ALLOWED)
+    return value
+
 
 class SignupSerializer(serializers.Serializer):
     phone = serializers.CharField(required=False, allow_blank=True, max_length=20,
@@ -74,6 +89,9 @@ class SignupSerializer(serializers.Serializer):
     # The app's private random installation ID (see moderation/devices.py). Optional.
     device_id = serializers.CharField(required=False, allow_blank=True, max_length=64,
                                       write_only=True)
+
+    def validate_display_name(self, value):
+        return check_display_name(value)
 
     def validate_phone(self, value):
         phone = normalize_phone(value)

@@ -1,7 +1,7 @@
 import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
-import { apiFetch } from './client';
+import { ApiError, apiFetch } from './client';
 
 export type Person = { id: number; display_name: string };
 
@@ -30,6 +30,8 @@ export type ChatMessage = {
   read: boolean;
   /** Only filled for messages I received (never for my own). */
   warnings: MessageWarning[];
+  /** Received message that may be offensive (harassment / sexual): shown only after a tap. */
+  hidden: boolean;
 };
 
 /** One row of "my conversations". */
@@ -39,6 +41,8 @@ export type ConversationSummary = {
   other_person: Person;
   last_message: {
     text: string;
+    /** May be offensive: not shown in the list. */
+    hidden: boolean;
     is_voice: boolean;
     duration_ms: number | null;
     sent_at: string;
@@ -66,6 +70,8 @@ export type ConversationDetail = {
   blocked: { by_me: boolean; by_them: boolean };
   /** Voice messages: daily limit per conversation. */
   voice: { limit: number; left_today: number };
+  /** After offensive messages: no messages until a date; no voice after a recent strike. */
+  restrictions: { messaging_blocked_until: string | null; voice_blocked: boolean };
   created_at: string;
 };
 
@@ -82,12 +88,17 @@ export async function findConversationForListing(listingId: number): Promise<num
  * Ask the seller about a listing: sends the first message. If a conversation about
  * this listing already exists, the backend adds the message to it instead.
  */
-export function startConversation(listingId: number, text: string) {
+export function startConversation(listingId: number, text: string, confirmOffensive = false) {
   return apiFetch<{ id: number }>('/api/conversations/', {
     method: 'POST',
-    body: { listing: listingId, text },
+    body: { listing: listingId, text, ...(confirmOffensive && { confirm_offensive: true }) },
     auth: true,
   });
+}
+
+/** The error code from the backend (e.g. "may_be_offensive"), or undefined. */
+export function errorCode(error: unknown): string | undefined {
+  return error instanceof ApiError ? (error.data as { code?: string } | null)?.code : undefined;
 }
 
 /** My conversations, newest activity first, 20 per page. */
@@ -104,10 +115,14 @@ export function fetchConversation(id: number | string, after?: number) {
   return apiFetch<ConversationDetail>(`/api/conversations/${id}/${query}`, { auth: true });
 }
 
-export function sendMessage(conversationId: number | string, text: string) {
+/**
+ * Send a text message. If the backend answers "may_be_offensive", ask the user and send
+ * again with `confirmOffensive` to send it anyway.
+ */
+export function sendMessage(conversationId: number | string, text: string, confirmOffensive = false) {
   return apiFetch<ChatMessage>(`/api/conversations/${conversationId}/messages/`, {
     method: 'POST',
-    body: { text },
+    body: { text, ...(confirmOffensive && { confirm_offensive: true }) },
     auth: true,
   });
 }

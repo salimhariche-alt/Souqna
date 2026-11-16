@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
@@ -30,7 +32,8 @@ class UserAdmin(BaseUserAdmin):
     add_form = SouqnaUserCreationForm
 
     list_display = ('phone', 'display_name', 'email', 'wilaya', 'phone_verified', 'items_sold_count',
-                    'suspicious_messages', 'open_reports', 'account_status', 'preferred_language',
+                    'suspicious_messages', 'open_reports', 'strikes', 'account_status',
+                    'preferred_language',
                     'is_staff', 'date_joined')
     list_filter = ('phone_verified', 'is_active', 'hidden_by_reports', 'preferred_language',
                    'wilaya', 'is_staff')
@@ -42,7 +45,8 @@ class UserAdmin(BaseUserAdmin):
         (None, {'fields': ('phone', 'password')}),
         ('Profile', {'fields': ('display_name', 'email', 'wilaya', 'preferred_language')}),
         ('Trust', {'fields': ('phone_verified', 'phone_verified_at', 'banned_at',
-                              'hidden_by_reports', 'safety_tips_seen_at')}),
+                              'hidden_by_reports', 'messaging_blocked_until',
+                              'safety_tips_seen_at')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser',
                                     'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
@@ -64,7 +68,20 @@ class UserAdmin(BaseUserAdmin):
                                        distinct=True),
             _open_reports=Count('reports_received', filter=Q(reports_received__status='open'),
                                 distinct=True),
+            _strikes=Count('content_flags', distinct=True, filter=Q(
+                content_flags__strike=True,
+                content_flags__created_at__gte=timezone.now() - timedelta(days=30),
+            ) & ~Q(content_flags__status='dismissed')),
         )
+
+    @admin.display(description='strikes (30 days)', ordering='_strikes')
+    def strikes(self, user):
+        n = user._strikes
+        if not n:
+            return 0
+        url = reverse('admin:moderation_contentflag_changelist')
+        return format_html('<a href="{}?user__id__exact={}"><b style="color:#ba2121">{}</b></a>',
+                           url, user.pk, n)
 
     @admin.display(description='items sold', ordering='_items_sold')
     def items_sold_count(self, user):

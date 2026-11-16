@@ -5,14 +5,20 @@ from django.utils import timezone
 
 from listings.models import Listing
 
-from .models import BlockedPhone, Device, ModerationLog, Report
+from .models import BlockedPhone, ContentFlag, Device, ModerationLog, Report
 
 REPORTED = 'reported'  # the flag reason code added when 3 users report a listing
 
 
 def log(actor, action, target, note=''):
-    target_type = 'listing' if isinstance(target, Listing) else (
-        'device' if isinstance(target, Device) else 'user')
+    if isinstance(target, Listing):
+        target_type = 'listing'
+    elif isinstance(target, Device):
+        target_type = 'device'
+    elif isinstance(target, ContentFlag):
+        target_type = 'flag'
+    else:
+        target_type = 'user'
     ModerationLog.objects.create(actor=actor, action=action, target_type=target_type,
                                  target_id=target.pk, target_label=str(target)[:200], note=note)
 
@@ -120,3 +126,53 @@ def dismiss_report(report, actor):
 
 def ban_from_report(report, actor):
     ban_user(report.reported_user, actor, _report_note(report))
+
+
+# Flagged content (moderation queue) ---------------------------------------------------
+
+def _offensive_reason(flag):
+    return f'offensive_{flag.category}'
+
+
+@transaction.atomic
+def dismiss_flag(flag, actor):
+    """A mistake: the strike is removed, a hidden message is shown normally again, a
+    listing held only for this goes back online."""
+    from .strikes import after_strike_removed
+
+    flag.status = ContentFlag.Status.DISMISSED
+    flag.strike = False
+    flag.reviewed_at = timezone.now()
+    flag.reviewed_by = actor
+    flag.save(update_fields=['status', 'strike', 'reviewed_at', 'reviewed_by'])
+    if flag.message_id and flag.message.hidden_reason:
+        flag.message.hidden_reason = ''
+        flag.message.save(update_fields=['hidden_reason'])
+    if flag.listing_id:
+        listing = flag.listing
+        others = [r for r in listing.flag_reasons if r.get('code') != _offensive_reason(flag)]
+        if len(others) != len(listing.flag_reasons):
+            listing.flag_reasons = others
+            listing.save(update_fields=['flag_reasons'])
+        if listing.review_status == Listing.Review.PENDING and not others:
+            approve_listing(listing, actor, f'Flag #{flag.pk} dismissed')
+    after_strike_removed(flag.user)
+    log(actor, ModerationLog.Action.DISMISS_FLAG, flag)
+
+
+@transaction.atomic
+def confirm_flag(flag, actor):
+    """It is offensive: keep it as a strike (a listing is rejected and becomes a strike)."""
+    from .strikes import apply_sanctions
+
+    became_strike = not flag.strike
+    flag.status = ContentFlag.Status.CONFIRMED
+    flag.strike = True
+    flag.reviewed_at = timezone.now()
+    flag.reviewed_by = actor
+    flag.save(update_fields=['status', 'strike', 'reviewed_at', 'reviewed_by'])
+    if flag.listing_id and flag.listing.review_status != Listing.Review.REJECTED:
+        reject_listing(flag.listing, actor, f'Flag #{flag.pk} confirmed')
+    log(actor, ModerationLog.Action.CONFIRM_FLAG, flag)
+    if became_strike and flag.user_id:
+        apply_sanctions(flag.user)

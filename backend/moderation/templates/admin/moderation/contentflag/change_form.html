@@ -1,0 +1,12 @@
+{% extends "admin/change_form.html" %}
+
+{% block submit_buttons_bottom %}
+<div class="submit-row">
+  <input type="submit" value="Dismiss (mistake: remove the strike)" name="_dismiss">
+  <input type="submit" value="✓ Confirm (it is offensive)" name="_confirm" class="default">
+  <input type="submit" value="Suspend the user" name="_suspend" style="background:#b06000"
+         onclick="return confirm('Suspend this user? They will not be able to log in until you reactivate them.');">
+  <input type="submit" value="⛔ Ban the user" name="_ban" style="background:#ba2121"
+         onclick="return confirm('Ban this user? Their phone number and devices will also be blocked from new accounts.');">
+</div>
+{% endblock %}

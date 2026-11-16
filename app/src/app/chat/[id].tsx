@@ -37,10 +37,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formErrorsFrom } from '@/i18n/api-errors';
+import { codedMessage, formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
 import { refreshUnread } from '@/messages/unread';
-import { clock, dayKey, dayLabel } from '@/utils/chat-time';
+import { clock, dateAndTime, dayKey, dayLabel } from '@/utils/chat-time';
 import { formatPrice } from '@/utils/format';
 import { formatDuration } from '@/voice/recording';
 import { VoiceRecorderButton, type RecordingState } from '@/voice/voice-recorder';
@@ -65,7 +65,8 @@ type Pending = {
   /** Voice: the recording on the phone, and its length. */
   uri?: string;
   durationMs?: number;
-  status: 'sending' | 'failed';
+  /** rejected = refused for good (e.g. a threat): shown as "couldn't be sent", no retry. */
+  status: 'sending' | 'failed' | 'rejected';
   createdAt: string;
 };
 
@@ -100,6 +101,10 @@ function ChatContent({ id }: { id: string }) {
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [recording, setRecording] = useState<RecordingState | null>(null);
+  // "This message may be offensive. Send anyway?" for this draft.
+  const [offensiveDraft, setOffensiveDraft] = useState<Pending | null>(null);
+  // Hidden messages (harassment / sexual) the user tapped to see.
+  const [revealed, setRevealed] = useState<Set<number>>(() => new Set());
   const [hint, setHint] = useState<string>();
   const [voiceTipSeen, setVoiceTipSeen] = useState(true);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -190,26 +195,39 @@ function ChatContent({ id }: { id: string }) {
   };
 
   // Sending ---------------------------------------------------------------------------
-  const deliver = async (item: Pending) => {
-    setPending((list) =>
-      list.map((p) => (p.localId === item.localId ? { ...p, status: 'sending' } : p)),
-    );
+  const setStatus = (localId: string, status: Pending['status']) =>
+    setPending((list) => list.map((p) => (p.localId === localId ? { ...p, status } : p)));
+
+  const deliver = async (item: Pending, confirmOffensive = false) => {
+    setStatus(item.localId, 'sending');
     try {
       const sent =
         item.kind === 'voice' && item.uri
           ? await sendVoiceMessage(id, item.uri)
-          : await sendMessage(id, item.text);
+          : await sendMessage(id, item.text, confirmOffensive);
       setPending((list) => list.filter((p) => p.localId !== item.localId));
       addMessages([sent]);
       setSendError(undefined);
       if (item.kind === 'voice') load(); // refresh the "voice messages left today"
     } catch (error) {
-      setPending((list) =>
-        list.map((p) => (p.localId === item.localId ? { ...p, status: 'failed' } : p)),
-      );
       const data = error instanceof ApiError ? (error.data as { code?: string; limit?: number } | null) : null;
       const code = data?.code;
-      if (code === 'blocked') load(); // shows the "blocked" note
+      // Content moderation (Safety step 4).
+      if (code === 'may_be_offensive') {
+        // Ask "Send anyway?" first: take the bubble away until the user decides.
+        setPending((list) => list.filter((p) => p.localId !== item.localId));
+        setOffensiveDraft(item);
+        return;
+      }
+      if (code === 'message_blocked') {
+        setStatus(item.localId, 'rejected'); // never delivered, and retrying won't help
+        return;
+      }
+      setStatus(item.localId, 'failed');
+      if (code === 'messaging_blocked' || code === 'voice_strike') {
+        setSendError(codedMessage(data, t) ?? undefined);
+        load(); // shows the restriction note
+      } else if (code === 'blocked') load(); // shows the "blocked" note
       else if (code === 'phone_not_verified') askToVerify();
       else if (code && code in VOICE_ERRORS) {
         setSendError(t(VOICE_ERRORS[code], { limit: data?.limit }));
@@ -346,9 +364,15 @@ function ChatContent({ id }: { id: string }) {
 
   const { listing, voice } = conversation;
   // Voice messages: phone app only, within today's limit.
-  const voiceAvailable = Platform.OS !== 'web' && voice.left_today > 0;
+  const messagingBlockedUntil = conversation.restrictions.messaging_blocked_until;
+  const voiceAvailable =
+    Platform.OS !== 'web' && voice.left_today > 0 && !conversation.restrictions.voice_blocked;
   const voiceUnavailableReason =
-    Platform.OS === 'web' ? t('voice.phoneOnly') : t('voice.errors.dailyLimit', { limit: voice.limit });
+    Platform.OS === 'web'
+      ? t('voice.phoneOnly')
+      : conversation.restrictions.voice_blocked
+        ? t('moderation.voiceBlocked')
+        : t('voice.errors.dailyLimit', { limit: voice.limit });
 
   return (
     <>
@@ -468,6 +492,12 @@ function ChatContent({ id }: { id: string }) {
                     <ThemedText type="small" style={styles.mineMeta}>
                       {t('chat.sending')}
                     </ThemedText>
+                  ) : item.pending.status === 'rejected' ? (
+                    <View style={styles.rejected} accessibilityRole="alert">
+                      <ThemedText type="smallBold" style={styles.rejectedText}>
+                        {t('moderation.notSent')}
+                      </ThemedText>
+                    </View>
                   ) : (
                     <Pressable
                       onPress={() => deliver(item.pending)}
@@ -483,13 +513,26 @@ function ChatContent({ id }: { id: string }) {
             }
             const { message } = item;
             const isPlaying = playingId === message.id;
+            const covered = message.hidden && !revealed.has(message.id);
             return (
               <View>
                 <Bubble
                   mine={message.is_mine}
                   text={message.text}
                   body={
-                    message.kind === 'voice' ? (
+                    covered ? (
+                      // May be offensive: covered until the receiver taps it.
+                      <Pressable
+                        onPress={() => setRevealed((set) => new Set(set).add(message.id))}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('moderation.hidden')}
+                        style={styles.covered}>
+                        <Ionicons name="eye-off-outline" size={20} color={theme.textSecondary} />
+                        <ThemedText type="small" themeColor="textSecondary" style={[styles.flex, align]}>
+                          {t('moderation.hidden')}
+                        </ThemedText>
+                      </Pressable>
+                    ) : message.kind === 'voice' ? (
                       <VoicePlayer
                         mine={message.is_mine}
                         durationMs={message.duration_ms ?? 0}
@@ -534,7 +577,17 @@ function ChatContent({ id }: { id: string }) {
             styles.composer,
             { borderTopColor: theme.backgroundSelected, paddingBottom: insets.bottom + Spacing.two },
           ]}>
-          {blocked ? (
+          {messagingBlockedUntil && !blocked ? (
+            // 3 offensive messages in 30 days: no messages for 7 days.
+            <View style={styles.blockedNote} accessibilityRole="alert">
+              <Ionicons name="time-outline" size={20} color={theme.textSecondary} />
+              <ThemedText type="small" themeColor="textSecondary" style={[styles.flex, align]}>
+                {t('moderation.messagingBlocked', {
+                  date: dateAndTime(messagingBlockedUntil, language),
+                })}
+              </ThemedText>
+            </View>
+          ) : blocked ? (
             <View style={styles.blockedNote}>
               <Ionicons name="ban-outline" size={20} color={theme.textSecondary} />
               <ThemedText type="small" themeColor="textSecondary" style={[styles.flex, align]}>
@@ -641,6 +694,26 @@ function ChatContent({ id }: { id: string }) {
         ]}
       />
       <ReportSheet target={reportTarget} onClose={() => setReportTarget(null)} />
+      <ConfirmDialog
+        visible={offensiveDraft !== null}
+        title={t('moderation.mayBeOffensiveTitle')}
+        message={t('moderation.mayBeOffensiveText')}
+        confirmLabel={t('moderation.sendAnyway')}
+        cancelLabel={t('moderation.edit')}
+        onConfirm={() => {
+          if (!offensiveDraft) return;
+          const item = { ...offensiveDraft, status: 'sending' as const };
+          setOffensiveDraft(null);
+          setPending((list) => [...list, item]);
+          deliver(item, true);
+        }}
+        onCancel={() => {
+          // Back to the text box, to change the words.
+          if (offensiveDraft) setText(offensiveDraft.text);
+          setOffensiveDraft(null);
+        }}
+        danger
+      />
       <ConfirmDialog
         visible={confirmBlock}
         title={t('block.confirmTitle', { name: other.display_name })}
@@ -850,6 +923,15 @@ const styles = StyleSheet.create({
   sendDisabled: { opacity: 0.4 },
   flipped: { transform: [{ scaleX: -1 }] },
   hintText: { color: '#7A5A00' },
+  covered: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minWidth: 200 },
+  rejected: {
+    marginTop: 2,
+    paddingVertical: 2,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.one,
+    backgroundColor: '#FDECEA',
+  },
+  rejectedText: { color: '#B3261E' },
   recordingRow: {
     flexDirection: 'row',
     alignItems: 'center',

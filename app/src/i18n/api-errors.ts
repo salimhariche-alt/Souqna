@@ -3,9 +3,11 @@
  * know into translation keys, so they appear in French, Arabic or English.
  * Messages we don't recognise are shown as they are, so nothing is ever hidden.
  */
-import type { TFunction } from 'i18next';
+import i18n, { type TFunction } from 'i18next';
 
 import { ApiError } from '@/api/client';
+import type { Language } from '@/i18n';
+import { dateAndTime } from '@/utils/chat-time';
 
 const KNOWN_MESSAGES: [RegExp, string][] = [
   [/^Enter a valid Algerian mobile number/, 'errors.phoneInvalid'],
@@ -23,6 +25,7 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   [/password is entirely numeric/i, 'errors.passwordNumeric'],
   [/password is too similar/i, 'errors.passwordSimilar'],
   [/^This phone number can't be used/, 'errors.phoneBlocked'],
+  [/^This name isn't allowed/, 'errors.nameNotAllowed'],
   [/^Sign up isn't possible from this device/, 'errors.deviceBlocked'],
   [/^Message can't be empty/, 'errors.messageEmpty'],
   [/^Messages can be at most/, 'errors.messageTooLong'],
@@ -45,13 +48,14 @@ export type FormErrors = { fields: Record<string, string>; general?: string };
  * Errors that come with a code word (e.g. {"code": "daily_limit", "limit": 10}):
  * use the code and its numbers rather than the English sentence.
  */
-function codedMessage(data: unknown, t: TFunction): string | null {
+export function codedMessage(data: unknown, t: TFunction): string | null {
   if (!data || typeof data !== 'object') return null;
-  const { code, kind, limit, retry_in } = data as {
+  const { code, kind, limit, retry_in, until } = data as {
     code?: string;
     kind?: string;
     limit?: number;
     retry_in?: number;
+    until?: string;
   };
   switch (code) {
     case 'daily_limit':
@@ -68,6 +72,14 @@ function codedMessage(data: unknown, t: TFunction): string | null {
       return t('errors.accountBanned');
     case 'blocked':
       return t('errors.blockedUser');
+    case 'message_blocked':
+      return t('moderation.notSent');
+    case 'messaging_blocked':
+      return t('moderation.messagingBlocked', {
+        date: until ? dateAndTime(until, i18n.language as Language) : '',
+      });
+    case 'voice_strike':
+      return t('moderation.voiceBlocked');
     default:
       return null;
   }
