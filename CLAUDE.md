@@ -85,7 +85,8 @@ Monorepo:
 gunicorn workers); 3.5 web version of the app at https://sougnadz.com + `deploy.ps1`.
 **Phase 4 - testers:** 4.1 beta mode (invite codes, admin verification, "Beta" label) and
 "Send feedback" - deployed 17 Nov 2026, `DJANGO_BETA_MODE='True'` in the server's `.env`;
-4.2 Android test version (APK) built with EAS - see "Android builds (EAS)" below.
+4.2 Android test version (APK 0.1.0, versionCode 1) built with EAS - **tested and working on
+the user's phone (17 Nov 2026)**; see "Android builds (EAS)" below.
 Still to do: iOS build, Play Store release, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
 (`DJANGO_MODERATION_ALERT_BACKEND`), automatic off-server backups, HSTS
 (`DJANGO_HSTS_SECONDS`), possibly private serving of voice messages/avatars (now random,
