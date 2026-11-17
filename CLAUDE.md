@@ -61,8 +61,12 @@ lawyer about Algerian law), and choosing the project's license.
 - Login uses the laptop's SSH key (ed25519, `C:\Users\salim\.ssh\id_ed25519`), not a password.
   Only the public key (`id_ed25519.pub`) was given to DigitalOcean. Never show, copy or commit
   the private key.
-- Not set up yet on the server: a normal (non-root) user, firewall, swap, Docker, the app,
-  a domain name and HTTPS.
+- **Step 3.3 done:** domain `sougnadz.com` (bought on Namecheap, Namecheap's DNS). Two A records,
+  `@` and `www`, point to `104.248.191.120`: `sougnadz.com` and `www.sougnadz.com` both reach
+  the server (checked on Google 8.8.8.8 and Cloudflare 1.1.1.1 DNS).
+  Check again in PowerShell: `Resolve-DnsName sougnadz.com -Server 8.8.8.8`.
+- Not set up yet on the server: a normal (non-root) user, firewall, swap, Docker, the app
+  and HTTPS (Caddy will get the certificate for the domain by itself).
 - Never write passwords, private keys or the server's `.env` in this file or anywhere in the
   repository.
 
