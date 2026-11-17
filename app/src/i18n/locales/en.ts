@@ -133,9 +133,9 @@ const en: Translations = {
     tipOk: 'Got it',
     micAccessTitle: 'Microphone access',
     micAccessText:
-      'Souqna needs the microphone to record your voice messages. Nothing is recorded unless you hold the button.',
+      'Sougna needs the microphone to record your voice messages. Nothing is recorded unless you hold the button.',
     micDeniedText:
-      "To send voice messages, allow the microphone in your phone's settings: Settings → Apps → Expo Go (or Souqna) → Permissions → Microphone.",
+      "To send voice messages, allow the microphone in your phone's settings: Settings → Apps → Expo Go (or Sougna) → Permissions → Microphone.",
     errors: {
       dailyLimit:
         "Limit reached: {{limit}} voice messages a day in this conversation. You can still write.",
@@ -274,17 +274,17 @@ const en: Translations = {
     },
     cameraAccessTitle: 'Camera access',
     cameraAccessText:
-      'Souqna needs the camera to take photos of the item you are selling. The photos are only used for your listing.',
+      'Sougna needs the camera to take photos of the item you are selling. The photos are only used for your listing.',
     galleryAccessTitle: 'Access to your photos',
     galleryAccessText:
-      'Souqna needs access to your photos so you can choose the ones for your listing. Only the photos you choose are sent.',
+      'Sougna needs access to your photos so you can choose the ones for your listing. Only the photos you choose are sent.',
     continue: 'Continue',
     notNow: 'Not now',
     permissionDeniedTitle: 'Permission refused',
     cameraDeniedText:
-      "To take photos, allow the camera in your phone's settings: Settings → Apps → Expo Go (or Souqna) → Permissions → Camera.",
+      "To take photos, allow the camera in your phone's settings: Settings → Apps → Expo Go (or Sougna) → Permissions → Camera.",
     galleryDeniedText:
-      "To choose photos, allow access in your phone's settings: Settings → Apps → Expo Go (or Souqna) → Permissions → Photos.",
+      "To choose photos, allow access in your phone's settings: Settings → Apps → Expo Go (or Sougna) → Permissions → Photos.",
     openSettings: 'Open settings',
   },
   safety: {
@@ -296,7 +296,7 @@ const en: Translations = {
     tips: {
       chat: {
         title: 'Keep chatting in the app',
-        text: 'Keep the conversation on Souqna. Be careful if someone asks you to move to WhatsApp or Telegram.',
+        text: 'Keep the conversation on Sougna. Be careful if someone asks you to move to WhatsApp or Telegram.',
       },
       meet: {
         title: 'Meet in a public place',
@@ -331,7 +331,7 @@ const en: Translations = {
     detailsPlaceholder: 'Tell us what happened…',
     send: 'Send the report',
     thanksTitle: 'Thank you!',
-    thanksText: 'Your report was sent. You are helping keep Souqna safe for everyone.',
+    thanksText: 'Your report was sent. You are helping keep Sougna safe for everyone.',
     alreadyText: "You've already reported this. Our team is on it, thank you!",
     close: 'Close',
   },
@@ -357,7 +357,7 @@ const en: Translations = {
     phoneNotVerified: 'Number not verified',
     whyVerify: 'Verify your number to post listings and message sellers.',
     verifyNow: 'Verify my number',
-    welcomeTitle: 'Welcome to Souqna',
+    welcomeTitle: 'Welcome to Sougna',
     welcomeText: 'Log in to sell your items, save favourites and chat with sellers.',
     editProfile: 'Edit profile',
     myListings: 'My listings',
@@ -376,7 +376,7 @@ const en: Translations = {
     markSold: 'Sold',
     deleteListing: 'Delete',
     deleteListingTitle: 'Delete the listing?',
-    deleteListingText: '"{{title}}" will disappear from Souqna. This can\'t be undone.',
+    deleteListingText: '"{{title}}" will disappear from Sougna. This can\'t be undone.',
     noFavorites: 'No favourites yet. Tap ♡ on a listing to save it here.',
     noFavoritesTitle: 'No favourites',
     viewMyListings: 'View my listings',
@@ -404,7 +404,7 @@ const en: Translations = {
     verify: {
       question: 'Why verify my number?',
       answer:
-        'A verified number is needed to sell and send messages. It makes Souqna safer: buyers see the "Phone verified" badge.',
+        'A verified number is needed to sell and send messages. It makes Sougna safer: buyers see the "Phone verified" badge.',
     },
     safety: {
       question: 'What if something goes wrong?',
@@ -417,7 +417,7 @@ const en: Translations = {
     intro: "Your account will be deleted for good. You won't be able to log in any more.",
     erasedTitle: 'What is erased',
     erasedData: 'Your phone number, email, name, wilaya, photo and password.',
-    erasedListings: 'All your listings disappear from Souqna.',
+    erasedListings: 'All your listings disappear from Sougna.',
     erasedFavorites: 'Your favourites and the people you blocked.',
     keptTitle: 'What is kept',
     keptMessages:
@@ -446,7 +446,7 @@ const en: Translations = {
   },
   designPreview: {
     screenTitle: 'Design preview',
-    title: "Souqna's colour",
+    title: "Sougna's colour",
     intro:
       'The three proposed brand colours, on real parts of the app. The chosen colour is used across the whole app.',
     chosen: 'Chosen',

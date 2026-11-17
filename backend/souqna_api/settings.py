@@ -59,8 +59,17 @@ def this_computers_lan_ip():
         return None
 
 
-# Addresses this server answers to. Add more in .env with DJANGO_ALLOWED_HOSTS.
-ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
+# The live site's addresses (the domain's DNS points both to the server).
+PRODUCTION_DOMAIN = 'sougnadz.com'
+PRODUCTION_HOSTS = [PRODUCTION_DOMAIN, f'www.{PRODUCTION_DOMAIN}']
+PRODUCTION_ORIGINS = [f'https://{host}' for host in PRODUCTION_HOSTS]
+
+# Addresses this server answers to.
+#   - laptop (DEBUG=True): localhost + this laptop's Wi-Fi address (below);
+#   - live server (DEBUG=False): sougnadz.com and www.sougnadz.com.
+# DJANGO_ALLOWED_HOSTS in .env replaces this list (e.g. "localhost" for a Docker test).
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS',
+                         'localhost,127.0.0.1' if DEBUG else ','.join(PRODUCTION_HOSTS))
 if DEBUG:
     # While developing, also answer on this laptop's current Wi-Fi address so a
     # phone on the same network can connect. Detected at start-up, so it keeps
@@ -84,7 +93,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'django_filters',
     'corsheaders',
-    # Souqna apps
+    # Sougna apps
     'accounts',
     'listings',
     'messaging',
@@ -122,8 +131,10 @@ REST_FRAMEWORK = {
 
 # CORS: which web pages (in a browser) may call this API. Phone apps don't need this;
 # it's only for the web version of the app, e.g. http://localhost:8081.
-# Add exact addresses in .env with DJANGO_CORS_ALLOWED_ORIGINS=https://a.com,https://b.com
-CORS_ALLOWED_ORIGINS = env_list('DJANGO_CORS_ALLOWED_ORIGINS')
+# Live server: https://sougnadz.com and https://www.sougnadz.com.
+# DJANGO_CORS_ALLOWED_ORIGINS=https://a.com,https://b.com in .env replaces this list.
+CORS_ALLOWED_ORIGINS = env_list('DJANGO_CORS_ALLOWED_ORIGINS',
+                                '' if DEBUG else ','.join(PRODUCTION_ORIGINS))
 if DEBUG:
     # While developing: this laptop and home/office network addresses, any port.
     CORS_ALLOWED_ORIGIN_REGEXES = [

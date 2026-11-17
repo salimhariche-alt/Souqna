@@ -1,4 +1,4 @@
-/** Souqna's building blocks. Use these in screens instead of styling by hand. */
+/** Sougna's building blocks. Use these in screens instead of styling by hand. */
 export { Badge, type BadgeTone } from './badge';
 export { Button } from './button';
 export { Card } from './card';

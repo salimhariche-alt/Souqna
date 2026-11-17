@@ -28,8 +28,8 @@ from .limits import LIMITS
 from .models import BlockedPhone, Device, DeviceAccount, FlaggedKeyword, ModerationLog
 from .text import find_keywords, find_link, find_phone_number, simplify
 
-TEMP_MEDIA = tempfile.mkdtemp(prefix='souqna-moderation-media-')
-PASSWORD = 'Souqna-2026!'
+TEMP_MEDIA = tempfile.mkdtemp(prefix='sougna-moderation-media-')
+PASSWORD = 'Sougna-2026!'
 
 
 def photo_bytes(seed=1, size=(300, 300), exif=None, fmt='JPEG'):

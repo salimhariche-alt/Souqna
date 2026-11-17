@@ -19,6 +19,11 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+# Names shown in the admin (browser tab and top of every admin page).
+admin.site.site_header = 'Sougna admin'
+admin.site.site_title = 'Sougna admin'
+admin.site.index_title = 'Administration'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),

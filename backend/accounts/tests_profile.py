@@ -23,8 +23,8 @@ from souqna_api.wilayas import Wilaya
 
 from .models import User
 
-TEMP_MEDIA = tempfile.mkdtemp(prefix='souqna-test-profile-')
-PASSWORD = 'Souqna-2026!'
+TEMP_MEDIA = tempfile.mkdtemp(prefix='sougna-test-profile-')
+PASSWORD = 'Sougna-2026!'
 
 
 def photo_with_location(size=(2000, 1500)):

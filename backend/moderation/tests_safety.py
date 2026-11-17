@@ -18,7 +18,7 @@ from .checks import message_flags
 from .models import Block, FlaggedKeyword, ModerationLog, Report
 from .text import find_messaging_app
 
-PASSWORD = 'Souqna-2026!'
+PASSWORD = 'Sougna-2026!'
 
 
 class SafetyTestCase(APITestCase):

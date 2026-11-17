@@ -1,5 +1,5 @@
 /**
- * Souqna's design system: EVERY colour, size, spacing and corner radius lives here.
+ * Sougna's design system: EVERY colour, size, spacing and corner radius lives here.
  * Screens and building blocks (src/ui/) read them with useTokens() - never write a
  * colour like "#17784A" directly in a screen.
  *

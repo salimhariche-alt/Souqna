@@ -134,9 +134,9 @@ const fr = {
     tipOk: 'Compris',
     micAccessTitle: 'Accès au micro',
     micAccessText:
-      'Souqna a besoin du micro pour enregistrer vos messages vocaux. Rien n’est enregistré tant que vous ne maintenez pas le bouton.',
+      'Sougna a besoin du micro pour enregistrer vos messages vocaux. Rien n’est enregistré tant que vous ne maintenez pas le bouton.',
     micDeniedText:
-      "Pour envoyer des messages vocaux, autorisez le micro dans les réglages du téléphone : Réglages → Applications → Expo Go (ou Souqna) → Autorisations → Micro.",
+      "Pour envoyer des messages vocaux, autorisez le micro dans les réglages du téléphone : Réglages → Applications → Expo Go (ou Sougna) → Autorisations → Micro.",
     errors: {
       dailyLimit:
         "Limite atteinte : {{limit}} messages vocaux par jour dans cette conversation. Vous pouvez toujours écrire.",
@@ -278,17 +278,17 @@ const fr = {
     },
     cameraAccessTitle: "Accès à l'appareil photo",
     cameraAccessText:
-      "Souqna a besoin de l'appareil photo pour prendre des photos de l'article que vous vendez. Les photos ne sont utilisées que pour votre annonce.",
+      "Sougna a besoin de l'appareil photo pour prendre des photos de l'article que vous vendez. Les photos ne sont utilisées que pour votre annonce.",
     galleryAccessTitle: 'Accès à vos photos',
     galleryAccessText:
-      "Souqna a besoin d'accéder à vos photos pour que vous puissiez choisir celles de votre annonce. Seules les photos que vous choisissez sont envoyées.",
+      "Sougna a besoin d'accéder à vos photos pour que vous puissiez choisir celles de votre annonce. Seules les photos que vous choisissez sont envoyées.",
     continue: 'Continuer',
     notNow: 'Pas maintenant',
     permissionDeniedTitle: 'Autorisation refusée',
     cameraDeniedText:
-      "Pour prendre des photos, autorisez l'appareil photo dans les réglages du téléphone : Réglages → Applications → Expo Go (ou Souqna) → Autorisations → Appareil photo.",
+      "Pour prendre des photos, autorisez l'appareil photo dans les réglages du téléphone : Réglages → Applications → Expo Go (ou Sougna) → Autorisations → Appareil photo.",
     galleryDeniedText:
-      "Pour choisir des photos, autorisez l'accès dans les réglages du téléphone : Réglages → Applications → Expo Go (ou Souqna) → Autorisations → Photos.",
+      "Pour choisir des photos, autorisez l'accès dans les réglages du téléphone : Réglages → Applications → Expo Go (ou Sougna) → Autorisations → Photos.",
     openSettings: 'Ouvrir les réglages',
   },
   safety: {
@@ -300,7 +300,7 @@ const fr = {
     tips: {
       chat: {
         title: 'Discutez dans l’application',
-        text: 'Gardez la conversation sur Souqna. Méfiez-vous si on vous demande de passer sur WhatsApp ou Telegram.',
+        text: 'Gardez la conversation sur Sougna. Méfiez-vous si on vous demande de passer sur WhatsApp ou Telegram.',
       },
       meet: {
         title: 'Rencontrez-vous dans un lieu public',
@@ -335,7 +335,7 @@ const fr = {
     detailsPlaceholder: 'Expliquez ce qui s’est passé…',
     send: 'Envoyer le signalement',
     thanksTitle: 'Merci !',
-    thanksText: 'Votre signalement a bien été envoyé. Vous aidez à garder Souqna sûr pour tous.',
+    thanksText: 'Votre signalement a bien été envoyé. Vous aidez à garder Sougna sûr pour tous.',
     alreadyText: 'Vous avez déjà signalé cet élément. Notre équipe s’en occupe, merci !',
     close: 'Fermer',
   },
@@ -361,7 +361,7 @@ const fr = {
     phoneNotVerified: 'Numéro non vérifié',
     whyVerify: 'Vérifiez votre numéro pour publier des annonces et contacter les vendeurs.',
     verifyNow: 'Vérifier mon numéro',
-    welcomeTitle: 'Bienvenue sur Souqna',
+    welcomeTitle: 'Bienvenue sur Sougna',
     welcomeText:
       'Connectez-vous pour vendre vos articles, enregistrer vos favoris et discuter avec les vendeurs.',
     editProfile: 'Modifier le profil',
@@ -381,7 +381,7 @@ const fr = {
     markSold: 'Vendu',
     deleteListing: 'Supprimer',
     deleteListingTitle: "Supprimer l'annonce ?",
-    deleteListingText: "« {{title}} » disparaîtra de Souqna. Cette action est définitive.",
+    deleteListingText: "« {{title}} » disparaîtra de Sougna. Cette action est définitive.",
     noFavorites: "Pas encore de favoris. Touchez ♡ sur une annonce pour l'enregistrer ici.",
     noFavoritesTitle: 'Aucun favori',
     viewMyListings: 'Voir mes annonces',
@@ -409,7 +409,7 @@ const fr = {
     verify: {
       question: 'Pourquoi vérifier mon numéro ?',
       answer:
-        'Un numéro vérifié est nécessaire pour vendre et envoyer des messages. Cela rend Souqna plus sûr : les acheteurs voient le badge « Téléphone vérifié ».',
+        'Un numéro vérifié est nécessaire pour vendre et envoyer des messages. Cela rend Sougna plus sûr : les acheteurs voient le badge « Téléphone vérifié ».',
     },
     safety: {
       question: 'Que faire en cas de problème ?',
@@ -422,7 +422,7 @@ const fr = {
     intro: 'Votre compte sera supprimé définitivement. Vous ne pourrez plus vous connecter.',
     erasedTitle: 'Ce qui est effacé',
     erasedData: 'Votre numéro, votre e-mail, votre nom, votre wilaya, votre photo et votre mot de passe.',
-    erasedListings: 'Toutes vos annonces disparaissent de Souqna.',
+    erasedListings: 'Toutes vos annonces disparaissent de Sougna.',
     erasedFavorites: 'Vos favoris et les personnes que vous avez bloquées.',
     keptTitle: 'Ce qui est conservé',
     keptMessages:
@@ -451,7 +451,7 @@ const fr = {
   },
   designPreview: {
     screenTitle: 'Aperçu du design',
-    title: 'Couleur de Souqna',
+    title: 'Couleur de Sougna',
     intro:
       "Les trois couleurs proposées pour la marque, sur de vrais éléments de l'appli. La couleur choisie est utilisée dans toute l'appli.",
     chosen: 'Choisie',

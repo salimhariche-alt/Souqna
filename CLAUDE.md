@@ -1,6 +1,14 @@
-# Souqna
+# Sougna
 
-A second-hand marketplace for Algeria. Monorepo:
+A second-hand marketplace for Algeria. Name: **Sougna** (French/English), **سوقنا** (Arabic).
+Live address: **https://sougnadz.com** (www.sougnadz.com redirects there).
+
+Renamed from "Souqna" in Step 3.4. On purpose these still say `souqna` (invisible to users,
+renaming them would break things): the Django folder `backend/souqna_api/`, the phone storage
+labels (`souqna.access`, `souqna.language`, ... - renaming logs users out), and the GitHub
+repository name (`salimhariche-alt/Souqna`).
+
+Monorepo:
 
 - `backend/` - Django 6.1 + Django REST Framework API (SQLite for now). See `backend/README.md`.
 - `app/` - Expo SDK 58 app (TypeScript, Expo Router, routes in `app/src/app/`). See `app/README.md`.

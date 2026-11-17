@@ -14,13 +14,13 @@ from moderation.models import ModerationLog
 from .models import PhoneVerification, User
 
 
-class SouqnaUserCreationForm(UserCreationForm):
+class SougnaUserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ('phone', 'email', 'display_name')
 
 
-class SouqnaUserChangeForm(UserChangeForm):
+class SougnaUserChangeForm(UserChangeForm):
     class Meta:
         model = User
         fields = '__all__'
@@ -28,8 +28,8 @@ class SouqnaUserChangeForm(UserChangeForm):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    form = SouqnaUserChangeForm
-    add_form = SouqnaUserCreationForm
+    form = SougnaUserChangeForm
+    add_form = SougnaUserCreationForm
 
     list_display = ('phone', 'display_name', 'email', 'wilaya', 'phone_verified', 'items_sold_count',
                     'suspicious_messages', 'open_reports', 'strikes', 'account_status',
