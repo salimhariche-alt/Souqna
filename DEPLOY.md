@@ -156,142 +156,265 @@ The two don't share a database.
 
 ## Part B - The live server (Ubuntu, 1 GB of memory)
 
+**Status: done (Step 3.4, 17 November 2026).** Sougna's backend runs at **https://sougnadz.com**
+on a DigitalOcean Droplet (Ubuntu 24.04 LTS, 1 GB memory, San Francisco, IP
+`104.248.191.120`). B1-B8 record exactly what was done, so it can be repeated on a new server.
+For everyday work, jump to **B9 (everyday commands)**.
+
+Boxes marked `powershell` run **on your laptop**; boxes marked `bash` run **on the server**
+(after `ssh sougna@104.248.191.120`).
+
 ### B1. What you need
 
-- A **VPS** (virtual server) with **Ubuntu 24.04 LTS** (or newer LTS), 1 GB memory, ~25 GB
-  disk. Any provider works (e.g. Hetzner, DigitalOcean, OVH, Contabo). Write down its
-  **IP address** and the **root password** or SSH key you chose.
-- A **domain name**. Sougna uses **`sougnadz.com`** (bought on Namecheap). In the domain's DNS
-  settings add two **A records** pointing to the server's IP address: `@` (for
-  `sougnadz.com`) and `www` (for `www.sougnadz.com`). It can take from a few minutes to a
-  few hours to work. Check in PowerShell: `Resolve-DnsName sougnadz.com -Server 8.8.8.8`.
-  (Done: both point to the DigitalOcean server, see CLAUDE.md "Server".)
+- A **VPS** with **Ubuntu 24.04 LTS**, 1 GB memory, ~25 GB disk. Sougna uses a DigitalOcean
+  Droplet created with your laptop's **SSH key** (`C:\Users\salim\.ssh\id_ed25519.pub`, see
+  CLAUDE.md "Server") instead of a password.
+- A **domain name**: **`sougnadz.com`** (Namecheap). Two DNS **A records** point to the server's
+  IP address: `@` (`sougnadz.com`) and `www` (`www.sougnadz.com`). Check in PowerShell:
+  `Resolve-DnsName sougnadz.com -Server 8.8.8.8`.
 
-### B2. Connect to the server
+### B2. A safe everyday user, then lock SSH
 
-Windows has `ssh` built in. In PowerShell:
+Working as `root` every day is risky. Create the user **`sougna`** with admin rights (`sudo`),
+give it the same SSH key as root, and let it use `sudo` without a password (it has no password
+at all: only your private key opens it):
+
+```bash
+# as root (ssh root@104.248.191.120) - only possible BEFORE root login is turned off
+adduser --disabled-password --gecos "" sougna
+usermod -aG sudo sougna
+install -d -m 700 -o sougna -g sougna /home/sougna/.ssh
+install -m 600 -o sougna -g sougna /root/.ssh/authorized_keys /home/sougna/.ssh/authorized_keys
+echo "sougna ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-sougna
+chmod 440 /etc/sudoers.d/90-sougna && visudo -cf /etc/sudoers.d/90-sougna
+```
+
+**Test before locking anything** (from the laptop): `ssh sougna@104.248.191.120 "sudo whoami"`
+must answer `root`.
+
+Then turn off password login and root login. The file name starts with `00-` on purpose: SSH
+uses the FIRST value it reads, and DigitalOcean's `50-cloud-init.conf` says
+`PasswordAuthentication yes`.
+
+```bash
+sudo tee /etc/ssh/sshd_config.d/00-sougna-hardening.conf <<EOF
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+EOF
+sudo sshd -t && sudo systemctl restart ssh
+sudo sshd -T | grep -E "^(passwordauthentication|permitrootlogin) "   # both "no"
+```
+
+Check from the laptop: `ssh sougna@104.248.191.120` works; `ssh root@104.248.191.120` says
+"Permission denied (publickey)".
+
+> If you ever lose your laptop's private key: DigitalOcean website -> the Droplet -> **Access ->
+> Launch Droplet Console** still works; then add a new public key to
+> `/home/sougna/.ssh/authorized_keys`.
+
+### B3. Firewall: only SSH, HTTP and HTTPS
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp comment "SSH"          # FIRST, so you can't lock yourself out
+sudo ufw allow 80/tcp comment "HTTP (Caddy, certificates)"
+sudo ufw allow 443/tcp comment "HTTPS"
+sudo ufw allow 443/udp comment "HTTPS (HTTP/3)"
+sudo ufw --force enable
+sudo ufw status verbose
+```
+
+(Docker opens the ports it publishes by itself, but only Caddy publishes any: 80 and 443.)
+
+### B4. Swap and automatic security updates
+
+2 GB of **swap** (emergency memory on the disk), used only when really needed:
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab
+echo "vm.swappiness=10" | sudo tee /etc/sysctl.d/90-sougna-swap.conf && sudo sysctl --system
+free -m        # Swap: 2047
+```
+
+**Automatic security updates** (installed every day; the server does NOT restart by itself):
+
+```bash
+sudo apt-get install -y unattended-upgrades
+sudo tee /etc/apt/apt.conf.d/20auto-upgrades <<EOF
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+EOF
+sudo unattended-upgrade          # install the waiting ones now
+```
+
+If the file `/var/run/reboot-required` exists (e.g. after a new Linux kernel), restart when
+convenient - see B9.
+
+### B5. Docker (from Docker's official package source)
+
+```bash
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+. /etc/os-release
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${UBUNTU_CODENAME:-$VERSION_CODENAME} stable" | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker sougna      # then log out and in again
+docker run --rm hello-world         # "Hello from Docker!"
+```
+
+Docker's key fingerprint must be `9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88`.
+
+### B6. Get the code with a read-only deploy key
+
+The server has its **own** key that can only **read** this one repository (never write).
+Its private key never leaves the server.
+
+```bash
+ssh-keygen -t ed25519 -N "" -C "sougna-server-deploy (read-only)" -f ~/.ssh/github_deploy
+cat > ~/.ssh/config <<EOF
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/github_deploy
+    IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config
+ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+ssh-keygen -lf ~/.ssh/known_hosts   # must show SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU
+cat ~/.ssh/github_deploy.pub        # the PUBLIC key, for GitHub
+```
+
+On GitHub: repository **Settings -> Deploy keys -> Add deploy key**. Title
+`sougna-server (DigitalOcean)`, paste the public key as **one line** (copy it from a file, not
+from the terminal: line breaks make GitHub say "Key is invalid"), leave **Allow write access
+unticked**, **Add key**. A copy of the public key is in `C:\Users\salim\deploy_key.pub` on the
+laptop (outside the repository). Then:
+
+```bash
+ssh -T git@github.com     # "Hi salimhariche-alt/Souqna! You've successfully authenticated"
+git clone git@github.com:salimhariche-alt/Souqna.git ~/sougna
+```
+
+### B7. The `.env` file (secrets made on the server, never shown)
+
+```bash
+cd ~/sougna
+umask 077
+python3 - <<'EOF'
+import re, secrets
+text = open(".env.example", encoding="utf-8").read()
+text = re.sub(r"^DJANGO_SECRET_KEY=.*$", "DJANGO_SECRET_KEY='%s'" % secrets.token_urlsafe(50), text, flags=re.M)
+text = re.sub(r"^POSTGRES_PASSWORD=.*$", "POSTGRES_PASSWORD='%s'" % secrets.token_urlsafe(32), text, flags=re.M)
+open(".env", "w", encoding="utf-8").write(text)
+EOF
+chmod 600 .env
+grep -c change-me .env      # 0
+```
+
+The other values in `.env.example` are already right for the live server
+(`SITE_ADDRESS='sougnadz.com'`, `DJANGO_ALLOWED_HOSTS='sougnadz.com,www.sougnadz.com'`,
+`DJANGO_DEBUG='False'`, SMS and alerts printed in the logs). **Never print `.env` or put it in
+Git.** `POSTGRES_PASSWORD` is used when the database is created the first time; changing it
+later in `.env` does not change the database's password.
+
+### B8. Start, certificates, data, admin
+
+```bash
+cd ~/sougna
+docker compose up -d --build     # first time: a few minutes
+docker compose ps                # db (healthy), backend, caddy: all "Up"
+docker compose logs caddy | grep "certificate obtained successfully"   # sougnadz.com + www
+```
+
+At every start the backend updates the database tables (`migrate`), creates the cache table
+and copies the admin's CSS.
+
+Load **only the 5 categories** (Women, Men, Kids, Home, Electronics in fr/ar/en):
+
+```bash
+docker compose exec backend python manage.py shell -c "from listings.management.commands.seed_demo import Command; Command().load_categories()"
+```
+
+Or categories **plus** 30 fake listings from 6 demo sellers (`055000000X`, cannot log in):
+`docker compose exec backend python manage.py seed_demo`. **On sougnadz.com the fake listings
+ARE loaded (for testing) - remove them before real users arrive** (B9).
+
+Create the admin user - run it yourself so the password never appears anywhere else
+(PowerShell on the laptop; `-t` lets you type):
 
 ```powershell
-ssh root@104.248.191.120
+ssh -t sougna@104.248.191.120 "cd ~/sougna && docker compose exec backend python manage.py createsuperuser"
 ```
 
-(`104.248.191.120` is Sougna's DigitalOcean server; `YOUR.SERVER.IP` below means the same.)
-Type `yes` the first time. With an SSH key there is no server password to type. You are now typing commands **on the server**.
+Checks (done 17 November 2026, all OK):
 
-### B3. Prepare the server (once)
+| Address | Expected |
+| --- | --- |
+| https://sougnadz.com/admin/ | "Sougna admin" login, with its design, padlock, no warning |
+| https://sougnadz.com/api/listings/ | the listings, photo addresses `https://sougnadz.com/media/...` |
+| https://www.sougnadz.com/... | jumps to https://sougnadz.com/... |
+| http://sougnadz.com/... | jumps to https:// |
 
-Update Ubuntu:
+Certificates: Let's Encrypt, renewed by Caddy automatically (the first ones are valid until
+15 February 2027).
+
+### B9. Everyday commands
+
+Connect (laptop, PowerShell), then go to the project folder:
+
+```powershell
+ssh sougna@104.248.191.120
+```
 
 ```bash
-apt update && apt upgrade -y
+cd ~/sougna
 ```
 
-Create a normal user (don't work as root every day) and give it admin rights:
+| What | Command (on the server, in `~/sougna`) |
+| --- | --- |
+| Are the 3 parts running? | `docker compose ps` |
+| Django's logs live (**SMS codes, urgent alerts**, errors); `Ctrl+C` stops watching | `docker compose logs -f --tail 50 backend` |
+| Web server / certificate logs | `docker compose logs -f --tail 50 caddy` |
+| Restart Django only | `docker compose restart backend` |
+| Restart everything | `docker compose restart` |
+| Stop everything (data is KEPT) / start again | `docker compose down` / `docker compose up -d` |
+| Memory use | `docker stats --no-stream` and `free -m` |
+| Run a Django command | `docker compose exec backend python manage.py <command>` |
 
-```bash
-adduser sougna
-usermod -aG sudo sougna
-```
+Django's logs from the laptop in one line:
+`ssh sougna@104.248.191.120 "cd ~/sougna && docker compose logs -f --tail 50 backend"`
 
-Firewall: only allow SSH, http and https:
-
-```bash
-ufw allow OpenSSH
-ufw allow 80
-ufw allow 443
-ufw enable
-```
-
-**Swap** (extra memory on the disk). Important with only 1 GB, so the server doesn't run
-out of memory while building:
-
-```bash
-fallocate -l 1G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
-```
-
-Install Docker (official script from Docker):
-
-```bash
-curl -fsSL https://get.docker.com | sh
-usermod -aG docker sougna
-```
-
-Log out (`exit`) and log in again as the new user: `ssh sougna@YOUR.SERVER.IP`.
-Check: `docker compose version`.
-
-### B4. Get the code
-
-```bash
-git clone https://github.com/salimhariche-alt/Souqna.git sougna
-cd sougna
-```
-
-### B5. Create the `.env` file
-
-```bash
-cp .env.example .env
-python3 -c "import secrets; print(secrets.token_urlsafe(50))"   # run twice, copy each
-nano .env
-```
-
-In `nano`, check or change:
-
-- `SITE_ADDRESS='sougnadz.com'` (no `https://`, no `www.`: Caddy adds `www.sougnadz.com` itself)
-- `DJANGO_ALLOWED_HOSTS='sougnadz.com,www.sougnadz.com'`
-- `DJANGO_SECRET_KEY='...'` and `POSTGRES_PASSWORD='...'` -> the two random values
-- `DJANGO_DEBUG='False'`
-
-Save with `Ctrl+O`, `Enter`, leave with `Ctrl+X`. Protect the file: `chmod 600 .env`.
-
-**Write the passwords down somewhere safe** (a password manager). `POSTGRES_PASSWORD` is used
-the first time the database is created; changing it in `.env` later does not change the
-database's password.
-
-### B6. Start
-
-```bash
-docker compose up -d --build
-docker compose ps
-docker compose logs caddy
-```
-
-In the Caddy logs look for **"certificate obtained successfully"** (twice: `sougnadz.com` and
-`www.sougnadz.com`). If it fails, check that the DNS A records point to this server
-(`ping sougnadz.com`) and that ports 80/443 are open.
-
-Then create the admin user (and optionally the demo data, for a first test only):
-
-```bash
-docker compose exec backend python manage.py createsuperuser
-docker compose exec backend python manage.py seed_demo
-```
-
-Check in your browser: https://sougnadz.com/api/ and https://sougnadz.com/admin/.
-https://www.sougnadz.com/api/ should jump to https://sougnadz.com/api/.
-
-The real app builds (EAS) use `https://sougnadz.com` automatically (`PRODUCTION_URL` in
-`app/src/config.ts`); Expo Go keeps using your laptop.
-
-Before real users arrive, remove the demo data in the admin (or start from an empty database).
-
-### B7. Updating to a new version
-
-After merging changes on GitHub:
+**Update to a new version** (after merging a pull request on GitHub). Make a backup first (B10):
 
 ```bash
 cd ~/sougna
 git pull
 docker compose up -d --build
+docker compose ps
 ```
 
-Django updates the database tables automatically at start-up (`migrate`).
-Users and photos are kept (they are in the volumes).
+Database changes are applied automatically at start-up; users, photos and voice messages are
+kept (they live in the volumes). After changing only `.env`: `docker compose up -d`.
 
-### B8. Backups (do this before every update, and regularly)
+**Restart the whole server** (e.g. when `/var/run/reboot-required` exists after security
+updates): `sudo reboot`. Everything starts again by itself (`restart: unless-stopped`); wait a
+minute, reconnect, and check `docker compose ps`.
+
+**Remove the fake listings** before launch: admin -> Users -> the 6 demo sellers (phones
+`0550000001`-`0550000006`) -> delete them with their listings, or ask Claude for a command.
+
+**Never** run `docker compose down -v` on the server: `-v` deletes the database and photos.
+
+### B10. Backups (before every update, and regularly)
 
 Database (one file, `.sql`):
 
@@ -308,7 +431,7 @@ docker compose cp backend:/app/media ./media-backup-$(date +%F)
 Copy both to your laptop (run this **on the laptop**, in PowerShell):
 
 ```powershell
-scp -r sougna@YOUR.SERVER.IP:~/sougna/backup-*.sql sougna@YOUR.SERVER.IP:~/sougna/media-backup-* .
+scp -r "sougna@104.248.191.120:~/sougna/backup-*.sql" "sougna@104.248.191.120:~/sougna/media-backup-*" .
 ```
 
 Automatic, off-server backups come later in Phase 3.
@@ -316,19 +439,21 @@ Automatic, off-server backups come later in Phase 3.
 Restoring a database backup into an **empty** database:
 
 ```bash
-docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"' < backup-2026-11-16.sql
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"' < backup-2026-11-17.sql
 ```
 
-### B9. When something goes wrong
+### B11. When something goes wrong
 
-| Problem                                     | What to do                                                    |
-| ------------------------------------------- | ------------------------------------------------------------- |
-| A page shows "Bad Request (400)"            | The address isn't in `DJANGO_ALLOWED_HOSTS` in `.env`. Fix it, then `docker compose up -d`. |
-| "502 Bad Gateway"                           | Django isn't running: `docker compose logs backend`.          |
-| The admin has no design (plain text)        | `docker compose restart backend` (it copies the CSS at start). |
-| No HTTPS certificate                        | `docker compose logs caddy`; check the DNS A record and ports 80/443. |
+| Problem | What to do |
+| --- | --- |
+| A page shows "Bad Request (400)" | The address isn't in `DJANGO_ALLOWED_HOSTS` in `.env`. Fix it, then `docker compose up -d`. |
+| "502 Bad Gateway" | Django isn't running (or still starting - wait 10 s): `docker compose logs backend`. |
+| The admin has no design (plain text) | `docker compose restart backend` (it copies the CSS at start). |
+| No HTTPS certificate | `docker compose logs caddy`; check the DNS A records and ports 80/443 (`sudo ufw status`). |
 | "password authentication failed" in the logs | `POSTGRES_PASSWORD` in `.env` was changed after the database was created. Put the old one back. |
-| Server very slow / out of memory            | `free -h` and `docker stats`; check the swap file (B3).       |
+| Server very slow / out of memory | `free -m` and `docker stats --no-stream`; check the swap (B4). |
+| `git pull` says "Permission denied (publickey)" | The deploy key was removed on GitHub: redo B6 (new key, add it again). |
+| Many "404" lines from unknown visitors in the logs | Normal: robots scan every new website. |
 
 `python manage.py check --deploy` reports two known items for now: email isn't set up yet
 (later in Phase 3), and HSTS is off until you set `DJANGO_HSTS_SECONDS` (see `.env.example`).
