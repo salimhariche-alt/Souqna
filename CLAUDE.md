@@ -17,10 +17,10 @@ Monorepo:
   `Caddyfile`, `.env.example` (copied to the root `.env`, never committed), `backend/Dockerfile`,
   `backend/docker-entrypoint.sh` (migrate, createcachetable, collectstatic). Every step in
   `DEPLOY.md`. Two different env files: `backend/.env` = laptop `runserver`; root `.env` = Docker.
-  **Not tested with Docker yet** (committed at the user's request without Docker Desktop
-  installed): the first `docker compose up -d --build` (laptop or server) must be checked
-  carefully - images `python:3.15-slim`, `postgres:18-alpine` (volume at `/var/lib/postgresql`),
-  `caddy:2-alpine`; then the API, admin CSS, a photo, the www redirect and `manage.py test`.
+  **Tested on the live server** (Step 3.4): builds and runs on the 1 GB Droplet (~160 MB for
+  the 3 containers), PostgreSQL data in `/var/lib/postgresql/18/docker`, both Let's Encrypt
+  certificates, API, admin CSS, photos, www and http redirects. Not yet tried with Docker
+  Desktop on the laptop (not installed) and the test suite has not been run on PostgreSQL.
 
 ## Progress
 
@@ -63,27 +63,50 @@ Monorepo:
 - **Everywhere:** French (default), Arabic (right-to-left) and English; light and dark mode;
   design system in `app/src/theme/` (colours, sizes, font) and `app/src/ui/` (building blocks).
 
-**Next: Phase 3 - putting it online.** Main pieces: a server and domain with HTTPS,
-`DEBUG=False`, PostgreSQL instead of SQLite, file storage for photos/voice (voice messages and
-avatars should not be publicly guessable/served), a real SMS provider (`DJANGO_SMS_BACKEND`),
-email for urgent moderation alerts (`DJANGO_MODERATION_ALERT_BACKEND`), a shared cache (Redis)
-for login limits and throttling, backups, building the app with EAS for Android/iOS, store
-listings, a privacy policy and terms (incl. how long moderation evidence is kept - ask a
-lawyer about Algerian law), and choosing the project's license.
+**Phase 3 - putting it online (in progress).** Done: 3.1 Docker Compose setup; 3.2 server;
+3.3 domain; 3.4 rename to Sougna + first deploy - the backend runs at https://sougnadz.com
+(HTTPS, `DEBUG=False`, PostgreSQL, uploads in a Docker volume, database cache shared by the
+gunicorn workers). Still to do: point the app at the server and build it with EAS for
+Android/iOS, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
+(`DJANGO_MODERATION_ALERT_BACKEND`), automatic off-server backups, HSTS
+(`DJANGO_HSTS_SECONDS`), possibly private serving of voice messages/avatars (now random,
+unguessable names under `/media/`), Redis if the database cache gets too slow, removing the
+fake listings before launch, store listings, a privacy policy and terms (incl. how long
+moderation evidence is kept - ask a lawyer about Algerian law), and choosing the license.
 
 ## Server
 
 - **Step 3.2 done:** DigitalOcean Droplet, Ubuntu 24.04 LTS, 1 GB memory, San Francisco region.
-- IP address: `104.248.191.120`. Log in from the laptop (PowerShell): `ssh root@104.248.191.120`.
-- Login uses the laptop's SSH key (ed25519, `C:\Users\salim\.ssh\id_ed25519`), not a password.
-  Only the public key (`id_ed25519.pub`) was given to DigitalOcean. Never show, copy or commit
-  the private key.
+- IP address: `104.248.191.120`. Log in from the laptop (PowerShell): **`ssh sougna@104.248.191.120`**
+  (root login is turned off since Step 3.4).
+- Login uses the laptop's SSH key (ed25519, `C:\Users\salim\.ssh\id_ed25519`, no passphrase),
+  not a password. Only the public key (`id_ed25519.pub`) was given to DigitalOcean. Never show,
+  copy or commit the private key. Lost key: DigitalOcean website -> Droplet -> Access -> Console.
 - **Step 3.3 done:** domain `sougnadz.com` (bought on Namecheap, Namecheap's DNS). Two A records,
   `@` and `www`, point to `104.248.191.120`: `sougnadz.com` and `www.sougnadz.com` both reach
   the server (checked on Google 8.8.8.8 and Cloudflare 1.1.1.1 DNS).
   Check again in PowerShell: `Resolve-DnsName sougnadz.com -Server 8.8.8.8`.
-- Not set up yet on the server: a normal (non-root) user, firewall, swap, Docker, the app
-  and HTTPS (Caddy will get the certificate for the domain by itself).
+- **Step 3.4 done (17 Nov 2026): first deploy** - every command is in `DEPLOY.md` Part B.
+  - User `sougna` (sudo without password, no password at all, laptop key). SSH: password and
+    root login off (`/etc/ssh/sshd_config.d/00-sougna-hardening.conf`; `00-` because
+    `50-cloud-init.conf` says `PasswordAuthentication yes` and the first value wins).
+  - Firewall `ufw`: only 22/tcp, 80/tcp, 443/tcp+udp. Swap 2 GB (`swappiness=10`).
+    Automatic security updates (`unattended-upgrades`); no automatic restart - check
+    `/var/run/reboot-required`.
+  - Docker from Docker's apt repository (Docker 29.10, Compose 5.7); `sougna` is in the
+    `docker` group.
+  - Code in `/home/sougna/sougna` (branch `main`), cloned with a **read-only deploy key**
+    (`~/.ssh/github_deploy` on the server, GitHub -> Settings -> Deploy keys
+    "sougna-server (DigitalOcean)"; public copy `C:\Users\salim\deploy_key.pub`).
+  - `/home/sougna/sougna/.env`: random `DJANGO_SECRET_KEY` and `POSTGRES_PASSWORD` made on the
+    server (chmod 600, never printed, not in Git). SMS codes and alerts still printed in the logs.
+  - Running: https://sougnadz.com (Let's Encrypt, www and http redirect to it). Data: 5 categories,
+    **30 fake listings from 6 demo sellers (remove before launch)**, 1 admin (created by the user;
+    the password is not known to Claude).
+- Everyday (on the server, in `~/sougna`): logs with SMS codes/alerts
+  `docker compose logs -f --tail 50 backend`; status `docker compose ps`; restart
+  `docker compose restart backend`; **update** = backup, then `git pull` and
+  `docker compose up -d --build` (migrations run at start-up). Never `docker compose down -v`.
 - Never write passwords, private keys or the server's `.env` in this file or anywhere in the
   repository.
 
