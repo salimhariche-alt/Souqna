@@ -1,0 +1,15 @@
+# Files that must NOT go into the Docker image.
+.env
+.env.*
+.venv/
+venv/
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+__pycache__/
+*.py[cod]
+*.log
+.pytest_cache/
+.coverage
+htmlcov/

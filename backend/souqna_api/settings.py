@@ -206,6 +206,29 @@ DATABASES = {
     }
 }
 
+# On the server (Docker), POSTGRES_HOST is set: use PostgreSQL instead of SQLite.
+if os.environ.get('POSTGRES_HOST'):
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'HOST': os.environ['POSTGRES_HOST'],
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        'NAME': os.environ['POSTGRES_DB'],
+        'USER': os.environ['POSTGRES_USER'],
+        'PASSWORD': os.environ['POSTGRES_PASSWORD'],
+        'CONN_MAX_AGE': 60,  # reuse connections for a minute (faster)
+        'CONN_HEALTH_CHECKS': True,
+    }
+    # Login limits and throttles (accounts/login_guard.py, DEFAULT_THROTTLE_RATES) are
+    # counted in Django's cache. gunicorn runs several copies of Django, so the cache
+    # must be shared between them: keep it in a database table. (Redis can replace this
+    # later.) The table is created by "manage.py createcachetable".
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'django_cache',
+        }
+    }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
@@ -242,6 +265,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+# "manage.py collectstatic" copies the admin's CSS/JS here; on the server Caddy serves it.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Uploaded files (listing photos). Stored in backend/media/, which git ignores.
 MEDIA_URL = 'media/'
@@ -256,3 +281,31 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# Live server behind Caddy (Docker sets DJANGO_BEHIND_PROXY=True).
+# Caddy handles HTTPS and tells Django with the X-Forwarded-Proto header that the
+# visitor used https. Only trust that header when Caddy is really in front: the
+# backend's port is never opened to the internet (see docker-compose.yml).
+if os.environ.get('DJANGO_BEHIND_PROXY') == 'True':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+
+if not DEBUG:
+    # Login cookies (admin) are only sent over https.
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # HSTS: browsers remember to always use https for this site. Start with 0 (off);
+    # once https works well, set e.g. 3600, later 31536000 (1 year) in .env.
+    SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_HSTS_SECONDS', '0'))
+
+    # Show warnings and errors (with the full error message) in the server logs
+    # ("docker compose logs backend"). Normal "not found"/"forbidden" answers are
+    # not logged, only real errors.
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {'console': {'class': 'logging.StreamHandler'}},
+        'root': {'handlers': ['console'], 'level': 'WARNING'},
+        'loggers': {'django.request': {'level': 'ERROR'}},
+    }

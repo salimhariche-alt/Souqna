@@ -1,0 +1,82 @@
+# Sougna on one small server (1 GB of memory). See DEPLOY.md for every step.
+#
+#   internet --https--> caddy --> backend (Django + gunicorn) --> db (PostgreSQL)
+#                         |
+#                         +-- serves /media/ (photos, voice) and /static/ (admin CSS)
+#
+# All passwords and settings come from the .env file next to this one (never in Git).
+# Start:  docker compose up -d --build        Stop:  docker compose down
+# Logs:   docker compose logs -f backend      (SMS codes and urgent alerts appear here)
+
+# Project name: the volumes are called sougna_media, sougna_postgres_data, ...
+name: sougna
+
+# Keep at most 3 x 10 MB of logs per container, so the disk never fills up.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    env_file: .env # POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+    # Small memory settings for a 1 GB server.
+    command: postgres -c shared_buffers=64MB -c max_connections=30
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 300m
+    logging: *logging
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      DJANGO_BEHIND_PROXY: "True"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - media:/app/media # uploaded photos, avatars, voice messages
+      - static:/app/staticfiles # admin CSS/JS (filled at start-up)
+    # No "ports:" on purpose: only Caddy can reach Django, never the internet directly.
+    mem_limit: 400m
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set SITE_ADDRESS in the .env file}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - media:/srv/media:ro
+      - static:/srv/static:ro
+      - caddy_data:/data # HTTPS certificates - keep them!
+      - caddy_config:/config
+    mem_limit: 100m
+    logging: *logging
+
+# Named volumes: stored by Docker, kept when containers are stopped, rebuilt or updated.
+# Only "docker compose down -v" deletes them - never run that on the live server.
+volumes:
+  postgres_data:
+  media:
+  static:
+  caddy_data:
+  caddy_config:
