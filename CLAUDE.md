@@ -84,8 +84,9 @@ Monorepo:
 (HTTPS, `DEBUG=False`, PostgreSQL, uploads in a Docker volume, database cache shared by the
 gunicorn workers); 3.5 web version of the app at https://sougnadz.com + `deploy.ps1`.
 **Phase 4 - testers:** 4.1 beta mode (invite codes, admin verification, "Beta" label) and
-"Send feedback" - beta mode is ON on the server.
-Still to do: build the phone app with EAS for Android/iOS, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
+"Send feedback" - deployed 17 Nov 2026, `DJANGO_BETA_MODE='True'` in the server's `.env`;
+4.2 Android test version (APK) built with EAS - see "Android builds (EAS)" below.
+Still to do: iOS build, Play Store release, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
 (`DJANGO_MODERATION_ALERT_BACKEND`), automatic off-server backups, HSTS
 (`DJANGO_HSTS_SECONDS`), possibly private serving of voice messages/avatars (now random,
 unguessable names under `/media/`), Redis if the database cache gets too slow, removing the
@@ -132,6 +133,26 @@ moderation evidence is kept - ask a lawyer about Algerian law), and choosing the
   `docker compose restart backend`. Never `docker compose down -v`.
 - Never write passwords, private keys or the server's `.env` in this file or anywhere in the
   repository.
+
+## Android builds (EAS, Step 4.2)
+
+- Expo account **`salimfast`** (free plan), project **@salimfast/sougna**
+  (https://expo.dev/accounts/salimfast/projects/sougna), `extra.eas.projectId` + `owner` in
+  `app/app.json`. Log in on the laptop: `npx eas-cli@latest login` (the user types the password).
+- `app/app.json`: name "Sougna", version **0.1.0**, Android package **`com.sougnadz.app`**
+  (permanent - never change it), `versionCode` 1 (**raise by 1 for every new APK/AAB**; with
+  `"appVersionSource": "local"` EAS takes it from app.json).
+- `app/eas.json` profiles: **`preview`** = APK for testers (`distribution: internal`);
+  `production` = AAB for the Play Store (later). Release builds have `__DEV__` false, so the
+  app uses `PRODUCTION_URL` = https://sougnadz.com (`app/src/config.ts`); Expo Go keeps the laptop.
+- Build (from `app/`): `npx eas-cli@latest build --platform android --profile preview`.
+  The download link is on the build page (expo.dev -> project -> Builds). The Android signing
+  key (keystore) was generated in the cloud and is stored in the Expo account (Credentials):
+  every update must be signed with it, so never delete it.
+- Icons/splash (`app/assets/images/`): our own design - white shopping bag with a green "S"
+  (IBM Plex Sans Arabic Bold) on Vert Atlas `#17784A`; adaptive icon foreground/background,
+  monochrome (themed) icon, splash (`imageWidth` 160), favicon.
+- Testers install the APK by allowing "Install unknown apps" for their browser/file app once.
 
 ## Start the servers again (Windows PowerShell)
 
