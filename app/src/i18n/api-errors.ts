@@ -31,6 +31,14 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   [/^Messages can be at most/, 'errors.messageTooLong'],
   [/^You can't start a conversation about your own listing/, 'errors.ownListing'],
   [/^This field (is required|may not be blank)/, 'errors.required'],
+  // Beta mode (invite codes) and "Send feedback".
+  [/^Enter your invite code/, 'beta.errors.inviteRequired'],
+  [/^This invite code doesn't exist/, 'beta.errors.inviteUnknown'],
+  [/^This invite code is no longer valid/, 'beta.errors.inviteInactive'],
+  [/^This invite code has expired/, 'beta.errors.inviteExpired'],
+  [/^This invite code has already been used/, 'beta.errors.inviteUsedUp'],
+  [/^During the beta, sign up with a phone number/, 'beta.errors.phoneRequired'],
+  [/^Please write your message/, 'feedback.messageRequired'],
 ];
 
 export function translateApiMessage(message: string, t: TFunction): string {

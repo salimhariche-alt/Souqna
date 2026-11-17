@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import update_last_login
 from django.utils import timezone
 from PIL import UnidentifiedImageError
@@ -70,6 +71,20 @@ class RefreshView(TokenRefreshView):
     authentication_classes = []
 
 
+class AppConfigView(APIView):
+    """GET /api/auth/config/ - settings the app needs before anyone logs in.
+
+    {"beta_mode": true} -> sign up needs an invite code, no SMS codes (accounts are
+    verified by an admin), and the app shows a "Beta" label.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        return Response({'beta_mode': settings.BETA_MODE})
+
+
 class PhoneStatusView(APIView):
     """GET /api/auth/phone/status/ - verified? seconds until the code expires / resend."""
 
@@ -89,7 +104,16 @@ class SendPhoneCodeView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'sms'  # at most 10 SMS per hour per user (SMS cost money)
 
+    def get_throttles(self):
+        # Beta mode sends no SMS, so don't count anything.
+        return [] if settings.BETA_MODE else super().get_throttles()
+
     def post(self, request):
+        if settings.BETA_MODE:
+            return Response({'detail': 'During the beta, accounts are verified by the Sougna '
+                                       'team. No code is needed.',
+                             'code': 'beta_manual_verification'},
+                            status=status.HTTP_403_FORBIDDEN)
         try:
             data = phone_verification.send_code(request.user, request.data.get('phone'))
         except phone_verification.VerificationError as error:

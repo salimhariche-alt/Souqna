@@ -6,6 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/auth/auth-provider';
+import { BetaLabel } from '@/components/beta-label';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { refreshUnread, setUnread, useUnreadCount } from '@/messages/unread';
 import { FontFiles, useTokens } from '@/theme';
@@ -95,6 +96,8 @@ export default function TabLayout() {
           tabBarIcon: tabIcon('home-outline', 'home'),
           // Logged-out visitors can switch language here (and on the Profile welcome).
           headerRight: () => <LanguageSwitcher compact />,
+          // "Beta" pill while the server is in beta mode (testers only).
+          headerLeft: () => <BetaLabel />,
         }}
       />
       <Tabs.Screen

@@ -1,7 +1,9 @@
 import hashlib
 import hmac
 import re
+import secrets
 import uuid
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -36,6 +38,72 @@ def normalize_email_address(value):
 def avatar_file_name(user, filename):
     """avatars/2026/11/<random>.jpg - a random name nobody can guess."""
     return f'avatars/{timezone.now():%Y/%m}/{uuid.uuid4().hex}.jpg'
+
+
+# Invite codes use letters and digits that can't be confused (no O/0, I/1/L).
+INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+INVITE_LENGTH = 8
+
+
+def new_invite_code():
+    return ''.join(secrets.choice(INVITE_ALPHABET) for _ in range(INVITE_LENGTH))
+
+
+def normalize_invite_code(value):
+    """' abcd-2345 ' -> 'ABCD2345' (spaces and dashes are ignored, any case)."""
+    return re.sub(r'[\s\-]', '', value or '').upper()
+
+
+def default_invite_expiry():
+    return timezone.now() + timedelta(days=30)
+
+
+class InviteCode(models.Model):
+    """Beta mode (settings.BETA_MODE): signing up needs one of these codes.
+
+    Made in the admin. Which users joined with a code: User.invite_code.
+    """
+
+    name = models.CharField(max_length=80, help_text='Who it is for, e.g. "Family Oran".')
+    code = models.CharField(
+        max_length=32, unique=True, blank=True,
+        help_text='Leave empty to make a random 8-character code. Spaces and dashes are '
+                  'ignored and letters can be typed in any case.')
+    max_uses = models.PositiveIntegerField(
+        default=10, help_text='How many accounts can be created with this code.')
+    expires_at = models.DateTimeField(
+        default=default_invite_expiry, help_text='After this date the code no longer works.')
+    is_active = models.BooleanField(
+        default=True, help_text='Untick to stop the code at once (accounts made with it stay).')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.name} ({self.code})'
+
+    def save(self, *args, **kwargs):
+        self.code = normalize_invite_code(self.code)
+        while not self.code:
+            candidate = new_invite_code()
+            if not InviteCode.objects.filter(code=candidate).exists():
+                self.code = candidate
+        super().save(*args, **kwargs)
+
+    def uses(self) -> int:
+        return self.users.count()
+
+    def problem(self, now=None):
+        """Why the code can't be used right now, or None if it can."""
+        now = now or timezone.now()
+        if not self.is_active:
+            return 'inactive'
+        if self.expires_at <= now:
+            return 'expired'
+        if self.uses() >= self.max_uses:
+            return 'used_up'
+        return None
 
 
 class UserManager(BaseUserManager):
@@ -105,6 +173,10 @@ class User(AbstractUser):
     deleted_at = models.DateTimeField(null=True, blank=True)
     # When they saw the "Buy safely" tips (shown once, before their first conversation).
     safety_tips_seen_at = models.DateTimeField(null=True, blank=True)
+    # Beta mode: the invite code used to sign up. A code that was used can't be deleted
+    # (untick "active" instead), so we always know who joined with which code.
+    invite_code = models.ForeignKey(InviteCode, null=True, blank=True,
+                                    on_delete=models.PROTECT, related_name='users')
 
     USERNAME_FIELD = 'phone'
     REQUIRED_FIELDS = ['display_name']

@@ -2,7 +2,8 @@
 
 What happens:
 - personal data is erased: phone, email, name, wilaya, profile photo, password;
-- all the user's listings are hidden (deleted), favourites and blocks are removed;
+- all the user's listings are hidden (deleted), favourites, blocks and the messages
+  they sent with "Send feedback" (with screenshots) are removed;
 - the account can't be used any more.
 What is kept (Safety step 4): flagged content and the moderation log (they hold their
 own copies of the text, name and phone), reports, and conversations (so the other
@@ -29,6 +30,11 @@ def delete_account(user):
     user.listings.filter(deleted_at__isnull=True).update(deleted_at=now)
     Favorite.objects.filter(user=user).delete()
     Block.objects.filter(blocker=user).delete()
+    # "Send feedback" messages and screenshots may hold personal data: erase them.
+    for feedback in user.feedback.all():
+        if feedback.screenshot:
+            feedback.screenshot.delete(save=False)
+        feedback.delete()
     if user.avatar:
         user.avatar.delete(save=False)
 

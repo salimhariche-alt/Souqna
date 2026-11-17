@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     'listings',
     'messaging',
     'moderation',
+    'feedback',
 ]
 
 # Our own user model (phone-number login). Must be set before the first migration.
@@ -120,6 +121,7 @@ REST_FRAMEWORK = {
         'auth': '10/minute',
         'sms': '10/hour',  # verification codes: SMS cost money
         'reports': '30/day',  # reports per user (stops someone flooding the admin)
+        'feedback': '20/day',  # "Send feedback" messages per user
     },
     # Anyone can read; you must be logged in to create or change anything.
     'DEFAULT_PERMISSION_CLASSES': [
@@ -148,6 +150,14 @@ if DEBUG:
 # Django server terminal (development). To use a real SMS provider, write a class
 # like accounts.sms.ConsoleSMSBackend and set DJANGO_SMS_BACKEND in .env.
 SMS_BACKEND = os.environ.get('DJANGO_SMS_BACKEND', 'accounts.sms.ConsoleSMSBackend')
+
+# Beta mode (Step 4.1), for a small group of testers while there is no real SMS provider:
+#   - signing up needs an invite code (made in the admin: Accounts -> Invite codes)
+#     and a phone number;
+#   - no SMS codes: new accounts wait until an admin verifies them (Users -> "Verify");
+#   - the app shows a small "Beta" label.
+# Turn on with DJANGO_BETA_MODE=True in .env; off (False, the default) = SMS codes as before.
+BETA_MODE = os.environ.get('DJANGO_BETA_MODE', 'False') == 'True'
 
 # Alerts for URGENT content (threats, terrorism). Default: printed in the Django
 # terminal. Later: DJANGO_MODERATION_ALERT_BACKEND=moderation.alerts.EmailAlertBackend

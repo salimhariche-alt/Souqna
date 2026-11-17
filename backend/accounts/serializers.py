@@ -1,8 +1,10 @@
 import math
 
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import serializers, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -13,7 +15,15 @@ from souqna_api.wilayas import Wilaya
 
 from . import login_guard
 from .backends import find_user
-from .models import PHONE_ERROR, User, algerian_mobile, normalize_email_address, normalize_phone
+from .models import (
+    PHONE_ERROR,
+    InviteCode,
+    User,
+    algerian_mobile,
+    normalize_email_address,
+    normalize_invite_code,
+    normalize_phone,
+)
 
 
 class TooManyWrongPasswords(DetailedAPIException):
@@ -92,6 +102,30 @@ class PublicProfileSerializer(serializers.ModelSerializer):
 
 NAME_NOT_ALLOWED ="This name isn't allowed. Please choose another one."
 
+# Beta mode (the app recognises these sentences and translates them).
+BETA_PHONE_REQUIRED = 'During the beta, sign up with a phone number.'
+INVITE_ERRORS = {
+    'required': 'Enter your invite code.',
+    'unknown': "This invite code doesn't exist. Check it and try again.",
+    'inactive': 'This invite code is no longer valid.',
+    'expired': 'This invite code has expired.',
+    'used_up': 'This invite code has already been used by the maximum number of people.',
+}
+
+
+def check_invite_code(value):
+    """Beta mode: the InviteCode for this text, or a clear error under "invite_code"."""
+    code = normalize_invite_code(value)
+    if not code:
+        raise serializers.ValidationError({'invite_code': INVITE_ERRORS['required']})
+    invite = InviteCode.objects.filter(code=code).first()
+    if invite is None:
+        raise serializers.ValidationError({'invite_code': INVITE_ERRORS['unknown']})
+    problem = invite.problem()
+    if problem:
+        raise serializers.ValidationError({'invite_code': INVITE_ERRORS[problem]})
+    return invite
+
 
 def check_display_name(value):
     """Offensive display names (insults, sexual, threats, extremism) are refused politely."""
@@ -120,6 +154,9 @@ class SignupSerializer(serializers.Serializer):
     # The app's private random installation ID (see moderation/devices.py). Optional.
     device_id = serializers.CharField(required=False, allow_blank=True, max_length=64,
                                       write_only=True)
+    # Beta mode only (settings.BETA_MODE): the invite code from the admin.
+    invite_code = serializers.CharField(required=False, allow_blank=True, max_length=40,
+                                        write_only=True)
 
     def validate_display_name(self, value):
         return check_display_name(value)
@@ -153,6 +190,11 @@ class SignupSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {'phone': 'Enter a phone number or an email.',
                  'email': 'Enter a phone number or an email.'})
+        if settings.BETA_MODE:
+            if not data.get('phone'):
+                # Accounts are verified by hand during the beta: we need the phone.
+                raise serializers.ValidationError({'phone': BETA_PHONE_REQUIRED})
+            data['invite'] = check_invite_code(data.get('invite_code'))
         # Django's password rules: at least 8 characters, not too common,
         # not only numbers, not too similar to your name/phone/email.
         candidate = User(phone=data.get('phone') or None, email=data.get('email') or None,
@@ -164,14 +206,22 @@ class SignupSerializer(serializers.Serializer):
         return data
 
     def create(self, data):
-        user = User.objects.create_user(
-            phone=data.get('phone') or None,
-            email=data.get('email') or None,
-            password=data['password'],
-            display_name=data['display_name'],
-            wilaya=data['wilaya'],
-            preferred_language=data['preferred_language'],
-        )
+        with transaction.atomic():
+            invite = data.get('invite')
+            if invite is not None:
+                # Check again with the code locked, so two people signing up at the same
+                # moment can't both take its last place.
+                invite = InviteCode.objects.select_for_update().get(pk=invite.pk)
+                check_invite_code(invite.code)
+            user = User.objects.create_user(
+                phone=data.get('phone') or None,
+                email=data.get('email') or None,
+                password=data['password'],
+                display_name=data['display_name'],
+                wilaya=data['wilaya'],
+                preferred_language=data['preferred_language'],
+                invite_code=invite,
+            )
         record_device(user, data.get('device_id'))
         return user
 

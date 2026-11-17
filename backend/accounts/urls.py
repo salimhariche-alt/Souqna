@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AppConfigView,
     AvatarView,
     DeleteAccountView,
     LoginView,
@@ -14,6 +15,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('config/', AppConfigView.as_view(), name='auth-config'),
     path('signup/', SignupView.as_view(), name='auth-signup'),
     path('login/', LoginView.as_view(), name='auth-login'),
     path('refresh/', RefreshView.as_view(), name='auth-refresh'),

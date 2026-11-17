@@ -68,11 +68,23 @@ Monorepo:
   reactivate, ban, remove profile photo, strikes, suspicious messages).
 - **Everywhere:** French (default), Arabic (right-to-left) and English; light and dark mode;
   design system in `app/src/theme/` (colours, sizes, font) and `app/src/ui/` (building blocks).
+- **Beta mode (Step 4.1)** - `DJANGO_BETA_MODE` in `.env` (`settings.BETA_MODE`, default off;
+  the app reads `GET /api/auth/config/` -> `{"beta_mode": ...}` via `useAppConfig()`):
+  sign up needs an **invite code** (`accounts.InviteCode`: name, code, max uses, expiry,
+  active; `User.invite_code`, PROTECT) and a phone; no SMS (`send-code` -> 403
+  `beta_manual_verification`), the app shows "Your account will be verified shortly" and the
+  admin clicks **Verify** in Users (filter "Waiting for verification", or the bulk action);
+  "Beta" label (Home header, Profile). Off = SMS codes as before. How-to: `DEPLOY.md` Part D.
+- **Send feedback** (Profile tab, logged in): message + optional screenshot ->
+  `POST /api/feedback/` (app `feedback`, 20/day, screenshot re-saved max 1600 px without
+  hidden data, erased with the account); admin "Feedback from testers".
 
 **Phase 3 - putting it online (in progress).** Done: 3.1 Docker Compose setup; 3.2 server;
 3.3 domain; 3.4 rename to Sougna + first deploy - the backend runs at https://sougnadz.com
 (HTTPS, `DEBUG=False`, PostgreSQL, uploads in a Docker volume, database cache shared by the
 gunicorn workers); 3.5 web version of the app at https://sougnadz.com + `deploy.ps1`.
+**Phase 4 - testers:** 4.1 beta mode (invite codes, admin verification, "Beta" label) and
+"Send feedback" - beta mode is ON on the server.
 Still to do: build the phone app with EAS for Android/iOS, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
 (`DJANGO_MODERATION_ALERT_BACKEND`), automatic off-server backups, HSTS
 (`DJANGO_HSTS_SECONDS`), possibly private serving of voice messages/avatars (now random,
@@ -156,7 +168,7 @@ npx expo start --lan --port 8084
 
 ```powershell
 # backend (venv active)
-python manage.py test            # all backend tests (310 at the end of Phase 2)
+python manage.py test            # all backend tests (346 after Step 4.1)
 python manage.py makemigrations --check --dry-run
 
 # app

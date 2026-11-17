@@ -531,6 +531,44 @@ const fr = {
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion.',
     unknown: 'Une erreur est survenue. Veuillez réessayer.',
   },
+  beta: {
+    label: 'Bêta',
+    labelA11y: 'Version de test (bêta)',
+    inviteCode: "Code d'invitation",
+    inviteCodePlaceholder: 'Ex. : ABCD2345',
+    inviteCodeHint: "Pendant la bêta, il faut un code d'invitation pour s'inscrire.",
+    waitingTitle: 'Votre compte sera vérifié sous peu',
+    waitingText:
+      "Pendant la version bêta, l'équipe Sougna vérifie chaque nouveau compte à la main. En attendant, vous pouvez déjà parcourir les annonces et ajouter des favoris.",
+    checkAgain: 'Vérifier à nouveau',
+    stillWaiting: 'Pas encore vérifié. Réessayez un peu plus tard.',
+    waitingShort:
+      "Votre compte sera vérifié sous peu par l'équipe Sougna. Ensuite, vous pourrez publier des annonces et écrire aux vendeurs.",
+    profileNote: 'Version de test (bêta) : merci de nous aider à améliorer Sougna !',
+    errors: {
+      inviteRequired: "Entrez votre code d'invitation.",
+      inviteUnknown: "Ce code d'invitation n'existe pas. Vérifiez-le et réessayez.",
+      inviteInactive: "Ce code d'invitation n'est plus valable.",
+      inviteExpired: "Ce code d'invitation a expiré.",
+      inviteUsedUp: "Ce code d'invitation a déjà été utilisé par le nombre maximum de personnes.",
+      phoneRequired: 'Pendant la bêta, inscrivez-vous avec un numéro de téléphone.',
+    },
+  },
+  feedback: {
+    title: 'Envoyer un avis',
+    intro:
+      'Un problème, une idée, quelque chose de difficile à comprendre ? Écrivez-nous, nous lisons tout.',
+    messageLabel: 'Votre message',
+    messagePlaceholder: 'Décrivez ce qui s’est passé ou votre idée…',
+    addScreenshot: "Joindre une capture d'écran",
+    removeScreenshot: 'Retirer la capture',
+    screenshotHint: "Facultatif : faites une capture d'écran, puis choisissez-la dans la galerie.",
+    send: 'Envoyer',
+    sentTitle: 'Merci !',
+    sentText: "Votre message a bien été envoyé à l'équipe Sougna.",
+    back: 'Retour',
+    messageRequired: 'Écrivez votre message.',
+  },
 };
 
 export default fr;
