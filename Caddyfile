@@ -1,0 +1,44 @@
+# Caddy: the web server in front of Django. It gets and renews the HTTPS
+# certificates by itself (Let's Encrypt) for SITE_ADDRESS (set in .env) and for
+# the same address with "www." in front.
+#   Live server: SITE_ADDRESS=sougnadz.com -> https://sougnadz.com and https://www.sougnadz.com
+#   Laptop test: SITE_ADDRESS=localhost    -> https://localhost (local certificate:
+#                the browser shows a warning)
+
+# www.sougnadz.com -> https://sougnadz.com (same page, one main address).
+www.{$SITE_ADDRESS} {
+	redir https://{$SITE_ADDRESS}{uri} permanent
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# Photos are resized on the phone; this is only a safety limit.
+	request_body {
+		max_size 20MB
+	}
+
+	# Uploaded files (listing photos, avatars, voice messages) and the admin's CSS/JS
+	# come straight from the Docker volumes. File names of voice messages and avatars
+	# are long random codes, and folders are never listed.
+	handle /media/* {
+		root * /srv
+		header X-Content-Type-Options nosniff
+		file_server
+	}
+	handle /static/* {
+		root * /srv
+		header Cache-Control "public, max-age=86400"
+		file_server
+	}
+
+	# Everything else (/api/, /admin/, ...) goes to Django.
+	handle {
+		reverse_proxy backend:8000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

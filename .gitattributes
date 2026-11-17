@@ -1,0 +1,5 @@
+# Files used inside Linux containers must keep Linux line endings (LF),
+# even when the repository is checked out on Windows.
+*.sh text eol=lf
+Caddyfile text eol=lf
+docker-compose.yml text eol=lf

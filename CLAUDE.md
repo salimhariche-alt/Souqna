@@ -10,8 +10,17 @@ repository name (`salimhariche-alt/Souqna`).
 
 Monorepo:
 
-- `backend/` - Django 6.1 + Django REST Framework API (SQLite for now). See `backend/README.md`.
+- `backend/` - Django 6.1 + Django REST Framework API (SQLite on the laptop, PostgreSQL in
+  Docker when `POSTGRES_HOST` is set). See `backend/README.md`.
 - `app/` - Expo SDK 58 app (TypeScript, Expo Router, routes in `app/src/app/`). See `app/README.md`.
+- Server (Step 3.1): `docker-compose.yml` (db = PostgreSQL 18, backend = gunicorn, caddy = HTTPS),
+  `Caddyfile`, `.env.example` (copied to the root `.env`, never committed), `backend/Dockerfile`,
+  `backend/docker-entrypoint.sh` (migrate, createcachetable, collectstatic). Every step in
+  `DEPLOY.md`. Two different env files: `backend/.env` = laptop `runserver`; root `.env` = Docker.
+  **Not tested with Docker yet** (committed at the user's request without Docker Desktop
+  installed): the first `docker compose up -d --build` (laptop or server) must be checked
+  carefully - images `python:3.15-slim`, `postgres:18-alpine` (volume at `/var/lib/postgresql`),
+  `caddy:2-alpine`; then the API, admin CSS, a photo, the www redirect and `manage.py test`.
 
 ## Progress
 
