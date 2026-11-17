@@ -54,6 +54,18 @@ for login limits and throttling, backups, building the app with EAS for Android/
 listings, a privacy policy and terms (incl. how long moderation evidence is kept - ask a
 lawyer about Algerian law), and choosing the project's license.
 
+## Server
+
+- **Step 3.2 done:** DigitalOcean Droplet, Ubuntu 24.04 LTS, 1 GB memory, San Francisco region.
+- IP address: `104.248.191.120`. Log in from the laptop (PowerShell): `ssh root@104.248.191.120`.
+- Login uses the laptop's SSH key (ed25519, `C:\Users\salim\.ssh\id_ed25519`), not a password.
+  Only the public key (`id_ed25519.pub`) was given to DigitalOcean. Never show, copy or commit
+  the private key.
+- Not set up yet on the server: a normal (non-root) user, firewall, swap, Docker, the app,
+  a domain name and HTTPS.
+- Never write passwords, private keys or the server's `.env` in this file or anywhere in the
+  repository.
+
 ## Start the servers again (Windows PowerShell)
 
 Open two terminals in VS Code (**Terminal -> New Terminal**).
