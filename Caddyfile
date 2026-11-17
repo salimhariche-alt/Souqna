@@ -1,9 +1,16 @@
-# Caddy: the web server in front of Django. It gets and renews the HTTPS
+# Caddy: the web server in front of Sougna. It gets and renews the HTTPS
 # certificates by itself (Let's Encrypt) for SITE_ADDRESS (set in .env) and for
 # the same address with "www." in front.
 #   Live server: SITE_ADDRESS=sougnadz.com -> https://sougnadz.com and https://www.sougnadz.com
 #   Laptop test: SITE_ADDRESS=localhost    -> https://localhost (local certificate:
 #                the browser shows a warning)
+#
+# What goes where on https://sougnadz.com:
+#   /api/..., /admin/..., /api-auth/...  -> Django (backend)
+#   /media/...                           -> uploaded photos, avatars, voice messages
+#   /static/...                          -> the admin's CSS/JS
+#   everything else                      -> the web app (Expo), built on the laptop
+#                                           and uploaded by deploy.ps1 to ./web/current
 
 # www.sougnadz.com -> https://sougnadz.com (same page, one main address).
 www.{$SITE_ADDRESS} {
@@ -18,23 +25,46 @@ www.{$SITE_ADDRESS} {
 		max_size 20MB
 	}
 
-	# Uploaded files (listing photos, avatars, voice messages) and the admin's CSS/JS
-	# come straight from the Docker volumes. File names of voice messages and avatars
-	# are long random codes, and folders are never listed.
+	# Django: the API, the admin and the API's browser login pages.
+	@django path /api /api/* /admin /admin/* /api-auth/*
+	handle @django {
+		reverse_proxy backend:8000
+	}
+
+	# Uploaded files (listing photos, avatars, voice messages) come straight from the
+	# Docker volume. File names of voice messages and avatars are long random codes,
+	# and folders are never listed. Voice messages get the right audio type, so
+	# browsers and phones can play them.
 	handle /media/* {
 		root * /srv
 		header X-Content-Type-Options nosniff
+		@m4a path *.m4a *.mp4
+		header @m4a Content-Type audio/mp4
+		@aac path *.aac
+		header @aac Content-Type audio/aac
 		file_server
 	}
+
+	# The admin's CSS/JS (copied by the backend at start-up).
 	handle /static/* {
 		root * /srv
 		header Cache-Control "public, max-age=86400"
 		file_server
 	}
 
-	# Everything else (/api/, /admin/, ...) goes to Django.
+	# The web app. Files with a fingerprint in their name (/_expo/static/..., /assets/...)
+	# never change, so browsers may keep them a year; everything else (index.html) is
+	# always checked again, so an update shows up straight away.
+	# An address that is not a file (e.g. /listing/12 after a refresh) gets index.html:
+	# the app then opens the right screen itself.
 	handle {
-		reverse_proxy backend:8000
+		root * /srv/web/current
+		@fingerprinted path /_expo/static/* /assets/*
+		header @fingerprinted Cache-Control "public, max-age=31536000, immutable"
+		@other not path /_expo/static/* /assets/*
+		header @other Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
 	}
 
 	log {

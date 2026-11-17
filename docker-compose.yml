@@ -67,6 +67,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - media:/srv/media:ro
       - static:/srv/static:ro
+      # The web app: files uploaded by deploy.ps1 (web/releases/<date>, web/current
+      # points to the newest). Not in Git.
+      - ./web:/srv/web:ro
       - caddy_data:/data # HTTPS certificates - keep them!
       - caddy_config:/config
     mem_limit: 100m

@@ -21,6 +21,12 @@ Monorepo:
   the 3 containers), PostgreSQL data in `/var/lib/postgresql/18/docker`, both Let's Encrypt
   certificates, API, admin CSS, photos, www and http redirects. Not yet tried with Docker
   Desktop on the laptop (not installed) and the test suite has not been run on PostgreSQL.
+- Web app + updates (Step 3.5): **`deploy.ps1`** (laptop, PowerShell 5.1, plain ASCII only)
+  builds the web app locally, runs `deploy/server-update.sh` (backup to `~/backups`, rebuild +
+  restart backend and Caddy, migrations) and `deploy/install-web.sh` (upload to
+  `web/releases/<date>`, switch `web/current`) on the server, then checks the live site.
+  `Caddyfile`: `/api/`, `/admin/`, `/api-auth/` -> Django; `/media/`, `/static/` -> files;
+  everything else -> the web app (`try_files {path} /index.html`). See `DEPLOY.md` Part C.
 
 ## Progress
 
@@ -66,8 +72,8 @@ Monorepo:
 **Phase 3 - putting it online (in progress).** Done: 3.1 Docker Compose setup; 3.2 server;
 3.3 domain; 3.4 rename to Sougna + first deploy - the backend runs at https://sougnadz.com
 (HTTPS, `DEBUG=False`, PostgreSQL, uploads in a Docker volume, database cache shared by the
-gunicorn workers). Still to do: point the app at the server and build it with EAS for
-Android/iOS, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
+gunicorn workers); 3.5 web version of the app at https://sougnadz.com + `deploy.ps1`.
+Still to do: build the phone app with EAS for Android/iOS, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
 (`DJANGO_MODERATION_ALERT_BACKEND`), automatic off-server backups, HSTS
 (`DJANGO_HSTS_SECONDS`), possibly private serving of voice messages/avatars (now random,
 unguessable names under `/media/`), Redis if the database cache gets too slow, removing the
@@ -103,10 +109,15 @@ moderation evidence is kept - ask a lawyer about Algerian law), and choosing the
   - Running: https://sougnadz.com (Let's Encrypt, www and http redirect to it). Data: 5 categories,
     **30 fake listings from 6 demo sellers (remove before launch)**, 1 admin (created by the user;
     the password is not known to Claude).
+- **Step 3.5 done: web app** at https://sougnadz.com (built on the laptop, files in
+  `~/sougna/web/releases/<date>`, `web/current` = live version, 3 kept; not in Git).
+- **Update the live site (backend + web app): on the laptop, on `main`, everything pushed:**
+  `powershell -ExecutionPolicy Bypass -File .\deploy.ps1` -> ends with `DEPLOY OK` or
+  `DEPLOY FAILED during: <step>`. Options `-SkipWeb`, `-SkipBackend`. Database backups before
+  each update in `~/backups/db-<date>.sql.gz` on the server (10 kept).
 - Everyday (on the server, in `~/sougna`): logs with SMS codes/alerts
   `docker compose logs -f --tail 50 backend`; status `docker compose ps`; restart
-  `docker compose restart backend`; **update** = backup, then `git pull` and
-  `docker compose up -d --build` (migrations run at start-up). Never `docker compose down -v`.
+  `docker compose restart backend`. Never `docker compose down -v`.
 - Never write passwords, private keys or the server's `.env` in this file or anywhere in the
   repository.
 

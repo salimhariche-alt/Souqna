@@ -53,3 +53,6 @@ desktop.ini
 # ===== Design inspiration =====
 # Screenshots of other apps (copyrighted): kept on this computer only, never committed.
 /docs/inspiration/
+
+# ===== Web app files uploaded to the server (deploy.ps1) =====
+/web/

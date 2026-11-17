@@ -1,6 +1,7 @@
 # Putting Sougna online (Docker)
 
-This guide runs the Sougna **backend** (API + admin) with Docker Compose:
+This guide runs Sougna on one server with Docker Compose: the **backend** (API + admin) and
+the **web version of the app**, all at **https://sougnadz.com**.
 
 ```
  phone app / browser
@@ -9,10 +10,15 @@ This guide runs the Sougna **backend** (API + admin) with Docker Compose:
    +---------+      +------------------------------+      +--------------+
    |  caddy  | ---> | backend (Django + gunicorn)  | ---> |  db          |
    +---------+      +------------------------------+      | (PostgreSQL) |
-     |   also serves /media/ (photos, voice) and /static/ (admin CSS)  +--------------+
+     |   /api/, /admin/, /api-auth/ go to Django             +--------------+
+     |   also serves /media/ (photos, voice), /static/ (admin CSS)
+     |   and the web app (everything else, from ./web/current)
 ```
 
-- **caddy** - the web server. Gets and renews the HTTPS certificate by itself.
+**Updating the live site: run `deploy.ps1` on the laptop** (Part C). It does everything.
+
+- **caddy** - the web server. Gets and renews the HTTPS certificate by itself, and serves
+  the web app (built on the laptop, see Part C).
 - **backend** - Django, run by gunicorn (2 processes, fits in 1 GB of memory).
 - **db** - PostgreSQL, the database.
 
@@ -393,17 +399,17 @@ cd ~/sougna
 Django's logs from the laptop in one line:
 `ssh sougna@104.248.191.120 "cd ~/sougna && docker compose logs -f --tail 50 backend"`
 
-**Update to a new version** (after merging a pull request on GitHub). Make a backup first (B10):
+**Update to a new version:** use **`deploy.ps1` on the laptop** (Part C) - it makes a backup,
+updates the server and the web app, and checks everything. By hand, on the server, it would be:
 
 ```bash
 cd ~/sougna
-git pull
-docker compose up -d --build
-docker compose ps
+git pull --ff-only
+sh deploy/server-update.sh     # backup, rebuild + restart backend and Caddy, migrations
 ```
 
-Database changes are applied automatically at start-up; users, photos and voice messages are
-kept (they live in the volumes). After changing only `.env`: `docker compose up -d`.
+Users, photos and voice messages are kept (they live in the volumes).
+After changing only `.env`: `docker compose up -d`.
 
 **Restart the whole server** (e.g. when `/var/run/reboot-required` exists after security
 updates): `sudo reboot`. Everything starts again by itself (`restart: unless-stopped`); wait a
@@ -416,7 +422,11 @@ minute, reconnect, and check `docker compose ps`.
 
 ### B10. Backups (before every update, and regularly)
 
-Database (one file, `.sql`):
+**`deploy.ps1` backs up the database automatically before every update**: on the server in
+`~/backups/db-<date>.sql.gz` (the 10 newest are kept). They are still on the same server, so
+copy them to your laptop now and then (below).
+
+Database by hand (one file, `.sql`):
 
 ```bash
 docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > backup-$(date +%F).sql
@@ -432,6 +442,7 @@ Copy both to your laptop (run this **on the laptop**, in PowerShell):
 
 ```powershell
 scp -r "sougna@104.248.191.120:~/sougna/backup-*.sql" "sougna@104.248.191.120:~/sougna/media-backup-*" .
+scp "sougna@104.248.191.120:~/backups/db-*.sql.gz" .     # the automatic ones
 ```
 
 Automatic, off-server backups come later in Phase 3.
@@ -454,6 +465,79 @@ docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"' < back
 | Server very slow / out of memory | `free -m` and `docker stats --no-stream`; check the swap (B4). |
 | `git pull` says "Permission denied (publickey)" | The deploy key was removed on GitHub: redo B6 (new key, add it again). |
 | Many "404" lines from unknown visitors in the logs | Normal: robots scan every new website. |
+| https://sougnadz.com shows a blank page or "404" | The web app isn't uploaded: run `deploy.ps1` (or `-SkipBackend`). Check `ls -l ~/sougna/web/current` on the server. |
 
 `python manage.py check --deploy` reports two known items for now: email isn't set up yet
 (later in Phase 3), and HSTS is off until you set `DJANGO_HSTS_SECONDS` (see `.env.example`).
+
+---
+
+## Part C - The web app and `deploy.ps1` (every update)
+
+### C1. How the web app works
+
+The Expo app also runs in a web browser. `npx expo export --platform web` turns it into plain
+files (`index.html`, JavaScript, fonts, images - about 4 MB). It is built **on the laptop**
+(the server only has 1 GB of memory) and uploaded to the server:
+
+```
+~/sougna/web/releases/2026-11-17-153000/   one folder per upload (the 3 newest are kept)
+~/sougna/web/current  ->  releases/...     the version visitors get (switched in one step)
+```
+
+`web/` is not in Git. Caddy serves it at **https://sougnadz.com** (see `Caddyfile`):
+
+| Address | Served by |
+| --- | --- |
+| `/api/...`, `/admin/...`, `/api-auth/...` | Django |
+| `/media/...` | uploaded photos and voice messages (`.m4a` sent as `audio/mp4`) |
+| `/static/...` | the admin's CSS |
+| anything else | the web app; addresses that are not files (e.g. `/listing/12` after a refresh) get `index.html`, and the app opens the right screen |
+| `https://www.sougnadz.com/...` | redirect to `https://sougnadz.com/...` |
+
+Files with a fingerprint in their name (`/_expo/static/...`, `/assets/...`) are cached by
+browsers for a year; `index.html` is always checked again, so an update shows straight away.
+
+Which backend the app uses (`app/src/config.ts`): **production builds** (this web build, and
+later the EAS phone builds) use `https://sougnadz.com`; **Expo Go / `npx expo start`** keeps
+using your laptop (`http://<laptop Wi-Fi address>:8000`). Voice messages can be played in the
+web app but not recorded (browsers record WebM; the server accepts only AAC/M4A).
+
+### C2. Update the live site with `deploy.ps1`
+
+1. Merge your work into `main` and push it, so GitHub has it (the server downloads from
+   GitHub). Your laptop must be on `main` with nothing left to commit.
+2. In a VS Code terminal (PowerShell):
+
+   ```powershell
+   cd C:\Users\salim\myapp
+   powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+   ```
+
+   (`-ExecutionPolicy Bypass` lets Windows run this one script; it changes no setting.)
+
+3. Wait 3-6 minutes. It shows 5 steps:
+
+   | Step | What happens |
+   | --- | --- |
+   | 1/5 | checks the laptop (branch `main`, committed, same as GitHub) and that the server answers |
+   | 2/5 | builds the web app on the laptop (`npx expo export`); a failure here changes nothing on the server |
+   | 3/5 | server: `git pull`, database backup (`~/backups`), rebuild + restart Django and Caddy (about 10-20 seconds offline), migrations (`deploy/server-update.sh`) |
+   | 4/5 | uploads the web app and switches to it (`deploy/install-web.sh`) |
+   | 5/5 | checks the website, a listing page, the API, the admin, a photo and the www redirect |
+
+4. It ends with a green **`DEPLOY OK`**, or a red **`DEPLOY FAILED during: <step>`** with the
+   reason. Nothing is half-done on the web side: a failed upload keeps the old web app.
+
+Options: `.\deploy.ps1 -SkipWeb` (server only), `.\deploy.ps1 -SkipBackend` (web app only).
+
+### C3. Go back to the previous web app version
+
+```bash
+cd ~/sougna
+ls web/releases                                   # the 3 newest uploads
+ln -sfn releases/<older folder> web/current       # e.g. releases/2026-11-17-153000
+```
+
+No restart needed. (Going back on the backend: `git checkout <older commit>` on the server and
+`sh deploy/server-update.sh` - ask Claude first, database changes can't always be undone.)
