@@ -339,7 +339,7 @@ class ConsoleBackendTests(PhoneTestCase):
     def test_prints_the_sms_in_the_terminal(self):
         output = io.StringIO()
         with redirect_stdout(output):
-            ConsoleSMSBackend().send('0661234589', 'Souqna : votre code est 123456.')
+            ConsoleSMSBackend().send('0661234589', 'Sougna : votre code est 123456.')
         printed = output.getvalue()
         self.assertIn('0661234589', printed)
         self.assertIn('123456', printed)

@@ -27,7 +27,7 @@ class EmailAlertBackend(BaseAlertBackend):
     def send(self, subject, body):
         recipients = getattr(settings, 'MODERATION_ALERT_EMAILS', [])
         if recipients:
-            send_mail(f'[Souqna URGENT] {subject}', body, None, recipients, fail_silently=True)
+            send_mail(f'[Sougna URGENT] {subject}', body, None, recipients, fail_silently=True)
 
 
 class MemoryAlertBackend(BaseAlertBackend):

@@ -1,13 +1,15 @@
 /**
  * Where the app finds the Django backend. This is the only place to change it.
  *
- * By default (BACKEND_URL_OVERRIDE = null) the app uses the same computer that runs
- * `npx expo start`, on port 8000:
- *   - phone with Expo Go -> http://<your laptop's Wi-Fi address>:8000
- *   - web browser        -> http://<the address in the browser bar>:8000
- * So when your laptop's Wi-Fi address changes, nothing needs editing here.
+ * 1. Development (Expo Go, `npx expo start`): the app uses the same computer that runs
+ *    Expo, on port 8000 - your laptop:
+ *      - phone with Expo Go -> http://<your laptop's Wi-Fi address>:8000
+ *      - web browser        -> http://<the address in the browser bar>:8000
+ *    So when your laptop's Wi-Fi address changes, nothing needs editing here.
  *
- * To use a fixed address instead, set it below, for example:
+ * 2. Real app builds (EAS, the stores): the live server, PRODUCTION_URL.
+ *
+ * To use a fixed address instead (both cases), set it below, for example:
  *   const BACKEND_URL_OVERRIDE = 'http://192.168.1.20:8000';
  */
 import Constants from 'expo-constants';
@@ -15,6 +17,9 @@ import { Platform } from 'react-native';
 
 const BACKEND_URL_OVERRIDE: string | null = null;
 const BACKEND_PORT = 8000;
+
+/** The live server (Caddy + Django). www.sougnadz.com redirects here. */
+export const PRODUCTION_URL = 'https://sougnadz.com';
 
 function computerRunningExpo(): string {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -28,6 +33,11 @@ function computerRunningExpo(): string {
   return 'localhost';
 }
 
-export const API_URL = (
-  BACKEND_URL_OVERRIDE ?? `http://${computerRunningExpo()}:${BACKEND_PORT}`
-).replace(/\/+$/, '');
+function backendUrl(): string {
+  if (BACKEND_URL_OVERRIDE) return BACKEND_URL_OVERRIDE;
+  // __DEV__ is true in Expo Go / development, false in a real (release) build.
+  if (!__DEV__) return PRODUCTION_URL;
+  return `http://${computerRunningExpo()}:${BACKEND_PORT}`;
+}
+
+export const API_URL = backendUrl().replace(/\/+$/, '');

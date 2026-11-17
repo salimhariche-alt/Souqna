@@ -20,7 +20,7 @@ const requestPermission = (source: PhotoSource) =>
 
 /**
  * Take a photo or choose some from the gallery, asking for permission politely:
- * 1. first our own explanation ("Souqna needs the camera to..."), then the phone's question;
+ * 1. first our own explanation ("Sougna needs the camera to..."), then the phone's question;
  * 2. if the user refused for good, explain how to allow it in the phone's settings.
  *
  * `pick(source, max)` gives the chosen photos to `onPicked`. Render `dialogs` in the screen.

@@ -75,12 +75,12 @@ class LoginRequiredTests(MessagingTestCase):
 
     def test_works_with_a_real_login_token(self):
         cache.clear()  # reset the "10 log-in attempts per minute" counter
-        self.client.post('/api/auth/signup/', {'phone': '0661112233', 'password': 'Souqna-2026!',
+        self.client.post('/api/auth/signup/', {'phone': '0661112233', 'password': 'Sougna-2026!',
                                                'display_name': 'Nadia', 'wilaya': 31},
                          format='json')
         User.objects.filter(phone='0661112233').update(phone_verified=True)
         token = self.client.post('/api/auth/login/', {'phone_or_email': '0661112233',
-                                                      'password': 'Souqna-2026!'},
+                                                      'password': 'Sougna-2026!'},
                                  format='json').data['access']
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         self.assertEqual(self.start().status_code, status.HTTP_201_CREATED)

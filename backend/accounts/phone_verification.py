@@ -25,9 +25,9 @@ MAX_WRONG_ATTEMPTS = 5
 LOCK_TIME = timedelta(minutes=15)
 
 SMS_TEXT = {
-    'fr': 'Souqna : votre code de vérification est {code}. Il expire dans 5 minutes.',
+    'fr': 'Sougna : votre code de vérification est {code}. Il expire dans 5 minutes.',
     'ar': 'سوقنا: رمز التحقق الخاص بك هو {code}. ينتهي خلال 5 دقائق.',
-    'en': 'Souqna: your verification code is {code}. It expires in 5 minutes.',
+    'en': 'Sougna: your verification code is {code}. It expires in 5 minutes.',
 }
 
 

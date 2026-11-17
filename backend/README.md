@@ -1,4 +1,4 @@
-# Souqna API (backend)
+# Sougna API (backend)
 
 Django + Django REST Framework backend. Uses SQLite for local development.
 

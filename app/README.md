@@ -1,6 +1,6 @@
-# Souqna app (Expo)
+# Sougna app (Expo)
 
-The mobile and web app for Souqna, built with Expo (SDK 58), TypeScript and Expo Router.
+The mobile and web app for Sougna, built with Expo (SDK 58), TypeScript and Expo Router.
 
 All commands are for **Windows PowerShell**, run from inside the `app` folder.
 

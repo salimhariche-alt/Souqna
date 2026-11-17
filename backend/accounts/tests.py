@@ -13,7 +13,7 @@ from souqna_api.wilayas import Wilaya
 
 from .models import User
 
-PASSWORD = 'Souqna-2026!'
+PASSWORD = 'Sougna-2026!'
 
 
 class AuthTestCase(APITestCase):

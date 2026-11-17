@@ -26,9 +26,9 @@ from .alerts import MemoryAlertBackend
 from .content import scan, worst
 from .models import ContentFlag, ContentTerm, ModerationLog
 
-TEMP_MEDIA = tempfile.mkdtemp(prefix='souqna-test-content-')
+TEMP_MEDIA = tempfile.mkdtemp(prefix='sougna-test-content-')
 URL = '/api/conversations/'
-PASSWORD = 'Souqna-2026!'
+PASSWORD = 'Sougna-2026!'
 
 
 def category_of(text):

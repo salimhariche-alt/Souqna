@@ -65,7 +65,7 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
-    """A Souqna user. Signs up and logs in with a phone number or an email (or both)."""
+    """A Sougna user. Signs up and logs in with a phone number or an email (or both)."""
 
     class Language(models.TextChoices):
         ARABIC = 'ar', 'العربية'

@@ -22,7 +22,7 @@ from souqna_api.wilayas import Wilaya
 from .audio import AudioError, inspect_audio
 from .models import Conversation, Message
 
-TEMP_MEDIA = tempfile.mkdtemp(prefix='souqna-test-voice-')
+TEMP_MEDIA = tempfile.mkdtemp(prefix='sougna-test-voice-')
 URL = '/api/conversations/'
 
 
@@ -274,7 +274,7 @@ class VoiceReportTests(VoiceTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         report = Report.objects.get()
 
-        admin = User.objects.create_superuser(phone='0799999999', password='Souqna-2026!',
+        admin = User.objects.create_superuser(phone='0799999999', password='Sougna-2026!',
                                               display_name='Admin')
         browser = Client()
         browser.force_login(admin)

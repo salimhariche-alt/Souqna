@@ -19,7 +19,7 @@ from souqna_api.wilayas import Wilaya
 from .models import Category, Favorite, Listing, ListingPhoto
 
 User = get_user_model()
-TEMP_MEDIA = tempfile.mkdtemp(prefix='souqna-test-media-')
+TEMP_MEDIA = tempfile.mkdtemp(prefix='sougna-test-media-')
 
 
 def make_image(name='photo.jpg'):

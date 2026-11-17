@@ -27,7 +27,7 @@ export const FONT_ASSETS = {
  * Latin ones and need the room.
  */
 export const TextStyles = {
-  /** Big screen titles: "Bienvenue sur Souqna" */
+  /** Big screen titles: "Bienvenue sur Sougna" */
   display: { fontFamily: FontFiles.bold, fontSize: 28, lineHeight: 40 },
   /** Screen and sheet titles */
   title: { fontFamily: FontFiles.bold, fontSize: 22, lineHeight: 32 },
