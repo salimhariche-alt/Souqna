@@ -8,6 +8,7 @@ import { useAuth } from '@/auth/auth-provider';
 import { Avatar } from '@/components/avatar';
 import { WelcomeScreen } from '@/components/welcome-screen';
 import { wilayaLabel } from '@/constants/wilayas';
+import { useAppConfig } from '@/hooks/use-app-config';
 import { LANGUAGE_NAMES, LANGUAGES, type Language } from '@/i18n';
 import { useLanguage } from '@/i18n/language-provider';
 import { useTokens } from '@/theme';
@@ -27,6 +28,7 @@ function ProfileMenu() {
   const { language, setLanguage, direction } = useLanguage();
   const [languageSheet, setLanguageSheet] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const { betaMode } = useAppConfig();
 
   if (!user) return null;
   const go = (href: string) => () => router.push(href as Href);
@@ -64,17 +66,26 @@ function ProfileMenu() {
           <View style={[styles.cardRow, { gap: tk.space.md }]}>
             <Ionicons name="alert-circle-outline" size={24} color={tk.color.warning} />
             <AppText variant="small" style={[styles.flex, { color: tk.color.warning }]}>
-              {t('profile.whyVerify')}
+              {betaMode ? t('beta.waitingShort') : t('profile.whyVerify')}
             </AppText>
           </View>
           <Pressable
             onPress={() => router.push({ pathname: '/verify-phone', params: { next: '/profile' } } as Href)}
             accessibilityRole="button">
             <AppText variant="bodyStrong" style={{ color: tk.color.warning }}>
-              {t('profile.verifyNow')}
+              {betaMode ? t('beta.checkAgain') : t('profile.verifyNow')}
             </AppText>
           </Pressable>
         </Card>
+      )}
+
+      {betaMode && (
+        <View style={[styles.cardRow, { gap: tk.space.sm }]}>
+          <Badge label={t('beta.label')} tone="info" icon="flask-outline" />
+          <AppText variant="small" tone="secondary" style={styles.flex}>
+            {t('beta.profileNote')}
+          </AppText>
+        </View>
       )}
 
       <Group>
@@ -91,6 +102,7 @@ function ProfileMenu() {
 
       <Group>
         <ListRow icon="help-circle-outline" label={t('help.title')} onPress={go('/help')} />
+        <ListRow icon="chatbox-ellipses-outline" label={t('feedback.title')} onPress={go('/feedback')} />
         <ListRow
           icon="log-out-outline"
           label={t('profile.logout')}

@@ -524,6 +524,43 @@ const en: Translations = {
     network: "Can't reach the server. Check your connection.",
     unknown: 'Something went wrong. Please try again.',
   },
+  beta: {
+    label: 'Beta',
+    labelA11y: 'Test version (beta)',
+    inviteCode: 'Invite code',
+    inviteCodePlaceholder: 'e.g. ABCD2345',
+    inviteCodeHint: 'During the beta, you need an invite code to sign up.',
+    waitingTitle: 'Your account will be verified shortly',
+    waitingText:
+      'During the beta, the Sougna team checks every new account by hand. Meanwhile, you can already browse listings and save favourites.',
+    checkAgain: 'Check again',
+    stillWaiting: 'Not verified yet. Please try again a little later.',
+    waitingShort:
+      'Your account will be verified shortly by the Sougna team. Then you can post listings and message sellers.',
+    profileNote: 'Test version (beta): thank you for helping us improve Sougna!',
+    errors: {
+      inviteRequired: 'Enter your invite code.',
+      inviteUnknown: "This invite code doesn't exist. Check it and try again.",
+      inviteInactive: 'This invite code is no longer valid.',
+      inviteExpired: 'This invite code has expired.',
+      inviteUsedUp: 'This invite code has already been used by the maximum number of people.',
+      phoneRequired: 'During the beta, sign up with a phone number.',
+    },
+  },
+  feedback: {
+    title: 'Send feedback',
+    intro: 'A problem, an idea, something hard to understand? Write to us, we read everything.',
+    messageLabel: 'Your message',
+    messagePlaceholder: 'Describe what happened or your idea…',
+    addScreenshot: 'Attach a screenshot',
+    removeScreenshot: 'Remove screenshot',
+    screenshotHint: 'Optional: take a screenshot, then choose it from your gallery.',
+    send: 'Send',
+    sentTitle: 'Thank you!',
+    sentText: 'Your message was sent to the Sougna team.',
+    back: 'Back',
+    messageRequired: 'Please write your message.',
+  },
 };
 
 export default en;

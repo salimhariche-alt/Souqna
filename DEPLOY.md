@@ -541,3 +541,62 @@ ln -sfn releases/<older folder> web/current       # e.g. releases/2026-11-17-153
 
 No restart needed. (Going back on the backend: `git checkout <older commit>` on the server and
 `sh deploy/server-update.sh` - ask Claude first, database changes can't always be undone.)
+
+---
+
+## Part D - Beta mode: invite codes, verifying testers, feedback (Step 4.1)
+
+While there is no real SMS provider, Sougna can run in **beta mode** for a small group of
+testers. One setting in the server's `.env` turns it on or off:
+
+| `DJANGO_BETA_MODE` | Sign up | Phone verification | App |
+| --- | --- | --- | --- |
+| `'True'` | needs an **invite code** and a **phone number** | no SMS: "Your account will be verified shortly"; **you** verify in the admin | small **"Beta"** label (Home header, Profile) |
+| `'False'` (default) | as normal | 6-digit SMS code (still printed in the logs until a real provider is set up) | no label |
+
+**Turn it on or off** (on the server):
+
+```bash
+cd ~/sougna
+nano .env                 # change the line: DJANGO_BETA_MODE='True'   (or 'False')
+docker compose up -d      # restarts Django with the new setting (about 10 seconds)
+curl -s https://sougnadz.com/api/auth/config/     # {"beta_mode":true}
+```
+
+The app asks the server when it starts, so nothing needs rebuilding (reload the web page).
+If the line is missing from `.env`, beta mode is off.
+
+### D1. Create an invite code
+
+1. Open https://sougnadz.com/admin/ and log in.
+2. **Accounts -> Invite codes -> Add invite code** (top right).
+3. **Name**: who it is for, e.g. `Family Oran`. **Code**: leave empty for a random one
+   (e.g. `K7MZ4QPA`), or type your own (e.g. `ORAN2026`). **Max uses**: how many accounts may
+   use it (e.g. 10). **Expires at**: the last day it works (default: in 30 days).
+   **Active**: ticked.
+4. **Save**. Open the code again: "how to share it" shows a message to send to the testers.
+
+The list shows each code's use (`3 / 10`), its status (works / used up / expired / turned off)
+and, when you open it, **the people who joined with it**. To stop a code at once, untick
+**Active** (a code that has been used can't be deleted, so you always know who used it).
+
+### D2. Verify new testers
+
+New testers can browse right away but can't sell or message until you verify them:
+
+1. **Accounts -> Users**. The top of the page says how many accounts are waiting.
+2. Click the filter **"Waiting for verification"** (right side).
+3. Click **Verify** on a row - or tick several users, choose **"Mark phone as verified"** in
+   the Action menu and click **Go**.
+
+Only verify people you know (check the name, phone and invite code column). Each
+verification is written in the moderation log. The tester taps **"Check again"** in the app
+(or just reopens it) and can then sell and chat.
+
+### D3. Read feedback
+
+Testers use **Profile -> Send feedback** (a message, optionally a screenshot). Read it in
+the admin: **Feedback from testers -> Feedback**. Opening a message marks it **Read**; change
+the status to **Done** in the list (then **Save** at the bottom), or tick several and use
+**"Mark as done"**. "Admin note" is only for you. Screenshots are re-saved without hidden data
+(like the GPS location); feedback is deleted when its author deletes their account.

@@ -27,6 +27,8 @@ export type User = {
 
 /** Where the user is in phone verification (GET /api/auth/phone/status/). */
 export type PhoneStatus = {
+  /** Beta mode: no SMS codes, an admin verifies new accounts by hand. */
+  beta_mode?: boolean;
   phone_verified: boolean;
   /** The number the code goes to (null if the account has no phone yet). */
   phone: string | null;
@@ -44,6 +46,8 @@ export type SignupInput = {
   display_name: string;
   wilaya: number;
   preferred_language: Language;
+  /** Beta mode only: the invite code from the Sougna team. */
+  invite_code?: string;
 };
 
 export async function signupRequest(input: SignupInput) {

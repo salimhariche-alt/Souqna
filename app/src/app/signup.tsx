@@ -16,6 +16,7 @@ import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { WilayaPicker } from '@/components/wilaya-picker';
 import { Spacing } from '@/constants/theme';
+import { useAppConfig } from '@/hooks/use-app-config';
 import { formErrorsFrom, type FormErrors } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
 
@@ -32,6 +33,8 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [wilaya, setWilaya] = useState<number | null>(null);
+  const [inviteCode, setInviteCode] = useState('');
+  const { betaMode } = useAppConfig();
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [loading, setLoading] = useState(false);
 
@@ -48,6 +51,11 @@ export default function SignupScreen() {
     if (password.length < MIN_PASSWORD_LENGTH) fields.password = t('errors.passwordShort');
     if (!displayName.trim()) fields.displayName = t('errors.nameRequired');
     if (!wilaya) fields.wilaya = t('errors.wilayaRequired');
+    if (betaMode) {
+      // During the beta: a phone number (accounts are verified by hand) and an invite code.
+      if (value && isEmail) fields.identifier = t('beta.errors.phoneRequired');
+      if (!inviteCode.trim()) fields.inviteCode = t('beta.errors.inviteRequired');
+    }
     setErrors({ fields });
     if (Object.keys(fields).length || !wilaya) return;
 
@@ -59,6 +67,7 @@ export default function SignupScreen() {
         display_name: displayName.trim(),
         wilaya,
         preferred_language: language,
+        ...(betaMode ? { invite_code: inviteCode.trim() } : {}),
       });
       // Next: confirm the phone number by SMS (replaces this screen, so "back"
       // doesn't return to the sign-up form).
@@ -71,6 +80,7 @@ export default function SignupScreen() {
           password: 'password',
           display_name: 'displayName',
           wilaya: 'wilaya',
+          invite_code: 'inviteCode',
         }),
       );
     } finally {
@@ -81,6 +91,20 @@ export default function SignupScreen() {
   return (
     <AuthFormLayout>
       <FormMessage message={errors.general} />
+      {betaMode && (
+        <FormField
+          label={t('beta.inviteCode')}
+          placeholder={t('beta.inviteCodePlaceholder')}
+          hint={t('beta.inviteCodeHint')}
+          value={inviteCode}
+          onChangeText={setInviteCode}
+          error={errors.fields.inviteCode}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          autoComplete="off"
+          maxLength={40}
+        />
+      )}
       <FormField
         label={t('auth.identifier')}
         placeholder={t('auth.identifierPlaceholder')}

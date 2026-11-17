@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
+  meRequest,
   phoneStatusRequest,
   sendPhoneCodeRequest,
   verifyPhoneCodeRequest,
@@ -26,7 +27,8 @@ import { useCountdown } from '@/hooks/use-countdown';
 import { useTheme } from '@/hooks/use-theme';
 import { maskPhone } from '@/utils/phone';
 
-type Step = 'loading' | 'phone' | 'code' | 'error';
+/** "waiting" = beta mode: no SMS, an admin verifies the account by hand. */
+type Step = 'loading' | 'phone' | 'code' | 'waiting' | 'error';
 
 /** 905 -> "15:05" */
 function minutesSeconds(total: number) {
@@ -81,6 +83,9 @@ function VerifyPhoneContent({ next }: { next: string | undefined }) {
           return t('errors.phoneTaken');
         case 'phone_blocked':
           return t('errors.phoneBlocked');
+        case 'beta_manual_verification':
+          setStep('waiting');
+          return t('beta.waitingShort');
         default:
           return data?.detail ?? t('errors.unknown');
       }
@@ -126,6 +131,7 @@ function VerifyPhoneContent({ next }: { next: string | undefined }) {
       .then((status) => {
         applyStatus(status);
         if (status.phone_verified) leaveAuthScreen(next);
+        else if (status.beta_mode) setStep('waiting');
         else if (status.locked_for > 0 || status.code_expires_in > 0) setStep('code');
         else if (!status.phone) setStep('phone');
         else sendCode();
@@ -157,6 +163,51 @@ function VerifyPhoneContent({ next }: { next: string | undefined }) {
   };
 
   const later = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
+  /** Beta mode: has an admin verified me yet? */
+  const checkAgain = async () => {
+    setBusy(true);
+    setMessage(undefined);
+    try {
+      const fresh = await meRequest();
+      await updateUser(fresh);
+      if (fresh.phone_verified) leaveAuthScreen(next);
+      else setMessage(t('beta.stillWaiting'));
+    } catch (error) {
+      setMessage(explain(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (step === 'waiting') {
+    return (
+      <AuthFormLayout>
+        <View style={styles.header}>
+          <View style={styles.icon}>
+            <Ionicons name="hourglass-outline" size={34} color={Brand.fill} />
+          </View>
+          <ThemedText type="subtitle" style={styles.center}>
+            {t('beta.waitingTitle')}
+          </ThemedText>
+          <ThemedText themeColor="textSecondary" style={styles.center}>
+            {t('beta.waitingText')}
+          </ThemedText>
+        </View>
+        {message ? (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+            {message}
+          </ThemedText>
+        ) : null}
+        <PrimaryButton title={t('beta.checkAgain')} loading={busy} onPress={checkAgain} />
+        <Pressable onPress={later} accessibilityRole="button" style={styles.linkButton}>
+          <ThemedText type="small" themeColor="textSecondary">
+            {t('verify.later')}
+          </ThemedText>
+        </Pressable>
+      </AuthFormLayout>
+    );
+  }
 
   if (step === 'loading') {
     return <FeedMessage kind="loading" text={t('verify.preparing')} />;

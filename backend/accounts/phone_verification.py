@@ -11,6 +11,7 @@ import math
 import secrets
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -62,6 +63,8 @@ def status_for(user, now=None):
     now = now or timezone.now()
     pending = PhoneVerification.objects.filter(user=user).first()
     data = {
+        # Beta mode: no SMS; the app shows "Your account will be verified shortly".
+        'beta_mode': settings.BETA_MODE,
         'phone_verified': user.phone_verified,
         'phone': pending.phone if pending else user.phone,
         'code_expires_in': 0,
