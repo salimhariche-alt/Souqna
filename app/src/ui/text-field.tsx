@@ -3,7 +3,7 @@ import { type ComponentProps, useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
 
 import { useLanguage } from '@/i18n/language-provider';
-import { useTokens } from '@/theme';
+import { textStyleFor, useTokens } from '@/theme';
 
 import { AppText } from './text';
 
@@ -14,12 +14,15 @@ type Props = Omit<TextInputProps, 'style'> & {
   icon?: ComponentProps<typeof Ionicons>['name'];
 };
 
-/** A labelled text box with a hint or an error underneath. Right-to-left in Arabic. */
+/**
+ * A labelled text box (cream, warm border, corners 16, 54 high) with a hint or an error
+ * underneath. Right-to-left and in the Arabic font when the app is in Arabic.
+ */
 export function TextField({ label, hint, error, icon, multiline, ...inputProps }: Props) {
   const tk = useTokens();
-  const { direction } = useLanguage();
+  const { direction, language } = useLanguage();
   const [focused, setFocused] = useState(false);
-  const borderColor = error ? tk.color.danger : focused ? tk.color.primary : tk.color.border;
+  const borderColor = error ? tk.color.danger : focused ? tk.color.primary : tk.color.borderStrong;
 
   return (
     <View style={styles.container}>
@@ -30,9 +33,9 @@ export function TextField({ label, hint, error, icon, multiline, ...inputProps }
           {
             backgroundColor: tk.color.surface,
             borderColor,
-            borderRadius: tk.radius.md,
+            borderRadius: tk.radius.lg,
             paddingHorizontal: tk.space.lg,
-            minHeight: tk.minTouch,
+            minHeight: tk.buttonHeight,
           },
         ]}>
         {icon ? <Ionicons name={icon} size={20} color={tk.color.textMuted} /> : null}
@@ -50,7 +53,7 @@ export function TextField({ label, hint, error, icon, multiline, ...inputProps }
             inputProps.onBlur?.(e);
           }}
           style={[
-            tk.text.body,
+            textStyleFor('body', language === 'ar'),
             styles.input,
             multiline && styles.multiline,
             {
@@ -76,7 +79,7 @@ export function TextField({ label, hint, error, icon, multiline, ...inputProps }
 
 const styles = StyleSheet.create({
   container: { gap: 6, alignSelf: 'stretch' },
-  box: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5 },
+  box: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1 },
   input: { flex: 1, paddingVertical: 12 },
   multiline: { minHeight: 110, textAlignVertical: 'top' },
 });

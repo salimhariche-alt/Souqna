@@ -9,11 +9,16 @@ import { AppText } from './text';
 type Props = {
   title: string;
   onPress: () => void;
-  /** filled = the main action; outlined = a second choice; ghost = a quiet text button. */
+  /**
+   * filled = the main action (terracotta, "Créer un compte");
+   * outlined = a second choice (cream with a border, "J'ai déjà un compte");
+   * ghost = a quiet text button.
+   */
   variant?: 'filled' | 'outlined' | 'ghost';
-  /** danger = red (delete, block...). */
+  /** danger = delete, log out... */
   tone?: 'brand' | 'danger';
   icon?: ComponentProps<typeof Ionicons>['name'];
+  /** md = 54 high (main buttons); sm = 44 high. */
   size?: 'md' | 'sm';
   loading?: boolean;
   disabled?: boolean;
@@ -22,7 +27,7 @@ type Props = {
   accessibilityLabel?: string;
 };
 
-/** The app's button. Shows a spinner and ignores taps while loading. */
+/** The app's button (corners 16). Shows a spinner and ignores taps while loading. */
 export function Button({
   title,
   onPress,
@@ -36,10 +41,13 @@ export function Button({
   accessibilityLabel,
 }: Props) {
   const tk = useTokens();
-  const main = tone === 'danger' ? tk.color.danger : tk.color.primary;
-  const pressedFill = tone === 'danger' ? tk.color.danger : tk.color.primaryPressed;
-  const onMain = tone === 'danger' ? '#FFFFFF' : tk.color.onPrimary;
-  const content = variant === 'filled' ? onMain : main;
+  const danger = tone === 'danger';
+  const fill = danger ? tk.color.danger : tk.color.primary;
+  const pressedFill = danger ? tk.color.danger : tk.color.primaryPressed;
+  const onFill = danger ? (tk.scheme === 'dark' ? tk.color.background : '#FFFFFF') : tk.color.onPrimary;
+  // Outlined and ghost buttons: dark text (danger ones in the danger colour).
+  const content =
+    variant === 'filled' ? onFill : danger ? tk.color.danger : variant === 'ghost' ? tk.color.primary : tk.color.text;
   const inactive = disabled || loading;
 
   return (
@@ -52,20 +60,20 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         {
-          minHeight: size === 'sm' ? 40 : tk.minTouch,
+          minHeight: size === 'sm' ? 44 : tk.buttonHeight,
           paddingHorizontal: size === 'sm' ? tk.space.lg : tk.space.xl,
-          borderRadius: tk.radius.full,
+          borderRadius: tk.radius.lg,
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
         },
-        variant === 'filled' && { backgroundColor: pressed ? pressedFill : main },
+        variant === 'filled' && { backgroundColor: pressed ? pressedFill : fill },
         variant === 'outlined' && {
-          borderWidth: 1.5,
-          borderColor: main,
-          backgroundColor: pressed ? tk.color.primarySoft : 'transparent',
+          borderWidth: 1,
+          borderColor: tk.color.borderStrong,
+          backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface,
         },
         variant === 'ghost' && { backgroundColor: pressed ? tk.color.surfaceAlt : 'transparent' },
         disabled && styles.disabled,
-        pressed && variant === 'filled' && tone === 'danger' && styles.pressedDanger,
+        pressed && variant === 'filled' && danger && styles.pressedDanger,
       ]}>
       {loading ? (
         <ActivityIndicator color={content} />

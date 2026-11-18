@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(32,138,239,0.12)',
+    backgroundColor: 'rgba(180,71,42,0.10)',
   },
   center: { textAlign: 'center' },
   error: {},

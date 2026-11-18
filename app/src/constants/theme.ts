@@ -9,10 +9,10 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-import { BRANDS, CHOSEN_BRAND, colorsFor } from '@/theme';
+import { BrandPalette, colorsFor } from '@/theme';
 
 function legacy(scheme: 'light' | 'dark') {
-  const c = colorsFor(CHOSEN_BRAND, scheme);
+  const c = colorsFor(scheme);
   return {
     text: c.text,
     background: c.background,
@@ -36,12 +36,12 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 /**
  * The brand colour for FILLS, borders and icons (buttons, selected chips, bubbles).
- * Readable in both light and dark mode (white text on it: 5.5:1).
+ * Terracotta, readable in both light and dark mode (white text on it: 5.4:1).
  * For brand-coloured TEXT use the theme's `primary` (lighter in dark mode) instead.
  */
 export const Brand = {
-  fill: BRANDS[CHOSEN_BRAND].light.primary,
-  onFill: BRANDS[CHOSEN_BRAND].light.onPrimary,
+  fill: BrandPalette.terracotta,
+  onFill: BrandPalette.white,
 };
 
 export const Fonts = Platform.select({

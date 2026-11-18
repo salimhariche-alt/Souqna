@@ -13,15 +13,18 @@ type Props = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
 }>;
 
-/** A rounded box that groups related things (a seller, a set of details...). */
+/**
+ * A rounded box that groups related things (a seller, a set of details...): cream,
+ * a thin warm border, corners 20, no heavy shadow. `outlined` = sand inside instead.
+ */
 export function Card({ children, padded = true, outlined = false, onPress, accessibilityLabel, style }: Props) {
   const tk = useTokens();
   const base: ViewStyle = {
-    borderRadius: tk.radius.lg,
+    borderRadius: tk.radius.xl,
     padding: padded ? tk.space.lg : 0,
     gap: tk.space.md,
     backgroundColor: outlined ? tk.color.background : tk.color.surface,
-    borderWidth: outlined ? 1 : 0,
+    borderWidth: 1,
     borderColor: tk.color.border,
     overflow: 'hidden',
   };

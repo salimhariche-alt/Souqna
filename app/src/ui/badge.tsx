@@ -26,12 +26,18 @@ const COLORS: Record<BadgeTone, [keyof Colors, keyof Colors]> = {
   info: ['info', 'infoSoft'],
 };
 
-/** A small pill: "Téléphone vérifié", "Vendu", "En vérification"... */
+/** A small pill: "Téléphone vérifié" (success = olive), "Vendu", "En vérification"... */
 export function Badge({ label, tone = 'neutral', icon, solid = false }: Props) {
   const tk = useTokens();
   const [strong, soft] = COLORS[tone];
   const background = solid ? tk.color[strong] : tk.color[soft];
-  const foreground = solid ? (tone === 'brand' ? tk.color.onPrimary : tk.scheme === 'dark' ? '#141311' : '#FFFFFF') : tk.color[strong];
+  const foreground = solid
+    ? tone === 'brand'
+      ? tk.color.onPrimary
+      : tk.scheme === 'dark'
+        ? tk.color.background
+        : '#FFFFFF'
+    : tk.color[strong];
   return (
     <View
       style={[

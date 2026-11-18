@@ -102,7 +102,7 @@ export function ListingGrid({
       ListEmptyComponent={emptyComponent}
       ListFooterComponent={
         feed.loadingMore ? (
-          <ActivityIndicator style={styles.footer} />
+          <ActivityIndicator style={styles.footer} color="#B4472A" />
         ) : feed.loadMoreFailed ? (
           <View style={styles.footer}>
             <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
@@ -121,8 +121,10 @@ export function ListingGrid({
 }
 
 const styles = StyleSheet.create({
+  // "Warm & Local" spacing (home.html): 20 on the sides, 12 between columns, 18 between rows.
   grid: {
-    paddingHorizontal: Spacing.two,
+    paddingHorizontal: 14,
+    paddingTop: 6,
     paddingBottom: Spacing.four,
     width: '100%',
     maxWidth: 720,
@@ -130,7 +132,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   // Each card takes exactly half the width, so a lone last card doesn't stretch.
-  cell: { width: '50%', padding: Spacing.two },
+  cell: { width: '50%', paddingHorizontal: 6, paddingBottom: 18 },
   footer: { alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.four },
   center: { textAlign: 'center' },
   link: {},

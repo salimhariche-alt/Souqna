@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Spacing.two,
   },
-  reasonSelected: { backgroundColor: 'rgba(32,138,239,0.08)' },
+  reasonSelected: { backgroundColor: 'rgba(180,71,42,0.08)' },
   pressed: { opacity: 0.6 },
   input: {
     minHeight: 80,

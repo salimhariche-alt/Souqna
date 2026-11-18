@@ -1,20 +1,19 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { fetchConversations, type ConversationSummary } from '@/api/conversations';
 import { FeedMessage } from '@/components/feed-message';
+import { PageTitle } from '@/components/page-title';
 import { RequireAuth } from '@/components/require-auth';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Brand, Spacing } from '@/constants/theme';
-import { FontFiles } from '@/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
 import { refreshUnread, setUnread } from '@/messages/unread';
+import { FontFiles, useTokens } from '@/theme';
+import { ArchFrame, DesignIcon } from '@/ui';
 import { shortStamp } from '@/utils/chat-time';
 import { formatPrice } from '@/utils/format';
 import { formatDuration } from '@/voice/recording';
@@ -22,8 +21,14 @@ import { formatDuration } from '@/voice/recording';
 /** While this tab is open, look for new messages this often. */
 const CHECK_EVERY_MS = 15000;
 
+/**
+ * Messages ("Warm & Local"): the title "Messages" + الرسائل, then one cream card per
+ * conversation (the listing photo in an arch, the person, the listing and price, the
+ * last message, the time and a terracotta unread count).
+ */
 function MessagesContent() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextPage, setNextPage] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
@@ -99,13 +104,16 @@ function MessagesContent() {
       onEndReached={loadMore}
       onEndReachedThreshold={0.5}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      contentContainerStyle={conversations.length ? styles.list : styles.emptyList}
+      contentContainerStyle={[styles.list, { paddingTop: insets.top + 24 }, !conversations.length && styles.emptyList]}
       ListHeaderComponent={
-        failed ? (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.offline}>
-            {t('home.refreshFailed')}
-          </ThemedText>
-        ) : undefined
+        <View style={styles.header}>
+          <PageTitle title={t('tabs.messages')} arabic={t('messages.titleArabic')} />
+          {failed ? (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.offline}>
+              {t('home.refreshFailed')}
+            </ThemedText>
+          ) : null}
+        </View>
       }
       ListEmptyComponent={
         <FeedMessage
@@ -122,7 +130,7 @@ function MessagesContent() {
 
 function ConversationRow({ conversation }: { conversation: ConversationSummary }) {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const tk = useTokens();
   const { language, direction } = useLanguage();
   const { listing, other_person, last_message, unread_count } = conversation;
   const unread = unread_count > 0;
@@ -147,14 +155,20 @@ function ConversationRow({ conversation }: { conversation: ConversationSummary }
         title: listing.title,
         count: unread_count,
       })}
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundElement }]}>
-      {listing.cover_photo ? (
-        <Image source={{ uri: listing.cover_photo }} style={styles.photo} contentFit="cover" />
-      ) : (
-        <View style={[styles.photo, styles.noPhoto, { backgroundColor: theme.backgroundSelected }]}>
-          <Ionicons name="image-outline" size={22} color={theme.textSecondary} />
-        </View>
-      )}
+      style={({ pressed }) => [
+        styles.row,
+        { backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface, borderColor: tk.color.border },
+      ]}>
+      {/* The listing's photo in a small arch */}
+      <ArchFrame width={52} height={58} color={tk.tints[listing.id % tk.tints.length]} bottomRadius={10}>
+        {listing.cover_photo ? (
+          <Image source={{ uri: listing.cover_photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        ) : (
+          <View style={styles.noPhoto}>
+            <DesignIcon name="bag" size={24} color={tk.color.textSecondary} strokeWidth={1.2} />
+          </View>
+        )}
+      </ArchFrame>
 
       <View style={styles.middle}>
         <View style={styles.topLine}>
@@ -163,12 +177,12 @@ function ConversationRow({ conversation }: { conversation: ConversationSummary }
           </ThemedText>
           <ThemedText
             type="small"
-            style={unread ? styles.timeUnread : undefined}
+            style={[styles.time, unread && styles.timeUnread]}
             themeColor={unread ? 'primary' : 'textSecondary'}>
             {shortStamp(last_message?.sent_at ?? conversation.last_activity, words)}
           </ThemedText>
         </View>
-        <ThemedText type="small" themeColor="textSecondary" style={align} numberOfLines={1}>
+        <ThemedText type="small" themeColor="textSecondary" style={[styles.listingLine, align]} numberOfLines={1}>
           {listing.title} · {formatPrice(listing.price_dzd, language)}
           {listing.status === 'sold' ? ` · ${t('listing.sold')}` : ''}
         </ThemedText>
@@ -181,10 +195,10 @@ function ConversationRow({ conversation }: { conversation: ConversationSummary }
             {preview}
           </ThemedText>
           {unread && (
-            <View style={styles.badge}>
-              <ThemedText type="smallBold" style={styles.badgeText}>
+            <View style={[styles.badge, { backgroundColor: tk.color.primary }]}>
+              <Text style={[styles.badgeText, { color: tk.color.onPrimary }]}>
                 {unread_count > 99 ? '99+' : unread_count}
-              </ThemedText>
+              </Text>
             </View>
           )}
         </View>
@@ -193,44 +207,37 @@ function ConversationRow({ conversation }: { conversation: ConversationSummary }
   );
 }
 
+function Background({ children }: { children: ReactNode }) {
+  const tk = useTokens();
+  return <View style={[styles.screen, { backgroundColor: tk.color.background }]}>{children}</View>;
+}
+
 export default function MessagesScreen() {
   return (
     <RequireAuth next="/messages">
-      <ThemedView style={styles.screen}>
+      <Background>
         <MessagesContent />
-      </ThemedView>
+      </Background>
     </RequireAuth>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  list: { paddingVertical: Spacing.two, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  list: { paddingHorizontal: 20, paddingBottom: 24, gap: 10, width: '100%', maxWidth: 720, alignSelf: 'center' },
   emptyList: { flexGrow: 1 },
-  offline: { textAlign: 'center', padding: Spacing.two },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.three,
-  },
-  photo: { width: 56, height: 56, borderRadius: Spacing.two },
-  noPhoto: { alignItems: 'center', justifyContent: 'center' },
-  middle: { flex: 1, gap: 2 },
-  topLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  name: { flex: 1 },
+  header: { gap: 8, marginBottom: 10 },
+  offline: { textAlign: 'center', padding: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderWidth: 1, borderRadius: 20 },
+  noPhoto: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  middle: { flex: 1, gap: 1 },
+  topLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  name: { flex: 1, fontSize: 15 },
+  time: { fontSize: 12 },
   timeUnread: { fontFamily: FontFiles.bold },
-  bottomLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  listingLine: { fontSize: 13 },
+  bottomLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   preview: { flex: 1 },
-  badge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Brand.fill,
-  },
-  badgeText: { color: '#ffffff', fontSize: 12, lineHeight: 16 },
+  badge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { fontFamily: FontFiles.bold, fontSize: 12, lineHeight: 16 },
 });

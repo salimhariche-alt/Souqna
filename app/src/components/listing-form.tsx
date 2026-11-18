@@ -25,7 +25,7 @@ import { useLanguage } from '@/i18n/language-provider';
 import { preparePhoto } from '@/photos/prepare';
 import { usePhotoPicker } from '@/photos/use-photo-picker';
 import { useTokens } from '@/theme';
-import { AppText, Button, Card, ChoiceSheet, ListRow, SectionHeader, TextField } from '@/ui';
+import { AppText, Button, Card, ChoiceSheet, ListGroup, ListRow, SectionHeader, TextField } from '@/ui';
 import { onlyDigits } from '@/utils/digits';
 
 /** Quick picks in the Size and Brand sheets (anything else can be typed). */
@@ -316,16 +316,19 @@ export function ListingForm({ initial, onDone }: Props) {
         {/* Item details: rows that open pickers */}
         <View style={{ gap: tk.space.sm }}>
           <SectionHeader title={t('sell.itemDetails')} />
-          <ListRow icon="grid-outline" label={t('sell.category')} value={selectedLabel || t('sell.choose')} onPress={() => setSheet('category')} />
+          <ListGroup>
+            <ListRow designIcon="list" tint="tint1" label={t('sell.category')} value={selectedLabel || t('sell.choose')} onPress={() => setSheet('category')} />
+            <ListRow designIcon="shirt" tint="tint2" label={t('sell.size')} value={size || t('sell.optional')} onPress={() => setSheet('size')} />
+            <ListRow designIcon="handbag" tint="tint3" label={t('sell.brand')} value={brand || t('sell.optional')} onPress={() => setSheet('brand')} />
+            <ListRow
+              designIcon="shield"
+              tint="tint4"
+              label={t('sell.condition')}
+              value={condition ? t(`listing.conditions.${condition}`) : t('sell.choose')}
+              onPress={() => setSheet('condition')}
+            />
+          </ListGroup>
           {fieldError('category')}
-          <ListRow icon="resize-outline" label={t('sell.size')} value={size || t('sell.optional')} onPress={() => setSheet('size')} />
-          <ListRow icon="pricetag-outline" label={t('sell.brand')} value={brand || t('sell.optional')} onPress={() => setSheet('brand')} />
-          <ListRow
-            icon="sparkles-outline"
-            label={t('sell.condition')}
-            value={condition ? t(`listing.conditions.${condition}`) : t('sell.choose')}
-            onPress={() => setSheet('condition')}
-          />
           {fieldError('condition')}
         </View>
 

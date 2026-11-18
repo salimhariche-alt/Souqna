@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#8A8F98',
+    backgroundColor: '#7A6858',
   },
   avatarText: { color: '#ffffff', fontSize: 16 },
   name: { flex: 1 },

@@ -1,136 +1,165 @@
 /**
- * Sougna's design system: EVERY colour, size, spacing and corner radius lives here.
- * Screens and building blocks (src/ui/) read them with useTokens() - never write a
- * colour like "#17784A" directly in a screen.
+ * Sougna's design system - "Warm & Local": EVERY colour, size, spacing and corner radius
+ * lives here. Screens and building blocks (src/ui/) read them with useTokens() - never
+ * write a colour like "#B4472A" directly in a screen.
  *
- * Light and dark mode follow the phone's setting.
+ * Light and dark mode follow the phone's setting. Every text colour below was checked
+ * against the backgrounds it is used on: at least 4.5:1 (WCAG AA). Two combinations to
+ * AVOID because they are under 4.5:1: `primary` or `success` TEXT on `chip` / tints
+ * (use `text`/`textSecondary` there, or white text on a `primary` fill).
  */
 
-// Brand colour --------------------------------------------------------------------------
-// Three options to choose from (see the "Design preview" screen). Each one has:
-//   primary        buttons, links, selected things
-//   primaryPressed when a button is pressed
-//   primarySoft    light background behind brand-coloured things (selected chips...)
-//   onPrimary      text/icons on top of `primary`
-// All pass the WCAG AA contrast rule (4.5:1) for text on the primary colour.
-
-export type BrandColors = {
-  primary: string;
-  primaryPressed: string;
-  primarySoft: string;
-  onPrimary: string;
-};
-
-export type BrandId = 'current' | 'atlas' | 'terracotta' | 'safran';
-
-export const BRANDS: Record<
-  BrandId,
-  { name: string; description: string; light: BrandColors; dark: BrandColors }
-> = {
-  // The blue the app uses today, kept until a brand colour is chosen.
-  current: {
-    name: 'Current blue',
-    description: "The app's colour today (Expo's starter blue).",
-    light: { primary: '#1F7BD6', primaryPressed: '#1865B0', primarySoft: '#E4F0FC', onPrimary: '#FFFFFF' },
-    dark: { primary: '#6CB2F7', primaryPressed: '#559FE8', primarySoft: 'rgba(108,178,247,0.16)', onPrimary: '#06223D' },
-  },
-  atlas: {
-    name: 'A · Vert Atlas',
-    description: 'A deep green like the Atlas forests and the flag: calm and trustworthy.',
-    light: { primary: '#17784A', primaryPressed: '#11603A', primarySoft: '#E3F3EA', onPrimary: '#FFFFFF' },
-    dark: { primary: '#5FD39A', primaryPressed: '#4BB884', primarySoft: 'rgba(95,211,154,0.16)', onPrimary: '#0B2A1C' },
-  },
-  terracotta: {
-    name: 'B · Terracotta',
-    description: 'The warm earth of Ghardaïa and clay pottery: friendly and local.',
-    light: { primary: '#B64A28', primaryPressed: '#963B1F', primarySoft: '#FBE9E2', onPrimary: '#FFFFFF' },
-    dark: { primary: '#FF9B76', primaryPressed: '#F08560', primarySoft: 'rgba(255,155,118,0.16)', onPrimary: '#3A1408' },
-  },
-  safran: {
-    name: 'C · Safran du Sahara',
-    description: 'A saffron / desert ochre: sunny and energetic, like a souk.',
-    light: { primary: '#9A5B00', primaryPressed: '#7C4900', primarySoft: '#FCF0DC', onPrimary: '#FFFFFF' },
-    dark: { primary: '#F2B33D', primaryPressed: '#E0A12B', primarySoft: 'rgba(242,179,61,0.16)', onPrimary: '#2E1D00' },
-  },
-};
-
-/**
- * THE BRAND COLOUR OF THE APP. Changing this one line re-colours everything built with
- * the design system. Chosen by the owner: A · Vert Atlas.
- */
-export const CHOSEN_BRAND: BrandId = 'atlas';
-
-// Neutral colours (warm greys, so the brand colour feels at home) -------------------------
-
-export type NeutralColors = {
-  background: string; // the screen
-  surface: string; // cards, text fields, list rows
-  surfaceAlt: string; // pressed rows, chips, placeholders behind photos
+export type Colors = {
+  // Surfaces
+  background: string; // the screen: sand
+  surface: string; // cards, text fields, list rows, the tab bar
+  surfaceAlt: string; // pressed rows, image placeholders
+  chip: string; // chips (filters, "Taille M", "Oran")
   border: string;
+  borderStrong: string; // text fields, outlined buttons
+  divider: string; // lines between rows inside a card (#EFE4D4)
+  iconMuted: string; // the light ">" at the end of rows (#9C8B7C) - icons only, not text
+  overlay: string; // behind sheets and dialogs
+  // Text
   text: string;
   textSecondary: string;
-  textMuted: string;
-  overlay: string; // behind sheets and dialogs
-};
-
-export const NEUTRALS: { light: NeutralColors; dark: NeutralColors } = {
-  light: {
-    background: '#FFFFFF',
-    surface: '#F7F6F3',
-    surfaceAlt: '#EDEBE6',
-    border: '#E2DFD8',
-    text: '#1C1B19',
-    textSecondary: '#5E5A53',
-    textMuted: '#8B867D',
-    overlay: 'rgba(0,0,0,0.45)',
-  },
-  dark: {
-    background: '#141311',
-    surface: '#1F1E1B',
-    surfaceAlt: '#2B2A26',
-    border: '#38362F',
-    text: '#F5F3EE',
-    textSecondary: '#BAB5AB',
-    textMuted: '#8A857C',
-    overlay: 'rgba(0,0,0,0.6)',
-  },
-};
-
-// Status colours (the same whatever the brand) ------------------------------------------
-
-export type StatusColors = {
-  success: string;
+  textMuted: string; // only on background/surface (not on chips or tints)
+  textBody: string; // long text: descriptions, tips (#4A3B30 in the design)
+  // Brand: terracotta
+  primary: string; // buttons, prices, active tab, links
+  primaryPressed: string;
+  primarySoft: string; // light background behind terracotta text
+  onPrimary: string; // text/icons on `primary`
+  // Accents
+  saffron: string;
+  casbah: string; // Casbah blue
+  olive: string;
+  // Soft tints: image placeholders, category tiles, list-row icons, avatars
+  tint1: string; // clay
+  tint2: string; // sky
+  tint3: string; // wheat
+  tint4: string; // sage
+  tint5: string; // rose
+  tint6: string; // stone (#E6DED3)
+  tintIcon: string; // icons drawn on a tint (e.g. the bag on an empty photo)
+  // Status
+  success: string; // olive: "Téléphone vérifié"
   successSoft: string;
   warning: string;
   warningSoft: string;
-  danger: string;
+  danger: string; // log out, delete, errors
   dangerSoft: string;
   info: string;
   infoSoft: string;
 };
 
-export const STATUS: { light: StatusColors; dark: StatusColors } = {
+export const COLORS: { light: Colors; dark: Colors } = {
   light: {
-    success: '#1E7F3A',
-    successSoft: '#E5F4EA',
-    warning: '#9A5A00',
-    warningSoft: '#FFF2DB',
-    danger: '#C42B2B',
-    dangerSoft: '#FCE8E8',
-    info: '#1A6BC7',
-    infoSoft: '#E5F0FB',
+    background: '#F6EFE4',
+    surface: '#FFFBF5',
+    surfaceAlt: '#F0E6D8',
+    chip: '#EAD8C2',
+    border: '#E6D9C6',
+    borderStrong: '#D8C6AE',
+    divider: '#EFE4D4',
+    iconMuted: '#9C8B7C',
+    overlay: 'rgba(43,29,20,0.45)',
+    text: '#2B1D14', // 14.3:1 on sand
+    textSecondary: '#6B5A4C', // 5.8:1 on sand, 4.7:1 on chips
+    textMuted: '#7A6858', // 4.7:1 on sand, 5.2:1 on cards
+    textBody: '#4A3B30', // 9.5:1 on sand
+    primary: '#B4472A', // white on it 5.4:1; as text 4.7:1 on sand
+    primaryPressed: '#9A3B22',
+    primarySoft: '#FAEDE6',
+    onPrimary: '#FFFFFF',
+    saffron: '#E3A63A',
+    casbah: '#1F4E8C',
+    olive: '#5C6B33',
+    tint1: '#F0D9C4',
+    tint2: '#D9E3EE',
+    tint3: '#EBDDB3',
+    tint4: '#DDE3CC',
+    tint5: '#E8D6D0',
+    tint6: '#E6DED3',
+    tintIcon: '#5A4636',
+    success: '#5C6B33', // 5.1:1 on sand, 4.9:1 on successSoft
+    successSoft: '#E9EDDC',
+    warning: '#8A5A0B',
+    warningSoft: '#F8EBCF',
+    danger: '#9A3A20', // 6.1:1 on sand
+    dangerSoft: '#F6E1D8',
+    info: '#1F4E8C',
+    infoSoft: '#E3EAF3',
   },
+  // Warm dark: dark brown backgrounds, sand text, a lighter terracotta.
   dark: {
-    success: '#6FD08C',
-    successSoft: 'rgba(111,208,140,0.15)',
-    warning: '#F5B65A',
-    warningSoft: 'rgba(245,182,90,0.15)',
-    danger: '#FF8A80',
-    dangerSoft: 'rgba(255,138,128,0.15)',
-    info: '#8AB8F5',
-    infoSoft: 'rgba(138,184,245,0.15)',
+    background: '#1E1611',
+    surface: '#2A201A',
+    surfaceAlt: '#352920',
+    chip: '#3D2E24',
+    border: '#3E3027',
+    borderStrong: '#564435',
+    divider: '#352920',
+    iconMuted: '#8F7A67',
+    overlay: 'rgba(0,0,0,0.6)',
+    text: '#F3E8D8', // 14.7:1
+    textSecondary: '#CDB9A4', // 9.4:1, 6.9:1 on chips
+    textMuted: '#AE9883', // 6.5:1 on background, 5.8:1 on cards
+    textBody: '#E3D5C3',
+    primary: '#EE8A68', // 7.2:1 as text; dark text on it 7.2:1
+    primaryPressed: '#DB7553',
+    primarySoft: 'rgba(238,138,104,0.16)',
+    onPrimary: '#2A1108',
+    saffron: '#F0BC5E',
+    casbah: '#9DBDEB',
+    olive: '#B9C783',
+    tint1: '#4A3328',
+    tint2: '#2C3848',
+    tint3: '#463D24',
+    tint4: '#363D2A',
+    tint5: '#47332F',
+    tint6: '#3E3730',
+    tintIcon: '#E6D3BE',
+    success: '#B9C783',
+    successSoft: 'rgba(185,199,131,0.16)',
+    warning: '#F0BE62',
+    warningSoft: 'rgba(240,190,98,0.16)',
+    danger: '#F4A28A',
+    dangerSoft: 'rgba(244,162,138,0.16)',
+    info: '#9DBDEB',
+    infoSoft: 'rgba(157,189,235,0.16)',
   },
 };
+
+/**
+ * Light or dark for the whole app. 'light' = always "Clair" (the owner's choice, also when
+ * the phone is in dark mode); 'dark' = always "Sombre"; 'phone' = follow the phone.
+ * The dark colours above stay ready for later. (Also set "userInterfaceStyle" in app.json:
+ * "light" / "dark" / "automatic" to match.)
+ */
+export const APP_COLOR_MODE: 'light' | 'dark' | 'phone' = 'light';
+
+/** The 5 soft tints, in order (e.g. a different tint for each category tile). */
+export const TINTS = ['tint1', 'tint2', 'tint3', 'tint4', 'tint5'] as const;
+export type TintKey = (typeof TINTS)[number] | 'tint6';
+
+/**
+ * Brand colours that must look the same in light AND dark mode: the Welcome arch,
+ * the triangle band, the round "+" and the app icon.
+ */
+export const BrandPalette = {
+  terracotta: '#B4472A',
+  saffron: '#E3A63A',
+  casbah: '#1F4E8C',
+  olive: '#5C6B33',
+  sand: '#F6EFE4',
+  cream: '#FFFBF5',
+  ink: '#2B1D14',
+  inkSoft: '#6B5A4C',
+  clay: '#F0D9C4',
+  wheat: '#EBDDB3',
+  white: '#FFFFFF',
+} as const;
 
 // Sizes ------------------------------------------------------------------------------------
 
@@ -146,12 +175,13 @@ export const Space = {
   xxxl: 48,
 } as const;
 
-/** Rounded corners. */
+/** Rounded corners: buttons and fields 16, cards 20, chips and badges `full` (pill). */
 export const Radius = {
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 24,
+  xl: 20,
+  xxl: 28,
   full: 999,
 } as const;
 
@@ -160,3 +190,6 @@ export const MaxWidth = 720;
 
 /** Tap targets are at least this tall (Apple and Google recommend 44-48). */
 export const MinTouch = 48;
+
+/** Main buttons ("Créer un compte", "Contacter Amina"). */
+export const ButtonHeight = 54;

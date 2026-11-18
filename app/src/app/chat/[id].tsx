@@ -37,7 +37,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { useTokens } from '@/theme';
+import { FontFiles, useTokens } from '@/theme';
 import { codedMessage, formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
 import { refreshUnread } from '@/messages/unread';
@@ -402,7 +402,7 @@ function ChatContent({ id }: { id: string }) {
           accessibilityLabel={t('chat.openListing', { title: listing.title })}
           style={({ pressed }) => [
             styles.listingCard,
-            { borderBottomColor: theme.backgroundSelected },
+            { backgroundColor: theme.backgroundElement, borderColor: theme.border },
             pressed && styles.pressed,
           ]}>
           {listing.cover_photo ? (
@@ -584,7 +584,11 @@ function ChatContent({ id }: { id: string }) {
         <ThemedView
           style={[
             styles.composer,
-            { borderTopColor: theme.backgroundSelected, paddingBottom: insets.bottom + Spacing.two },
+            {
+              backgroundColor: theme.backgroundElement,
+              borderTopColor: theme.border,
+              paddingBottom: insets.bottom + Spacing.two,
+            },
           ]}>
           {messagingBlockedUntil && !blocked ? (
             // 3 offensive messages in 30 days: no messages for 7 days.
@@ -626,7 +630,7 @@ function ChatContent({ id }: { id: string }) {
                 {recording ? (
                   // While recording: a red dot, the timer, and how to cancel.
                   <View
-                    style={[styles.input, styles.recordingRow, { backgroundColor: theme.backgroundElement }]}>
+                    style={[styles.input, styles.recordingRow, { backgroundColor: theme.background, borderColor: theme.border }]}>
                     <View style={[styles.recordDot, { backgroundColor: tk.color.danger }]} />
                     <ThemedText type="smallBold">{formatDuration(recording.elapsedMs)}</ThemedText>
                     <ThemedText
@@ -648,7 +652,12 @@ function ChatContent({ id }: { id: string }) {
                     maxLength={MAX_MESSAGE_LENGTH}
                     style={[
                       styles.input,
-                      { backgroundColor: theme.backgroundElement, color: theme.text },
+                      {
+                        backgroundColor: theme.background,
+                        borderColor: theme.border,
+                        color: theme.text,
+                        fontFamily: language === 'ar' ? FontFiles.arabic : FontFiles.regular,
+                      },
                       align,
                     ]}
                   />
@@ -810,7 +819,7 @@ function Bubble({
       accessibilityHint={onLongPress ? t('chat.longPressHint') : undefined}
       style={[
         styles.bubble,
-        mine ? styles.mine : [styles.theirs, { backgroundColor: theme.backgroundElement }],
+        mine ? styles.mine : [styles.theirs, { backgroundColor: theme.backgroundElement, borderColor: theme.border }],
       ]}>
       {body ?? (
         <ThemedText
@@ -841,21 +850,33 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { textAlign: 'center' },
   pressed: { opacity: 0.6 },
+  // The listing: a cream card (border, corners 20) with its photo in a small arch.
   listingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 4,
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 20,
   },
-  listingPhoto: { width: 44, height: 44, borderRadius: Spacing.two },
+  listingPhoto: {
+    width: 44,
+    height: 50,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+    overflow: 'hidden',
+  },
   statusBadge: { paddingVertical: 2, paddingHorizontal: Spacing.two, borderRadius: 999 },
-  soldBadge: { backgroundColor: '#D93025' },
-  reservedBadge: { backgroundColor: '#E37400' },
+  soldBadge: { backgroundColor: '#9A3A20' },
+  reservedBadge: { backgroundColor: '#8A5A0B' },
   statusText: { color: '#ffffff', fontSize: 12 },
-  soldNote: { backgroundColor: '#FDECEA', paddingVertical: Spacing.two },
-  soldNoteText: { color: '#B3261E' },
+  soldNote: { backgroundColor: '#F6E1D8', paddingVertical: Spacing.two },
+  soldNoteText: { color: '#9A3A20' },
   messages: {
     padding: Spacing.three,
     gap: Spacing.two,
@@ -873,18 +894,18 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: '80%',
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 18,
     gap: 2,
   },
   // With direction "rtl" on the screen, flex-start/flex-end flip by themselves in Arabic.
   mine: { alignSelf: 'flex-end', backgroundColor: Brand.fill, borderBottomEndRadius: 4 },
-  theirs: { alignSelf: 'flex-start', borderBottomStartRadius: 4 },
+  theirs: { alignSelf: 'flex-start', borderBottomStartRadius: 4, borderWidth: 1 },
   mineText: { color: '#ffffff' },
   meta: { alignSelf: 'flex-end' },
   mineMeta: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
-  failed: { color: '#D93025' },
+  failed: { color: '#9A3A20' },
   warning: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -894,11 +915,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.one,
     padding: Spacing.two,
     borderRadius: Spacing.two,
-    backgroundColor: '#FFF4CC',
+    backgroundColor: '#F8EBCF',
   },
-  warningText: { flex: 1, color: '#7A5A00' },
+  warningText: { flex: 1, color: '#8A5A0B' },
   composer: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     paddingTop: Spacing.two,
     paddingHorizontal: Spacing.three,
     gap: Spacing.one,
@@ -916,10 +937,11 @@ const styles = StyleSheet.create({
     minHeight: 44,
     maxHeight: 120,
     borderRadius: 22,
-    paddingHorizontal: Spacing.three,
+    borderWidth: 1,
+    paddingHorizontal: 16,
     paddingTop: 11,
     paddingBottom: 11,
-    fontSize: 16,
+    fontSize: 15,
   },
   sendButton: {
     width: 44,
@@ -931,22 +953,22 @@ const styles = StyleSheet.create({
   },
   sendDisabled: { opacity: 0.4 },
   flipped: { transform: [{ scaleX: -1 }] },
-  hintText: { color: '#7A5A00' },
+  hintText: { color: '#8A5A0B' },
   covered: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minWidth: 200 },
   rejected: {
     marginTop: 2,
     paddingVertical: 2,
     paddingHorizontal: Spacing.two,
     borderRadius: Spacing.one,
-    backgroundColor: '#FDECEA',
+    backgroundColor: '#F6E1D8',
   },
-  rejectedText: { color: '#B3261E' },
+  rejectedText: { color: '#9A3A20' },
   recordingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
-  recordDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#D93025' },
+  recordDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#9A3A20' },
   voiceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minWidth: 190 },
   voiceTrack: { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden' },
   voiceProgress: { height: '100%', borderRadius: 2 },
@@ -956,7 +978,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    backgroundColor: '#FFF4CC',
+    backgroundColor: '#F8EBCF',
   },
   blockedNote: {
     flexDirection: 'row',

@@ -1,69 +1,75 @@
 /**
- * useTokens(): the colours for the current light/dark mode and brand, plus sizes.
+ * useTokens(): the colours for the current light/dark mode, plus fonts and sizes.
  *
  *   const tk = useTokens();
- *   <View style={{ backgroundColor: tk.color.surface, borderRadius: tk.radius.lg }} />
+ *   <View style={{ backgroundColor: tk.color.surface, borderRadius: tk.radius.xl }} />
  *
- * <DesignOverride brand="atlas" scheme="dark"> changes them for everything inside it
- * (used by the Design preview screen to show the options side by side).
+ * <DesignOverride scheme="dark"> forces light or dark for everything inside it
+ * (used by the Design preview screen to show both side by side).
  */
 import { createContext, type PropsWithChildren, useContext } from 'react';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import {
-  BRANDS,
-  CHOSEN_BRAND,
+  BrandPalette,
+  ButtonHeight,
+  COLORS,
   MaxWidth,
   MinTouch,
-  NEUTRALS,
   Radius,
   Space,
-  STATUS,
-  type BrandColors,
-  type BrandId,
-  type NeutralColors,
-  type StatusColors,
+  TINTS,
+  type Colors,
 } from './tokens';
 import { TextStyles } from './typography';
 
 export type Scheme = 'light' | 'dark';
-export type Colors = NeutralColors & StatusColors & BrandColors;
+export type { Colors };
 
-type Override = { brand?: BrandId; scheme?: Scheme };
+type Override = { scheme?: Scheme };
 const OverrideContext = createContext<Override>({});
 
-export function DesignOverride({ brand, scheme, children }: PropsWithChildren<Override>) {
+export function DesignOverride({ scheme, children }: PropsWithChildren<Override>) {
   const parent = useContext(OverrideContext);
   return (
-    <OverrideContext.Provider value={{ brand: brand ?? parent.brand, scheme: scheme ?? parent.scheme }}>
-      {children}
-    </OverrideContext.Provider>
+    <OverrideContext.Provider value={{ scheme: scheme ?? parent.scheme }}>{children}</OverrideContext.Provider>
   );
 }
 
-export function colorsFor(brand: BrandId, scheme: Scheme): Colors {
-  return { ...NEUTRALS[scheme], ...STATUS[scheme], ...BRANDS[brand][scheme] };
+export function colorsFor(scheme: Scheme): Colors {
+  return COLORS[scheme];
 }
 
 export function useTokens() {
   const phoneScheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   const override = useContext(OverrideContext);
   const scheme: Scheme = override.scheme ?? phoneScheme;
-  const brand: BrandId = override.brand ?? CHOSEN_BRAND;
+  const color = colorsFor(scheme);
   return {
     scheme,
-    brand,
-    color: colorsFor(brand, scheme),
+    color,
+    /** The 5 soft tints as a list: tk.tints[i % 5] */
+    tints: TINTS.map((key) => color[key]),
+    brand: BrandPalette,
     space: Space,
     radius: Radius,
+    /** Latin text styles. For text that may be Arabic, use <AppText> (it switches font). */
     text: TextStyles,
     maxWidth: MaxWidth,
     minTouch: MinTouch,
+    buttonHeight: ButtonHeight,
   };
 }
 
 export type Tokens = ReturnType<typeof useTokens>;
-export { BRANDS, CHOSEN_BRAND, Radius, Space } from './tokens';
-export type { BrandId } from './tokens';
-export { FONT_ASSETS, FontFiles, TextStyles, type TextVariant } from './typography';
+export { BrandPalette, COLORS, Radius, Space, TINTS, type TintKey } from './tokens';
+export {
+  ArabicTextStyles,
+  FONT_ASSETS,
+  FontFiles,
+  hasArabic,
+  TextStyles,
+  textStyleFor,
+  type TextVariant,
+} from './typography';

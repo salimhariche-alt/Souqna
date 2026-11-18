@@ -1,57 +1,25 @@
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/themed-text';
-import { Brand, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/ui';
 
 type Props = {
   title: string;
   onPress: () => void;
   loading?: boolean;
-  /** primary = blue, danger = red, secondary = grey (follows light/dark mode). */
+  /** primary = terracotta, danger = the danger colour, secondary = cream with a border. */
   variant?: 'primary' | 'danger' | 'secondary';
 };
 
-/** The main button of a screen. Shows a spinner and ignores taps while loading. */
+/**
+ * The main button of an older screen - now the design system's button (54 high,
+ * corners 16, DM Sans 700). New code: use <Button> from '@/ui'.
+ */
 export function PrimaryButton({ title, onPress, loading = false, variant = 'primary' }: Props) {
-  const theme = useTheme();
-  const secondary = variant === 'secondary';
-  const textColor = secondary ? theme.text : '#ffffff';
-
   return (
-    <Pressable
+    <Button
+      title={title}
       onPress={onPress}
-      disabled={loading}
-      accessibilityRole="button"
-      accessibilityState={{ busy: loading, disabled: loading }}
-      style={({ pressed }) => [
-        styles.button,
-        variant === 'danger' && styles.danger,
-        secondary && { backgroundColor: theme.backgroundSelected },
-        (pressed || loading) && styles.dimmed,
-      ]}>
-      {loading ? (
-        <ActivityIndicator color={textColor} />
-      ) : (
-        <ThemedText type="smallBold" style={[styles.text, { color: textColor }]}>
-          {title}
-        </ThemedText>
-      )}
-    </Pressable>
+      loading={loading}
+      variant={variant === 'secondary' ? 'outlined' : 'filled'}
+      tone={variant === 'danger' ? 'danger' : 'brand'}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.two,
-    backgroundColor: Brand.fill,
-  },
-  danger: { backgroundColor: '#D93025' },
-  dimmed: { opacity: 0.7 },
-  text: { fontSize: 16 },
-});
