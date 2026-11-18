@@ -39,7 +39,7 @@ Monorepo:
 - **Phase 2 - App:** 2.1 Expo app, 5 tabs, fr/ar/en with right-to-left Arabic;
   2.2 #1 Log in / Sign up; #2 Home feed; #3 Listing details; #4 Search/Browse; #5 Sell + Edit
   with photo upload; #6 Messages + chat; #6b voice messages; #7 Profile, public seller profile,
-  account deletion; 2.3a design system (brand colour Vert Atlas `#17784A`, IBM Plex Sans Arabic);
+  account deletion; 2.3a design system (first Vert Atlas `#17784A` + IBM Plex, since replaced by "Warm & Local");
   2.3b every screen restyled.
 - **Safety steps:** 1 SMS phone verification + trust badges; 2 automatic anti-scam checks
   (daily limits, suspicious price/photo/words, device IDs, admin Needs review, suspend/ban);
@@ -66,8 +66,19 @@ Monorepo:
 - **Admin** (`/admin/`): Needs review, Reports, Moderation queue (urgent first), content word
   lists with a "Test a text" page, devices, blocked phones, moderation log, users (suspend,
   reactivate, ban, remove profile photo, strikes, suspicious messages).
-- **Everywhere:** French (default), Arabic (right-to-left) and English; light and dark mode;
-  design system in `app/src/theme/` (colours, sizes, font) and `app/src/ui/` (building blocks).
+- **Everywhere:** French (default), Arabic (right-to-left) and English; always light mode
+  ("Clair", `APP_COLOR_MODE` in `app/src/theme/tokens.ts`; dark colours kept for later);
+  design system in `app/src/theme/` (colours, sizes, fonts) and `app/src/ui/` (building blocks).
+- **Design "Warm & Local"** (replaces Vert Atlas / IBM Plex): the exact source is
+  `docs/inspiration/warm-local/*.html` + PNGs (not in Git; the HTML wins, `{{accent}}` =
+  `#B4472A`). Sand `#F6EFE4`, cards `#FFFBF5`, terracotta `#B4472A`, saffron, Casbah blue,
+  olive, soft tints; fonts Fraunces 600/700 (titles, prices), DM Sans 400/500/700, Noto Naskh
+  Arabic 500/700 (all Arabic: `<AppText>`/`ThemedText` switch by language or Arabic letters).
+  Shapes: `ArchFrame`/`ArchImage` (CSS-like corner shrinking, so bottoms are almost square as
+  in the HTML), `TriangleBand`, `ZelligePattern`, the design's SVG icons in `ui/icons.tsx`
+  (`DesignIcon`), `ListGroup`/`ListRow`, `Chip`, `Logo`, `PageTitle`. Welcome, Home, Listing
+  and Profile follow their HTML files exactly; every other screen uses the same pieces.
+  Developer screen: Profile -> "Aperçu du design" (colours, contrast table, fonts, shapes).
 - **Beta mode (Step 4.1)** - `DJANGO_BETA_MODE` in `.env` (`settings.BETA_MODE`, default off;
   the app reads `GET /api/auth/config/` -> `{"beta_mode": ...}` via `useAppConfig()`):
   sign up needs an **invite code** (`accounts.InviteCode`: name, code, max uses, expiry,
@@ -219,8 +230,12 @@ npx expo export --platform android --platform web --output-dir <temp folder>   #
   `direction: 'rtl'` on its root view plus Expo Router's `LocaleProvider`
   (`app/src/i18n/language-provider.tsx`). Modals must set `direction` themselves.
 - Design: new code uses `useTokens()` from `@/theme` and the building blocks in `@/ui`; no colours
-  written by hand in screens. The brand colour is one line: `CHOSEN_BRAND` in
-  `app/src/theme/tokens.ts`. Check text contrast (WCAG AA 4.5:1) in light AND dark mode.
+  written by hand in screens (all colours in `app/src/theme/tokens.ts`). Copy sizes, spacing and
+  wording from `docs/inspiration/warm-local/*.html`. Check text contrast (WCAG AA 4.5:1); never
+  terracotta or olive TEXT on beige chips/tints (under 4.5:1). Arabic text must never use
+  Fraunces or DM Sans (no Arabic letters): use `FontFiles.arabic` / `arabicBold`.
+- Comparing a screen with its design: photograph both at 390 x 844 with Edge headless (the app
+  inside a 390-wide iframe, because Edge's headless mode has a 500px minimum width).
 - All user-facing text exists in `fr` (source of the types), `ar` and `en`
   (`app/src/i18n/locales/`).
 - Never commit `backend/.env`, `backend/db.sqlite3`, `backend/media/`, `node_modules/`,

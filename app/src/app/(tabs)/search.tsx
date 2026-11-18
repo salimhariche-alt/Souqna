@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, type Href } from 'expo-router';
-import { type ComponentProps, useEffect, useMemo, useState } from 'react';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { searchMembers, type PublicProfile } from '@/api/auth';
@@ -11,6 +12,7 @@ import { mainCategoriesInOrder } from '@/components/category-chips';
 import { FeedMessage } from '@/components/feed-message';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { ListingGrid } from '@/components/listing-grid';
+import { PageTitle } from '@/components/page-title';
 import { categoryName, useCategories } from '@/hooks/use-categories';
 import { useListingsFeed } from '@/hooks/use-listings-feed';
 import { useLanguage } from '@/i18n/language-provider';
@@ -20,20 +22,19 @@ import {
   type SearchFilters,
   withoutFilter,
 } from '@/search/filter-chips';
-import { useTokens } from '@/theme';
-import { AppText, Badge } from '@/ui';
+import { FontFiles, textStyleFor, useTokens } from '@/theme';
+import { AppText, ArchFrame, Badge, DesignIcon, type DesignIconName } from '@/ui';
 import { itemsCount } from '@/utils/count';
 
 const TYPING_DELAY_MS = 500;
-type IconName = ComponentProps<typeof Ionicons>['name'];
 
-/** Our own simple icon for each main category (by its English name). */
-const CATEGORY_ICONS: Record<string, IconName> = {
-  Women: 'woman-outline',
-  Men: 'man-outline',
-  Kids: 'happy-outline',
-  Home: 'home-outline',
-  Electronics: 'phone-portrait-outline',
+/** The design's icon for each main category (by its English name), as on Home. */
+const CATEGORY_ICONS: Record<string, DesignIconName> = {
+  Women: 'dress',
+  Men: 'shirt',
+  Kids: 'bear',
+  Home: 'lamp',
+  Electronics: 'phone',
 };
 
 /**
@@ -44,6 +45,7 @@ export default function BrowseScreen() {
   const { t } = useTranslation();
   const tk = useTokens();
   const { language, direction } = useLanguage();
+  const insets = useSafeAreaInsets();
   const { categories, reload: reloadCategories } = useCategories();
 
   const [query, setQuery] = useState(''); // what's in the search box
@@ -51,6 +53,18 @@ export default function BrowseScreen() {
   const [filters, setFilters] = useState<SearchFilters>(NO_FILTERS);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [members, setMembers] = useState<PublicProfile[]>([]);
+
+  // Opened from Home: ?q=<words> (the search box) or ?wilaya=<code> (my wilaya chip,
+  // "Voir tout"). `at` changes on every tap, so the same search can be opened again.
+  const params = useLocalSearchParams<{ q?: string; wilaya?: string; at?: string }>();
+  useEffect(() => {
+    if (!params.at) return;
+    const words = params.q?.trim() ?? '';
+    setQuery(words);
+    setSearch(words);
+    const wilaya = Number(params.wilaya);
+    setFilters(Number.isInteger(wilaya) && wilaya > 0 ? { ...NO_FILTERS, wilaya } : NO_FILTERS);
+  }, [params.at, params.q, params.wilaya]);
 
   // Search half a second after the user stops typing, not on every letter.
   useEffect(() => {
@@ -89,37 +103,40 @@ export default function BrowseScreen() {
     setFilters(NO_FILTERS);
   };
 
+  // Round 46px buttons, cream with a thin border (like the bell in home.html).
+  const roundButton = [styles.iconButton, { backgroundColor: tk.color.surface, borderColor: tk.color.border }];
+
   const searchBar = (
-    <View style={[styles.topRow, { gap: tk.space.sm, paddingHorizontal: tk.space.lg }]}>
+    <View style={[styles.topRow, { gap: 10 }]}>
       {showResults && (
         <Pressable
           onPress={backToCategories}
           accessibilityRole="button"
           accessibilityLabel={t('browse.backToCategories')}
-          hitSlop={8}
-          style={[styles.iconButton, { backgroundColor: tk.color.surface, borderRadius: tk.radius.full }]}>
-          <Ionicons name={direction === 'rtl' ? 'arrow-forward' : 'arrow-back'} size={20} color={tk.color.text} />
+          style={roundButton}>
+          <DesignIcon name={direction === 'rtl' ? 'chevronRight' : 'chevronLeft'} size={20} color={tk.color.text} strokeWidth={1.9} />
         </Pressable>
       )}
-      <View style={[styles.searchBox, { backgroundColor: tk.color.surface, borderRadius: tk.radius.full, paddingHorizontal: tk.space.lg }]}>
-        <Ionicons name="search" size={20} color={tk.color.textMuted} />
+      {/* The search box of home.html: 52 high, cream, thin border, corners 16 */}
+      <View style={[styles.searchBox, { backgroundColor: tk.color.surface, borderColor: tk.color.border }]}>
+        <DesignIcon name="search" size={19} color={tk.color.textSecondary} strokeWidth={1.8} />
         <TextInput
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={() => setSearch(query.trim())}
           placeholder={t('browse.placeholder')}
-          placeholderTextColor={tk.color.textMuted}
+          placeholderTextColor={tk.color.textSecondary}
           accessibilityLabel={t('browse.placeholder')}
           returnKeyType="search"
           autoCorrect={false}
           style={[
-            tk.text.body,
+            textStyleFor('body', language === 'ar'),
             styles.searchInput,
             { color: tk.color.text, textAlign: direction === 'rtl' ? 'right' : 'left', writingDirection: direction },
           ]}
         />
         {query ? (
-          <Pressable onPress={clearSearchText} accessibilityRole="button" accessibilityLabel={t('search.clearSearch')} hitSlop={8}>
+          <Pressable onPress={clearSearchText} accessibilityRole="button" accessibilityLabel={t('search.clearSearch')} hitSlop={10}>
             <Ionicons name="close-circle" size={20} color={tk.color.textMuted} />
           </Pressable>
         ) : null}
@@ -129,8 +146,7 @@ export default function BrowseScreen() {
           onPress={() => setSheetOpen(true)}
           accessibilityRole="button"
           accessibilityLabel={chips.length ? t('search.filtersWithCount', { count: chips.length }) : t('search.filters')}
-          hitSlop={8}
-          style={[styles.iconButton, { backgroundColor: chips.length ? tk.color.primarySoft : tk.color.surface, borderRadius: tk.radius.full }]}>
+          style={[roundButton, chips.length ? { borderColor: tk.color.primary } : null]}>
           <Ionicons name="options-outline" size={20} color={chips.length ? tk.color.primary : tk.color.text} />
           {chips.length ? (
             <View style={[styles.countDot, { backgroundColor: tk.color.primary }]}>
@@ -145,7 +161,10 @@ export default function BrowseScreen() {
   );
 
   return (
-    <View style={[styles.screen, { backgroundColor: tk.color.background }]}>
+    <View style={[styles.screen, { backgroundColor: tk.color.background, paddingTop: insets.top + 24 }]}>
+      <View style={styles.titleBox}>
+        <PageTitle title={t('tabs.search')} arabic={t('browse.titleArabic')} />
+      </View>
       {searchBar}
 
       {!showResults ? (
@@ -157,18 +176,22 @@ export default function BrowseScreen() {
       ) : (
         <>
           {chips.length ? (
-            <View style={[styles.chips, { gap: tk.space.sm, paddingHorizontal: tk.space.lg }]}>
+            <View style={[styles.chips, { gap: 8 }]}>
               {chips.map((chip) => (
                 <Pressable
                   key={chip.key}
                   onPress={() => setFilters(withoutFilter(filters, chip.key))}
                   accessibilityRole="button"
                   accessibilityLabel={t('search.removeFilter', { label: chip.label })}
-                  style={[styles.chip, { backgroundColor: tk.color.primarySoft, borderRadius: tk.radius.full }]}>
-                  <AppText variant="smallStrong" tone="primary">
+                  hitSlop={{ top: 5, bottom: 5 }}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    { backgroundColor: pressed ? tk.color.borderStrong : tk.color.chip },
+                  ]}>
+                  <AppText variant="smallStrong" style={styles.chipText}>
                     {chip.label}
                   </AppText>
-                  <Ionicons name="close" size={16} color={tk.color.primary} />
+                  <Ionicons name="close" size={15} color={tk.color.text} />
                 </Pressable>
               ))}
             </View>
@@ -178,7 +201,7 @@ export default function BrowseScreen() {
             feed={feed}
             onRetry={feed.retry}
             headerComponent={
-              <View style={{ gap: tk.space.md, paddingHorizontal: tk.space.sm }}>
+              <View style={{ gap: tk.space.md, paddingHorizontal: 6 }}>
                 {members.length > 0 && <MembersRow members={members} />}
                 {feed.items.length ? (
                   <AppText variant="smallStrong" tone="secondary">
@@ -238,32 +261,41 @@ function CategoryTiles({
       data={categories}
       keyExtractor={(c) => String(c.id)}
       numColumns={2}
-      contentContainerStyle={[styles.tiles, { padding: tk.space.sm, maxWidth: tk.maxWidth }]}
+      contentContainerStyle={[styles.tiles, { maxWidth: tk.maxWidth }]}
       ListHeaderComponent={
-        <AppText variant="title" style={{ paddingHorizontal: tk.space.sm, paddingVertical: tk.space.sm }}>
+        <AppText
+          variant="subtitle"
+          style={[styles.sectionTitle, { fontFamily: language === 'ar' ? FontFiles.arabicBold : FontFiles.serifBold }]}
+          accessibilityRole="header">
           {t('browse.categories')}
         </AppText>
       }
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <View style={styles.tileCell}>
+          {/* A cream card: the category's arch (soft tint + the design's icon), its names */}
           <Pressable
             onPress={() => onOpen(item)}
             accessibilityRole="button"
             accessibilityLabel={categoryName(item, language)}
             style={({ pressed }) => [
               styles.tile,
-              {
-                backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface,
-                borderRadius: tk.radius.xl,
-                padding: tk.space.lg,
-              },
+              { backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface, borderColor: tk.color.border },
             ]}>
-            <View style={[styles.tileIcon, { backgroundColor: tk.color.primarySoft }]}>
-              <Ionicons name={CATEGORY_ICONS[item.name_en] ?? 'pricetag-outline'} size={30} color={tk.color.primary} />
+            <ArchFrame width={64} height={72} color={tk.tints[index % tk.tints.length]} bottomRadius={14}>
+              <View style={styles.center}>
+                <DesignIcon name={CATEGORY_ICONS[item.name_en] ?? 'handbag'} size={28} color={tk.brand.ink} strokeWidth={1.4} />
+              </View>
+            </ArchFrame>
+            <View style={{ gap: 2 }}>
+              <AppText variant="bodyStrong" numberOfLines={2}>
+                {categoryName(item, language)}
+              </AppText>
+              {language !== 'ar' && (
+                <AppText variant="small" tone="secondary" numberOfLines={1}>
+                  {item.name_ar}
+                </AppText>
+              )}
             </View>
-            <AppText variant="bodyStrong" numberOfLines={2}>
-              {categoryName(item, language)}
-            </AppText>
           </Pressable>
         </View>
       )}
@@ -291,7 +323,9 @@ function MembersRow({ members }: { members: PublicProfile[] }) {
               styles.member,
               {
                 backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface,
-                borderRadius: tk.radius.lg,
+                borderColor: tk.color.border,
+                borderWidth: 1,
+                borderRadius: 20,
                 padding: tk.space.md,
                 gap: tk.space.xs,
               },
@@ -310,18 +344,31 @@ function MembersRow({ members }: { members: PublicProfile[] }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  titleBox: { paddingHorizontal: 20, paddingBottom: 14, width: '100%', maxWidth: 720, alignSelf: 'center' },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
   },
-  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 },
-  searchInput: { flex: 1, paddingVertical: 10 },
-  iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: 52,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 16,
+  },
+  searchInput: { flex: 1, minWidth: 0, fontSize: 15, paddingVertical: 0 },
+  iconButton: { width: 46, height: 46, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontSize: 21, lineHeight: 30, paddingHorizontal: 6, paddingBottom: 6 },
+  chipText: { fontSize: 13 },
   countDot: {
     position: 'absolute',
     top: 4,
@@ -336,15 +383,15 @@ const styles = StyleSheet.create({
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    paddingHorizontal: 20,
     paddingBottom: 8,
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
   },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12 },
-  tiles: { width: '100%', alignSelf: 'center' },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 34, paddingHorizontal: 13, borderRadius: 999 },
+  tiles: { width: '100%', alignSelf: 'center', paddingHorizontal: 14, paddingBottom: 24 },
   tileCell: { width: '50%', padding: 6 },
-  tile: { minHeight: 132, justifyContent: 'space-between', gap: 12 },
-  tileIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  tile: { minHeight: 150, justifyContent: 'space-between', gap: 12, padding: 14, borderWidth: 1, borderRadius: 20 },
   member: { width: 112, alignItems: 'center' },
 });

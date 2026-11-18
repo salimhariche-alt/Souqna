@@ -10,8 +10,9 @@ import { WilayaList } from '@/components/wilaya-list';
 import { Spacing } from '@/constants/theme';
 import { wilayaLabel } from '@/constants/wilayas';
 import { useTheme } from '@/hooks/use-theme';
+import { useTokens } from '@/theme';
 import { useLanguage } from '@/i18n/language-provider';
-import { ListRow } from '@/ui';
+import { ListGroup, ListRow } from '@/ui';
 
 type Props = {
   label: string;
@@ -27,17 +28,21 @@ export function WilayaPicker({ label, value, onChange, error, variant = 'field' 
   const { t } = useTranslation();
   const { language, direction } = useLanguage();
   const theme = useTheme();
+  const tk = useTokens();
   const [open, setOpen] = useState(false);
 
   return (
     <View style={styles.container}>
       {variant === 'row' ? (
-        <ListRow
-          icon="location-outline"
-          label={label}
-          value={value ? wilayaLabel(value, language) : t('auth.chooseWilaya')}
-          onPress={() => setOpen(true)}
-        />
+        <ListGroup>
+          <ListRow
+            designIcon="pin"
+            tint="tint2"
+            label={label}
+            value={value ? wilayaLabel(value, language) : t('auth.chooseWilaya')}
+            onPress={() => setOpen(true)}
+          />
+        </ListGroup>
       ) : (
         <ThemedText type="smallBold">{label}</ThemedText>
       )}
@@ -48,8 +53,7 @@ export function WilayaPicker({ label, value, onChange, error, variant = 'field' 
         accessibilityLabel={label}
         style={[
           styles.field,
-          { backgroundColor: theme.backgroundElement },
-          error ? styles.fieldError : null,
+          { backgroundColor: theme.backgroundElement, borderColor: error ? tk.color.danger : tk.color.borderStrong },
         ]}>
         <ThemedText themeColor={value ? 'text' : 'textSecondary'} style={styles.fieldText}>
           {value ? wilayaLabel(value, language) : t('auth.chooseWilaya')}
@@ -95,18 +99,17 @@ export function WilayaPicker({ label, value, onChange, error, variant = 'field' 
 }
 
 const styles = StyleSheet.create({
-  container: { gap: Spacing.one, alignSelf: 'stretch' },
+  container: { gap: 6, alignSelf: 'stretch' },
+  // Like the other "Warm & Local" fields: cream, warm border, corners 16, 54 high.
   field: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    borderRadius: Spacing.two,
+    minHeight: 54,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'transparent',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
+    paddingHorizontal: 16,
   },
-  fieldError: { borderColor: '#D93025' },
   fieldText: { flex: 1 },
   error: {},
   modal: { flex: 1 },

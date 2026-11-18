@@ -2,8 +2,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { useTokens } from '@/theme';
+import { type TintKey, useTokens } from '@/theme';
 
+import { ArchFrame } from './arch';
 import { Button } from './button';
 import { AppText } from './text';
 
@@ -13,16 +14,20 @@ type Props = {
   text?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** The soft colour of the arch behind the icon (default: clay). */
+  tint?: TintKey;
 };
 
-/** "Nothing here yet": a big friendly icon, a title, a sentence and an optional button. */
-export function EmptyState({ icon, title, text, actionLabel, onAction }: Props) {
+/** "Nothing here yet": a big icon in a soft arch, a title, a sentence and an optional button. */
+export function EmptyState({ icon, title, text, actionLabel, onAction, tint = 'tint1' }: Props) {
   const tk = useTokens();
   return (
     <View style={[styles.container, { padding: tk.space.xl, gap: tk.space.md }]}>
-      <View style={[styles.circle, { backgroundColor: tk.color.primarySoft }]}>
-        <Ionicons name={icon} size={40} color={tk.color.primary} />
-      </View>
+      <ArchFrame width={88} height={104} color={tk.color[tint]} bottomRadius={tk.radius.md}>
+        <View style={styles.center}>
+          <Ionicons name={icon} size={40} color={tk.color.tintIcon} />
+        </View>
+      </ArchFrame>
       <AppText variant="subtitle" align="center">
         {title}
       </AppText>
@@ -42,6 +47,6 @@ export function EmptyState({ icon, title, text, actionLabel, onAction }: Props) 
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center' },
-  circle: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 8 },
   action: { marginTop: 8 },
 });

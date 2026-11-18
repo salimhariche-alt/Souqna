@@ -25,6 +25,11 @@ type Props = {
   /** "cover" fills the box (may crop); "contain" shows the whole photo. */
   fit?: 'cover' | 'contain';
   dotColor?: string;
+  /**
+   * The "Warm & Local" dots (listing.html): the current one 18 x 6 and dark, the others
+   * 6 x 6 at 30%, 6 apart, 18 from the bottom.
+   */
+  designDots?: boolean;
 };
 
 /**
@@ -43,6 +48,7 @@ export function PhotoCarousel({
   onPressPhoto,
   fit = 'cover',
   dotColor = '#ffffff',
+  designDots = false,
 }: Props) {
   const { t } = useTranslation();
   const { direction } = useLanguage();
@@ -113,19 +119,23 @@ export function PhotoCarousel({
         />
       )}
       {count > 1 && (
-        <View style={styles.dots} pointerEvents="box-none">
+        <View style={[styles.dots, designDots && styles.designDots]} pointerEvents="box-none">
           {dots.map((photo) => (
             <Pressable
               key={photo}
               onPress={() => goTo(photo)}
-              hitSlop={6}
+              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={t('listing.photoCount', { current: photo + 1, total: count })}
-              style={[
-                styles.dot,
-                { backgroundColor: dotColor },
-                photo === index ? styles.dotActive : styles.dotInactive,
-              ]}
+              style={
+                designDots
+                  ? [styles.designDot, photo === index ? styles.designDotActive : styles.designDotInactive]
+                  : [
+                      styles.dot,
+                      { backgroundColor: dotColor },
+                      photo === index ? styles.dotActive : styles.dotInactive,
+                    ]
+              }
             />
           ))}
         </View>
@@ -149,4 +159,8 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   dotActive: { opacity: 1, transform: [{ scale: 1.25 }] },
   dotInactive: { opacity: 0.5 },
+  designDots: { bottom: 18, gap: 6 },
+  designDot: { height: 6, borderRadius: 3 },
+  designDotActive: { width: 18, backgroundColor: '#2B1D14' },
+  designDotInactive: { width: 6, backgroundColor: 'rgba(43,29,20,0.3)' },
 });

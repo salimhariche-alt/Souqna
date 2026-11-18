@@ -2,22 +2,26 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { useTokens } from '@/theme';
+import { type TintKey, useTokens } from '@/theme';
 
+import { ArchFrame } from './arch';
 import { AppText } from './text';
 
 type Props = {
   label: string;
   icon: ComponentProps<typeof Ionicons>['name'];
+  /** Each category gets its own soft colour (default: clay). */
+  tint?: TintKey;
   selected?: boolean;
   onPress?: () => void;
-  /** Width of the tile (the height follows). */
+  /** Width of the tile (the arch is a little taller than wide). */
   size?: number;
 };
 
-/** A square tile with an icon and a name, for browsing categories. */
-export function CategoryTile({ label, icon, selected = false, onPress, size = 92 }: Props) {
+/** A category: the icon in a soft-coloured arch, the name under it. Selected = terracotta. */
+export function CategoryTile({ label, icon, tint = 'tint1', selected = false, onPress, size = 92 }: Props) {
   const tk = useTokens();
+  const arch = size - tk.space.md * 2;
   return (
     <Pressable
       onPress={onPress}
@@ -26,19 +30,17 @@ export function CategoryTile({ label, icon, selected = false, onPress, size = 92
       accessibilityLabel={label}
       style={({ pressed }) => [
         styles.tile,
-        {
-          width: size,
-          paddingVertical: tk.space.md,
-          paddingHorizontal: tk.space.xs,
-          borderRadius: tk.radius.lg,
-          gap: tk.space.sm,
-          backgroundColor: selected ? tk.color.primarySoft : pressed ? tk.color.surfaceAlt : tk.color.surface,
-          borderColor: selected ? tk.color.primary : 'transparent',
-        },
+        { width: size, paddingVertical: tk.space.sm, gap: tk.space.sm, opacity: pressed ? 0.8 : 1 },
       ]}>
-      <View style={[styles.circle, { backgroundColor: selected ? tk.color.primary : tk.color.background }]}>
-        <Ionicons name={icon} size={24} color={selected ? tk.color.onPrimary : tk.color.primary} />
-      </View>
+      <ArchFrame
+        width={arch}
+        height={arch * 1.12}
+        color={selected ? tk.color.primary : tk.color[tint]}
+        bottomRadius={tk.radius.md}>
+        <View style={styles.center}>
+          <Ionicons name={icon} size={26} color={selected ? tk.color.onPrimary : tk.color.tintIcon} />
+        </View>
+      </ArchFrame>
       <AppText variant="caption" align="center" numberOfLines={2} tone={selected ? 'primary' : 'default'}>
         {label}
       </AppText>
@@ -47,6 +49,6 @@ export function CategoryTile({ label, icon, selected = false, onPress, size = 92
 }
 
 const styles = StyleSheet.create({
-  tile: { alignItems: 'center', borderWidth: 1.5 },
-  circle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  tile: { alignItems: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
 });

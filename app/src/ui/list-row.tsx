@@ -1,16 +1,22 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Children, type ComponentProps, Fragment, type PropsWithChildren, isValidElement } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLanguage } from '@/i18n/language-provider';
-import { useTokens } from '@/theme';
+import { FontFiles, type TintKey, useTokens } from '@/theme';
 
-import { AppText } from './text';
+import { ArchFrame } from './arch';
+import { DesignIcon, type DesignIconName } from './icons';
 
 type Props = {
   label: string;
+  /** The design's own icon (preferred)... */
+  designIcon?: DesignIconName;
+  /** ...or an Ionicons icon. */
   icon?: ComponentProps<typeof Ionicons>['name'];
-  /** e.g. "Français" next to "Langue" */
+  /** The soft colour of the small arch behind the icon (default: clay). */
+  tint?: TintKey;
+  /** e.g. "Français" next to "Langue", or a count ("8"). */
   value?: string;
   /** A second, smaller line under the label. */
   description?: string;
@@ -20,12 +26,28 @@ type Props = {
   danger?: boolean;
 };
 
-/** A row: icon, label, optional value and an arrow (">" in French, "<" in Arabic). */
-export function ListRow({ label, icon, value, description, onPress, arrow, danger = false }: Props) {
+/**
+ * A row, exactly as in profile.html: the icon in a 36 x 40 arch (soft tint), the label
+ * (15px), an optional grey value (14px) and a light ">" ("<" in Arabic). At least 56
+ * high. Put rows in a <ListGroup> (one cream card with thin lines between rows).
+ */
+export function ListRow({
+  label,
+  designIcon,
+  icon,
+  tint = 'tint1',
+  value,
+  description,
+  onPress,
+  arrow,
+  danger = false,
+}: Props) {
   const tk = useTokens();
-  const { direction } = useLanguage();
+  const { direction, language } = useLanguage();
   const showArrow = arrow ?? Boolean(onPress);
   const color = danger ? tk.color.danger : tk.color.text;
+  const iconColor = danger ? tk.color.danger : tk.brand.ink;
+  const font = (latin: string, arabic: string) => (language === 'ar' ? arabic : latin);
 
   return (
     <Pressable
@@ -33,55 +55,74 @@ export function ListRow({ label, icon, value, description, onPress, arrow, dange
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={value ? `${label}, ${value}` : label}
-      style={({ pressed }) => [
-        styles.row,
-        {
-          minHeight: 56,
-          paddingHorizontal: tk.space.lg,
-          paddingVertical: tk.space.md,
-          backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface,
-          borderRadius: tk.radius.lg,
-          gap: tk.space.md,
-        },
-      ]}>
-      {icon ? (
-        <View
-          style={[
-            styles.iconCircle,
-            { backgroundColor: danger ? tk.color.dangerSoft : tk.color.primarySoft },
-          ]}>
-          <Ionicons name={icon} size={20} color={danger ? tk.color.danger : tk.color.primary} />
-        </View>
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: tk.color.surfaceAlt }]}>
+      {designIcon || icon ? (
+        <ArchFrame width={36} height={40} color={danger ? tk.color.dangerSoft : tk.color[tint]} bottomRadius={8}>
+          <View style={styles.center}>
+            {designIcon ? (
+              <DesignIcon name={designIcon} size={17} color={iconColor} strokeWidth={1.7} />
+            ) : (
+              <Ionicons name={icon} size={17} color={iconColor} />
+            )}
+          </View>
+        </ArchFrame>
       ) : null}
       <View style={styles.flex}>
-        <AppText variant="bodyStrong" style={{ color }} numberOfLines={2}>
+        <Text
+          style={[styles.label, { color, fontFamily: font(FontFiles.regular, FontFiles.arabic) }]}
+          numberOfLines={2}>
           {label}
-        </AppText>
+        </Text>
         {description ? (
-          <AppText variant="small" tone="secondary" numberOfLines={2}>
+          <Text
+            style={[styles.description, { color: tk.color.textSecondary, fontFamily: font(FontFiles.regular, FontFiles.arabic) }]}
+            numberOfLines={2}>
             {description}
-          </AppText>
+          </Text>
         ) : null}
       </View>
       {value ? (
-        <AppText variant="small" tone="secondary" numberOfLines={1} style={styles.value}>
+        <Text
+          style={[styles.value, { color: tk.color.textSecondary, fontFamily: font(FontFiles.regular, FontFiles.arabic) }]}
+          numberOfLines={1}>
           {value}
-        </AppText>
+        </Text>
       ) : null}
       {showArrow ? (
-        <Ionicons
-          name={direction === 'rtl' ? 'chevron-back' : 'chevron-forward'}
-          size={18}
-          color={tk.color.textMuted}
+        <DesignIcon
+          name={direction === 'rtl' ? 'chevronLeft' : 'chevronRight'}
+          size={16}
+          color={tk.color.iconMuted}
+          strokeWidth={1.9}
         />
       ) : null}
     </Pressable>
   );
 }
 
+/** Rows in one cream card (border, corners 20), with thin lines between them. */
+export function ListGroup({ children }: PropsWithChildren) {
+  const tk = useTokens();
+  const rows = Children.toArray(children).filter(isValidElement);
+  return (
+    <View style={[styles.group, { backgroundColor: tk.color.surface, borderColor: tk.color.border }]}>
+      {rows.map((row, i) => (
+        <Fragment key={row.key ?? i}>
+          {i > 0 && <View style={[styles.divider, { backgroundColor: tk.color.divider }]} />}
+          {row}
+        </Fragment>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 56, paddingHorizontal: 16, paddingVertical: 8 },
   flex: { flex: 1 },
-  iconCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  value: { maxWidth: '40%' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 2 },
+  label: { fontSize: 15, lineHeight: 21 },
+  description: { fontSize: 13, lineHeight: 18 },
+  value: { fontSize: 14, lineHeight: 20, maxWidth: '40%' },
+  group: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
+  divider: { height: 1 },
 });

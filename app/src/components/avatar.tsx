@@ -1,31 +1,41 @@
 import { Image } from 'expo-image';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { absoluteUrl } from '@/api/client';
-import { ThemedText } from '@/components/themed-text';
+import { FontFiles, useTokens } from '@/theme';
+import { ArchFrame } from '@/ui';
 
-import { Brand } from '@/constants/theme';
-const COLORS = [Brand.fill, '#1E8E3E', '#E37400', '#8E44AD', '#D93025', '#00897B'];
-
-/** A round profile photo, or the first letter of the name on a coloured circle. */
+/**
+ * A profile picture in the "Warm & Local" arch (like the seller card in listing.html):
+ * the photo, or the first letter in Fraunces on a soft tint (always the same tint for
+ * the same name). `size` is the width; the arch is a little taller (x 1.12).
+ */
 export function Avatar({ uri, name, size = 44 }: { uri?: string | null; name: string; size?: number }) {
-  const round = { width: size, height: size, borderRadius: size / 2 };
+  const tk = useTokens();
   const source = absoluteUrl(uri);
-  if (source) {
-    return <Image source={{ uri: source }} style={round} contentFit="cover" accessibilityIgnoresInvertColors />;
-  }
   const letter = name.trim().charAt(0).toUpperCase() || '?';
-  const color = COLORS[(letter.codePointAt(0) ?? 0) % COLORS.length];
+  const tint = tk.tints[(letter.codePointAt(0) ?? 0) % tk.tints.length];
   return (
-    <View style={[styles.letterCircle, round, { backgroundColor: color }]}>
-      <ThemedText type="smallBold" style={[styles.letter, { fontSize: size * 0.42, lineHeight: size * 0.55 }]}>
-        {letter}
-      </ThemedText>
-    </View>
+    <ArchFrame width={size} height={Math.round(size * 1.12)} color={tint} bottomRadius={Math.max(6, size / 5)}>
+      {source ? (
+        <Image source={{ uri: source }} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityIgnoresInvertColors />
+      ) : (
+        <View style={styles.center}>
+          <Text
+            style={{
+              fontFamily: FontFiles.serifBold,
+              fontSize: size * 0.4,
+              lineHeight: size * 0.52,
+              color: tk.color.text,
+            }}>
+            {letter}
+          </Text>
+        </View>
+      )}
+    </ArchFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  letterCircle: { alignItems: 'center', justifyContent: 'center' },
-  letter: { color: '#ffffff' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 2 },
 });

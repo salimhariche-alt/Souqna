@@ -5,10 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/i18n/language-provider';
+import { useTokens } from '@/theme';
+import { DesignIcon } from '@/ui';
 
 export type MenuOption = {
   label: string;
@@ -19,19 +18,20 @@ export type MenuOption = {
 
 type Props = { visible: boolean; options: MenuOption[]; onClose: () => void };
 
-/** The list that slides up from the bottom when "⋯" is tapped. */
+/** The list that slides up from the bottom when "⋯" is tapped (cream, corners 24). */
 export function OptionsMenu({ visible, options, onClose }: Props) {
   const { t } = useTranslation();
   const { direction } = useLanguage();
-  const theme = useTheme();
+  const tk = useTokens();
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.backdrop, { direction }]}>
+      <View style={[styles.backdrop, { direction, backgroundColor: tk.color.overlay }]}>
         <Pressable style={styles.flex} onPress={onClose} accessibilityLabel={t('listing.cancel')} />
-        <ThemedView style={styles.sheet}>
+        <View style={[styles.sheet, { backgroundColor: tk.color.surface }]}>
           <SafeAreaView edges={['bottom']} style={styles.content}>
-            {options.map((option) => (
+            <View style={[styles.handle, { backgroundColor: tk.color.borderStrong }]} />
+            {options.map((option, i) => (
               <Pressable
                 key={option.label}
                 accessibilityRole="button"
@@ -39,75 +39,61 @@ export function OptionsMenu({ visible, options, onClose }: Props) {
                   onClose();
                   option.onPress();
                 }}
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                <Ionicons
-                  name={option.icon}
-                  size={22}
-                  color={option.danger ? '#D93025' : theme.text}
-                />
-                <ThemedText themeColor="danger" style={[styles.label, option.danger && styles.danger]}>
+                style={({ pressed }) => [
+                  styles.row,
+                  i > 0 && { borderTopWidth: 1, borderTopColor: tk.color.divider },
+                  pressed && { backgroundColor: tk.color.surfaceAlt },
+                ]}>
+                <Ionicons name={option.icon} size={21} color={option.danger ? tk.color.danger : tk.color.text} />
+                <ThemedText style={[styles.label, { color: option.danger ? tk.color.danger : tk.color.text }]}>
                   {option.label}
                 </ThemedText>
               </Pressable>
             ))}
             <Pressable onPress={onClose} accessibilityRole="button" style={styles.cancel}>
-              <ThemedText type="smallBold" themeColor="primary" style={styles.cancelText}>
+              <ThemedText type="smallBold" themeColor="primary">
                 {t('listing.cancel')}
               </ThemedText>
             </Pressable>
           </SafeAreaView>
-        </ThemedView>
+        </View>
       </View>
     </Modal>
   );
 }
 
-/** The round "⋯" button that opens the menu. */
-export function MoreButton({ onPress, onPhoto = false }: { onPress: () => void; onPhoto?: boolean }) {
+/** The round "⋯" button (44px, cream with a thin border, as in listing.html). */
+export function MoreButton({ onPress }: { onPress: () => void; onPhoto?: boolean }) {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const tk = useTokens();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={t('safety.moreOptions')}
-      hitSlop={8}
       style={({ pressed }) => [
         styles.more,
-        { backgroundColor: onPhoto ? 'rgba(0,0,0,0.45)' : theme.backgroundSelected },
-        pressed && styles.pressed,
+        { backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface, borderColor: tk.color.border },
       ]}>
-      <Ionicons name="ellipsis-horizontal" size={20} color={onPhoto ? '#ffffff' : theme.text} />
+      <DesignIcon name="more" size={20} color={tk.color.text} strokeWidth={3} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
-  sheet: { borderTopLeftRadius: Spacing.four, borderTopRightRadius: Spacing.four },
-  content: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    width: '100%',
-    maxWidth: 560,
-    alignSelf: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-  },
-  label: { flex: 1, fontSize: 16 },
-  danger: {},
-  pressed: { opacity: 0.6 },
-  cancel: { alignItems: 'center', paddingVertical: Spacing.three },
-  cancelText: {},
+  backdrop: { flex: 1 },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  content: { paddingHorizontal: 20, paddingTop: 10, width: '100%', maxWidth: 560, alignSelf: 'center' },
+  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 54, paddingHorizontal: 4 },
+  label: { flex: 1, fontSize: 15 },
+  cancel: { alignItems: 'center', justifyContent: 'center', minHeight: 52 },
   more: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

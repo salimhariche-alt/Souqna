@@ -223,9 +223,9 @@ function MyListingRow({
         accessibilityLabel={listing.title}
         style={[styles.rowTop, { gap: tk.space.md }]}>
         {listing.cover_photo ? (
-          <Image source={{ uri: listing.cover_photo }} style={[styles.photo, { borderRadius: tk.radius.md }]} contentFit="cover" />
+          <Image source={{ uri: listing.cover_photo }} style={[styles.photo, styles.arch]} contentFit="cover" />
         ) : (
-          <View style={[styles.photo, { borderRadius: tk.radius.md, backgroundColor: tk.color.surfaceAlt }]} />
+          <View style={[styles.photo, styles.arch, { backgroundColor: tk.color.tint1 }]} />
         )}
         <View style={[styles.flex, { gap: tk.space.xs }]}>
           <AppText variant="bodyStrong" numberOfLines={1}>
@@ -275,6 +275,8 @@ const styles = StyleSheet.create({
   list: { width: '100%', alignSelf: 'center', flexGrow: 1 },
   tab: { paddingVertical: 8, paddingHorizontal: 16 },
   rowTop: { flexDirection: 'row', alignItems: 'center' },
-  photo: { width: 72, height: 72 },
+  photo: { width: 64, height: 72 },
+  // The "Warm & Local" arch: round top, almost square bottom.
+  arch: { borderTopLeftRadius: 32, borderTopRightRadius: 32, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 },
   actions: { flexDirection: 'row', flexWrap: 'wrap' },
 });

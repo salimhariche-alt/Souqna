@@ -1,52 +1,64 @@
 import type { PropsWithChildren } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
 import { useTokens } from '@/theme';
+import { Logo, TriangleBand } from '@/ui';
 
-/** Page layout for the Log in / Sign up forms: scrolls, and moves up with the keyboard. */
-export function AuthFormLayout({ intro, children }: PropsWithChildren<{ intro?: string }>) {
+/**
+ * Page layout for Log in / Sign up / phone verification ("Warm & Local"): sand
+ * background, the logo and a Kabyle band at the top, then the form. Scrolls, and
+ * moves up with the keyboard.
+ */
+export function AuthFormLayout({
+  intro,
+  children,
+  showLogo = true,
+}: PropsWithChildren<{ intro?: string; showLogo?: boolean }>) {
+  const tk = useTokens();
   return (
-    <ThemedView style={styles.flex}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={[styles.flex, { backgroundColor: tk.color.background }]}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {showLogo && (
+            <View style={styles.brand}>
+              <Logo />
+              <TriangleBand style={styles.band} />
+            </View>
+          )}
           {intro ? <ThemedText themeColor="textSecondary">{intro}</ThemedText> : null}
           {children}
         </ScrollView>
       </KeyboardAvoidingView>
-    </ThemedView>
+    </View>
   );
 }
 
-/** A red box for errors that don't belong to one field (e.g. "can't reach the server"). */
+/** A soft red box for errors that don't belong to one field (e.g. "can't reach the server"). */
 export function FormMessage({ message }: { message?: string }) {
   const tk = useTokens();
   if (!message) return null;
   return (
-    <ThemedView style={[styles.message, { backgroundColor: tk.color.dangerSoft }]} accessibilityLiveRegion="polite">
-      <ThemedText themeColor="danger" type="small" style={styles.messageText}>
+    <View style={[styles.message, { backgroundColor: tk.color.dangerSoft }]} accessibilityLiveRegion="polite">
+      <ThemedText themeColor="danger" type="small">
         {message}
       </ThemedText>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
-    padding: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 34,
+    gap: 16,
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
   },
-  message: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-  },
-  messageText: {},
+  brand: { alignItems: 'center', gap: 14, marginBottom: 6 },
+  band: { width: '100%' },
+  message: { padding: 14, borderRadius: 16 },
 });

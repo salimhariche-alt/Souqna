@@ -24,6 +24,18 @@ export function itemsCount(n: number, language: Language): string {
   return `${number} منتج`; // 0, 100, 101, 102, ...
 }
 
+/** Short, as in the design: "12 ventes" / "12 sales" / "12 عملية بيع". */
+export function salesCount(n: number, language: Language): string {
+  const number = withSpaces(n);
+  if (language === 'fr') return `${number} ${n <= 1 ? 'vente' : 'ventes'}`;
+  if (language === 'en') return `${number} ${n === 1 ? 'sale' : 'sales'}`;
+  if (n === 1) return 'عملية بيع واحدة';
+  if (n === 2) return 'عمليتا بيع';
+  const lastTwo = n % 100;
+  if (lastTwo >= 3 && lastTwo <= 10) return `${number} عمليات بيع`;
+  return `${number} عملية بيع`;
+}
+
 /** "12 articles vendus" / "12 items sold" / "المنتجات المباعة: 12" (seller trust info). */
 export function soldCount(n: number, language: Language): string {
   const number = withSpaces(n);

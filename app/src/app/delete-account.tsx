@@ -54,7 +54,7 @@ function DeleteAccountContent() {
 
   const Item = ({ text, kept }: { text: string; kept?: boolean }) => (
     <View style={styles.item}>
-      <Ionicons name={kept ? 'archive-outline' : 'close-circle-outline'} size={20} color={kept ? '#8A8F98' : '#D93025'} />
+      <Ionicons name={kept ? 'archive-outline' : 'close-circle-outline'} size={20} color={kept ? '#7A6858' : '#9A3A20'} />
       <ThemedText type="small" style={[styles.flex, align]}>
         {text}
       </ThemedText>

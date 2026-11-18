@@ -42,7 +42,7 @@ export function ProfileHeader({
       </ThemedText>
       {wilaya ? (
         <View style={styles.row}>
-          <Ionicons name="location-outline" size={16} color="#8A8F98" />
+          <Ionicons name="location-outline" size={16} color="#7A6858" />
           <ThemedText type="small" themeColor="textSecondary">
             {wilayaLabel(wilaya, language)}
           </ThemedText>

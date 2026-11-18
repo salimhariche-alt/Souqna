@@ -1,9 +1,8 @@
 import { type ComponentRef, useRef } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Brand, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/constants/theme';
+import { FontFiles, useTokens } from '@/theme';
 import { onlyDigits } from '@/utils/digits';
 
 const LENGTH = 6;
@@ -24,7 +23,7 @@ type Props = {
  * the SMS automatically. The digits always go left to right, even in Arabic.
  */
 export function CodeInput({ value, onChange, onComplete, disabled, error, accessibilityLabel }: Props) {
-  const theme = useTheme();
+  const tk = useTokens();
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   const change = (text: string) => {
@@ -47,14 +46,12 @@ export function CodeInput({ value, onChange, onComplete, disabled, error, access
             key={i}
             style={[
               styles.box,
-              { backgroundColor: theme.backgroundElement, borderColor: 'transparent' },
-              isCurrent && styles.boxCurrent,
-              error && styles.boxError,
+              { backgroundColor: tk.color.surface, borderColor: tk.color.borderStrong },
+              isCurrent && { borderColor: tk.color.primary, borderWidth: 2 },
+              error && { borderColor: tk.color.danger, borderWidth: 2 },
               disabled && styles.boxDisabled,
             ]}>
-            <ThemedText type="subtitle" style={styles.digit}>
-              {digit}
-            </ThemedText>
+            <Text style={[styles.digit, { color: tk.color.text }]}>{digit}</Text>
           </View>
         );
       })}
@@ -83,15 +80,13 @@ const styles = StyleSheet.create({
   box: {
     width: 46,
     height: 56,
-    borderRadius: Spacing.two,
-    borderWidth: 2,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  boxCurrent: { borderColor: Brand.fill },
-  boxError: { borderColor: '#D93025' },
   boxDisabled: { opacity: 0.5 },
-  digit: { lineHeight: 40 },
+  digit: { fontFamily: FontFiles.serifBold, fontSize: 24, lineHeight: 32 },
   // Covers the boxes so a tap anywhere focuses it, but can't be seen.
   hiddenInput: {
     position: 'absolute',
