@@ -132,6 +132,7 @@ function ProfileMenu() {
       <ListGroup>
         <ListRow designIcon="list" tint="tint1" label={t('profile.myListings')} value={counts.onSale !== null ? String(counts.onSale) : undefined} onPress={go('/my-listings')} />
         <ListRow designIcon="heart" tint="tint5" label={t('profile.myFavorites')} value={counts.favorites !== null ? String(counts.favorites) : undefined} onPress={go('/favorites')} />
+        <ListRow designIcon="truck" tint="tint4" label={t('delivery.ordersTitle')} onPress={go('/orders')} />
         <ListRow designIcon="pencil" tint="tint3" label={t('profile.editProfile')} onPress={go('/edit-profile')} />
         <ListRow designIcon="globe" tint="tint2" label={t('language.label')} value={LANGUAGE_NAMES[language]} onPress={() => setLanguageSheet(true)} />
         <ListRow designIcon="blocked" tint="tint6" label={t('block.listTitle')} onPress={go('/blocked-users')} />

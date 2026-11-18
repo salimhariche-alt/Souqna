@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/auth/auth-provider';
 import { useLanguage } from '@/i18n/language-provider';
+import { refreshNotificationsUnread, setNotificationsUnread } from '@/messages/notifications-unread';
 import { refreshUnread, setUnread, useUnreadCount } from '@/messages/unread';
 import { FontFiles, useTokens } from '@/theme';
 import { ArchFrame, DesignIcon, type DesignIconName } from '@/ui';
@@ -33,14 +34,19 @@ export default function TabLayout() {
   const tk = useTokens();
   const insets = useSafeAreaInsets();
 
-  // Keep the dot up to date while logged in; reset it when logged out.
+  // Keep the dots up to date while logged in (messages tab, Home's bell); reset when logged out.
   useEffect(() => {
     if (status !== 'signedIn') {
       setUnread(0);
+      setNotificationsUnread(0);
       return;
     }
-    refreshUnread();
-    const timer = setInterval(refreshUnread, BADGE_CHECK_MS);
+    const check = () => {
+      refreshUnread();
+      refreshNotificationsUnread();
+    };
+    check();
+    const timer = setInterval(check, BADGE_CHECK_MS);
     return () => clearInterval(timer);
   }, [status]);
 

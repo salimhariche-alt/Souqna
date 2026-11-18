@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     'messaging',
     'moderation',
     'feedback',
+    'delivery',
 ]
 
 # Our own user model (phone-number login). Must be set before the first migration.
@@ -158,6 +159,25 @@ SMS_BACKEND = os.environ.get('DJANGO_SMS_BACKEND', 'accounts.sms.ConsoleSMSBacke
 #   - the app shows a small "Beta" label.
 # Turn on with DJANGO_BETA_MODE=True in .env; off (False, the default) = SMS codes as before.
 BETA_MODE = os.environ.get('DJANGO_BETA_MODE', 'False') == 'True'
+
+# Delivery between wilayas (Step 5.1). Which company: one setting. The default is the
+# FAKE company (delivery/providers/fake.py) for testing. Later, e.g.:
+#   DJANGO_DELIVERY_PROVIDER=delivery.providers.yalidine.YalidineProvider
+DELIVERY_PROVIDER = os.environ.get('DJANGO_DELIVERY_PROVIDER', 'delivery.providers.fake.FakeProvider')
+# The fake company moves a parcel one step every N minutes.
+DELIVERY_FAKE_STEP_MINUTES = int(os.environ.get('DJANGO_DELIVERY_FAKE_STEP_MINUTES', '2'))
+# Each company's API keys, only from .env (never in Git). Empty until a contract is signed.
+DELIVERY_KEYS = {
+    'yalidine': {'api_id': os.environ.get('YALIDINE_API_ID', ''),
+                 'api_token': os.environ.get('YALIDINE_API_TOKEN', '')},
+    'zr_express': {'token': os.environ.get('ZR_EXPRESS_TOKEN', ''),
+                   'key': os.environ.get('ZR_EXPRESS_KEY', '')},
+    'maystro': {'api_key': os.environ.get('MAYSTRO_API_KEY', '')},
+}
+# Sougna's fee for the buyer, ONLY RECORDED on each order (no money is handled yet:
+# cash on delivery; the money flow must be checked with a lawyer - see CLAUDE.md).
+SOUGNA_BUYER_FEE_PERCENT = float(os.environ.get('SOUGNA_BUYER_FEE_PERCENT', '5'))
+SOUGNA_BUYER_FEE_MIN_DZD = int(os.environ.get('SOUGNA_BUYER_FEE_MIN_DZD', '50'))
 
 # Alerts for URGENT content (threats, terrorism). Default: printed in the Django
 # terminal. Later: DJANGO_MODERATION_ALERT_BACKEND=moderation.alerts.EmailAlertBackend

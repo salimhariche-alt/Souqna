@@ -27,6 +27,7 @@ import {
 } from '@/api/conversations';
 import { blockUser, unblockUser } from '@/api/safety';
 import { useAuth } from '@/auth/auth-provider';
+import { DeliveryBanner } from '@/components/delivery-banner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FeedMessage } from '@/components/feed-message';
 import { MAX_MESSAGE_LENGTH } from '@/components/message-sheet';
@@ -435,6 +436,8 @@ function ChatContent({ id }: { id: string }) {
             color={theme.textSecondary}
           />
         </Pressable>
+        {/* Delivery: "Suivre la livraison", or "Envoyer par livraison" for the seller. */}
+        {conversation && <DeliveryBanner conversation={conversation} myId={user?.id} blocked={blocked} />}
         {listing.status === 'sold' && (
           <View style={[styles.soldNote, tone.dangerBox]}>
             <ThemedText type="small" style={[tone.dangerText, styles.center]}>

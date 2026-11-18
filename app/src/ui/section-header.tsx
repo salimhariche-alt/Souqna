@@ -23,7 +23,7 @@ export function SectionHeader({ title, subtitle, actionLabel, onAction }: Props)
           {title}
         </AppText>
         {subtitle ? (
-          <AppText variant="small" tone="secondary" numberOfLines={1}>
+          <AppText variant="small" tone="secondary" numberOfLines={2}>
             {subtitle}
           </AppText>
         ) : null}

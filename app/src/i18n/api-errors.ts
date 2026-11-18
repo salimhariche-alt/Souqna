@@ -39,6 +39,11 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   [/^This invite code has already been used/, 'beta.errors.inviteUsedUp'],
   [/^During the beta, sign up with a phone number/, 'beta.errors.phoneRequired'],
   [/^Please write your message/, 'feedback.messageRequired'],
+  // Delivery (Step 5.1).
+  [/^Choose a commune/, 'delivery.errors.communeRequired'],
+  [/^This commune isn't in the chosen wilaya/, 'delivery.errors.communeWilaya'],
+  [/^Enter the delivery address/, 'delivery.errors.addressRequired'],
+  [/^Enter the buyer's name/, 'delivery.errors.nameRequired'],
 ];
 
 export function translateApiMessage(message: string, t: TFunction): string {
@@ -80,6 +85,15 @@ export function codedMessage(data: unknown, t: TFunction): string | null {
       return t('errors.accountBanned');
     case 'blocked':
       return t('errors.blockedUser');
+    // Delivery (Step 5.1)
+    case 'order_exists':
+      return t('delivery.errors.orderExists');
+    case 'already_sold':
+      return t('delivery.errors.alreadySold');
+    case 'provider_error':
+      return t('delivery.errors.providerError');
+    case 'too_late':
+      return t('delivery.errors.tooLate');
     case 'message_blocked':
       return t('moderation.notSent');
     case 'messaging_blocked':

@@ -89,6 +89,30 @@ Monorepo:
 - **Send feedback** (Profile tab, logged in): message + optional screenshot ->
   `POST /api/feedback/` (app `feedback`, 20/day, screenshot re-saved max 1600 px without
   hidden data, erased with the account); admin "Feedback from testers".
+- **Delivery between wilayas (Step 5.1)** - app `backend/delivery/`. In the chat the seller taps
+  "Envoyer par livraison" (`app/src/app/delivery/new.tsx`): home or stop-desk, buyer's wilaya,
+  commune, address, name and phone, live price estimate -> `POST /api/orders/` (listing becomes
+  Reserved; Sold when delivered; Active again when returned/cancelled). Order screen
+  `order/[id]` (timeline created -> picked up -> in transit -> out for delivery -> delivered, or
+  returned), "Mes commandes" (`orders`, Profile), in-app notifications (`notifications`, the bell
+  on Home). Admin: Delivery -> Orders (filter by status, wilaya, mode, company; refresh/cancel).
+  - **Companies:** one interface `delivery/providers/base.py` (quote, create_shipment, tracking,
+    cancel); `DJANGO_DELIVERY_PROVIDER` in `.env` picks the class. Only the **FAKE** company
+    exists (`providers/fake.py`: made-up prices, one step every `DJANGO_DELIVERY_FAKE_STEP_MINUTES`,
+    phone ending in `0000` = returned). Yalidine / ZR Express / Maystro: add one file each in
+    `providers/`, keys in `.env` (`YALIDINE_API_ID`, `YALIDINE_API_TOKEN`, `ZR_EXPRESS_TOKEN`,
+    `ZR_EXPRESS_KEY`, `MAYSTRO_API_KEY` -> `settings.DELIVERY_KEYS`). Status is refreshed when an
+    order is opened (at most every 30 s) or with `python manage.py sync_deliveries`.
+  - **Communes:** `delivery/data/communes.json`, 1541 communes in 58 wilayas, loaded by migration
+    `0002_load_communes`. Source: names (fr/ar) and official codes from **dzcode-io/leblad**
+    (MIT, 48 old wilayas) + the 2019 wilaya of each commune from **Wikidata** (CC0), checked by
+    hand (Ain Salah/Foggaret Ezzoua -> 53, Tin Zouatine -> 54, Hassi Fehal -> 58, El Borma -> 30,
+    6 missing El Bayadh communes added). New wilayas 49-58 match the official commune counts.
+  - **Cash on delivery, no real money:** each order records item price, delivery price and
+    Sougna's buyer fee separately (`SOUGNA_BUYER_FEE_PERCENT` 5 %, min `SOUGNA_BUYER_FEE_MIN_DZD`
+    50 DA, rounded to 10 DA); the buyer pays the courier. **Before handling any real money (the
+    cash-on-delivery flow, who collects and pays out the buyer fee, invoices, taxes), have it
+    checked by a lawyer / accountant familiar with Algerian law.**
 
 **Phase 3 - putting it online (in progress).** Done: 3.1 Docker Compose setup; 3.2 server;
 3.3 domain; 3.4 rename to Sougna + first deploy - the backend runs at https://sougnadz.com
@@ -98,7 +122,8 @@ gunicorn workers); 3.5 web version of the app at https://sougnadz.com + `deploy.
 "Send feedback" - deployed 17 Nov 2026, `DJANGO_BETA_MODE='True'` in the server's `.env`;
 4.2 Android test version (APK 0.1.0, versionCode 1) built with EAS - **tested and working on
 the user's phone (17 Nov 2026)**; see "Android builds (EAS)" below.
-Still to do: iOS build, Play Store release, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
+Still to do: real delivery companies (Yalidine / ZR Express / Maystro; Step 5.1 has a FAKE one),
+iOS build, Play Store release, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
 (`DJANGO_MODERATION_ALERT_BACKEND`), automatic off-server backups, HSTS
 (`DJANGO_HSTS_SECONDS`), possibly private serving of voice messages/avatars (now random,
 unguessable names under `/media/`), Redis if the database cache gets too slow, removing the
@@ -201,7 +226,7 @@ npx expo start --lan --port 8084
 
 ```powershell
 # backend (venv active)
-python manage.py test            # all backend tests (346 after Step 4.1)
+python manage.py test            # all backend tests (369 after Step 5.1)
 python manage.py makemigrations --check --dry-run
 
 # app
