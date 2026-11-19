@@ -13,6 +13,7 @@ import { ListingGrid } from '@/components/listing-grid';
 import { MoreButton, OptionsMenu } from '@/components/options-menu';
 import { ProfileHeader } from '@/components/profile-header';
 import { ReportSheet } from '@/components/report-sheet';
+import { ReviewsSection } from '@/components/reviews-section';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -115,6 +116,7 @@ export default function SellerScreen() {
               memberSince={profile.member_since}
               itemsSold={profile.items_sold}
             />
+            <ReviewsSection userId={profile.id} rating={profile.rating} />
             <ThemedText type="smallBold" style={styles.section}>
               {t('seller.activeListings', { count: profile.active_listings })}
             </ThemedText>

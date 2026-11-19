@@ -2,7 +2,7 @@
   "expo": {
     "name": "Sougna",
     "slug": "sougna",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "sougna",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.sougnadz.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#B4472A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -67,7 +67,15 @@
         {
           "locationWhenInUsePermission": "Sougna uses your approximate location only to show the nearest delivery offices. It is not saved."
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#B4472A"
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

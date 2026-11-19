@@ -11,6 +11,8 @@ import {
 import { loginRequest, meRequest, signupRequest, type SignupInput, type User } from '@/api/auth';
 import { ApiError, setSessionExpiredHandler } from '@/api/client';
 
+import { unregisterPush } from '@/push/push';
+
 import { tokenStorage } from './token-storage';
 
 type AuthState =
@@ -95,6 +97,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [finishLogin],
   );
 
+  // Log out: this phone stops getting this account's alerts, then the tokens go.
+  const logout = useCallback(async () => {
+    await unregisterPush();
+    await signOutLocally();
+  }, [signOutLocally]);
+
   const updateUser = useCallback(async (user: User) => {
     await tokenStorage.saveUser(user);
     setState({ status: 'signedIn', user });
@@ -106,10 +114,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: state.status === 'signedIn' ? state.user : null,
       login,
       signup,
-      logout: signOutLocally,
+      logout,
       updateUser,
     }),
-    [state, login, signup, signOutLocally, updateUser],
+    [state, login, signup, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

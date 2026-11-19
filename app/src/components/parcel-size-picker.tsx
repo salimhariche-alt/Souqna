@@ -1,3 +1,4 @@
+import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -75,6 +76,16 @@ export function ParcelSizePicker({ value, onChange, error, disabled }: Props) {
           {error}
         </AppText>
       ) : null}
+      <Pressable
+        onPress={() => router.push('/packing-tips' as Href)}
+        accessibilityRole="link"
+        hitSlop={8}
+        style={styles.packingLink}>
+        <DesignIcon name="box" size={16} color={tk.color.primary} strokeWidth={1.9} />
+        <AppText variant="smallStrong" tone="primary">
+          {t('packing.link')}
+        </AppText>
+      </Pressable>
     </View>
   );
 }
@@ -86,4 +97,5 @@ const styles = StyleSheet.create({
   boxIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
+  packingLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
 });

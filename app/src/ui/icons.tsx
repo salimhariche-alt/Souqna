@@ -45,6 +45,7 @@ export const ICON_PATHS = {
   truck: 'M3 7h11v9H3z M14 10h4l3 3v3h-7z M7 19a2 2 0 1 0 0-4a2 2 0 0 0 0 4z M17.5 19a2 2 0 1 0 0-4a2 2 0 0 0 0 4z',
   box: 'M4 8l8-4 8 4v8l-8 4-8-4z M4 8l8 4 8-4 M12 12v8',
   check: 'M5 12l5 5 9-10',
+  star: 'M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z',
 } as const;
 
 export type DesignIconName = keyof typeof ICON_PATHS;

@@ -24,6 +24,7 @@ import { blockUser } from '@/api/safety';
 import { useAuth } from '@/auth/auth-provider';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DeliveryEstimate } from '@/components/delivery-estimate';
+import { Stars } from '@/components/stars';
 import { FeedMessage } from '@/components/feed-message';
 import { MessageSheet } from '@/components/message-sheet';
 import { OptionsMenu, type MenuOption } from '@/components/options-menu';
@@ -37,7 +38,7 @@ import { useLanguage } from '@/i18n/language-provider';
 import { FontFiles, useTokens } from '@/theme';
 import { AppText, ArchFrame, Badge, Button, DesignIcon, type DesignIconName } from '@/ui';
 import { salesCount } from '@/utils/count';
-import { formatPrice } from '@/utils/format';
+import { formatPrice, formatRating } from '@/utils/format';
 
 type LoadState = 'loading' | 'ready' | 'notFound' | 'error';
 /** Something the user tapped while logged out, to finish after they log in. */
@@ -438,6 +439,15 @@ export default function ListingDetailsScreen() {
                 {listing.seller.display_name}
               </AppText>
               {listing.seller.phone_verified ? <VerifiedLine /> : null}
+              {listing.seller.rating.count && listing.seller.rating.average !== null ? (
+                <View style={[styles.row, { gap: 6 }]}>
+                  <Stars value={listing.seller.rating.average} size={13} />
+                  <AppText variant="caption" tone="secondary">
+                    {formatRating(listing.seller.rating.average, language)} ·{' '}
+                    {t('reviews.count', { count: listing.seller.rating.count })}
+                  </AppText>
+                </View>
+              ) : null}
               <AppText variant="caption" tone="secondary" style={styles.sellerMeta}>
                 {t('listing.memberSince', { date: String(sellerYear) })} · {salesCount(listing.seller.items_sold, language)}
               </AppText>

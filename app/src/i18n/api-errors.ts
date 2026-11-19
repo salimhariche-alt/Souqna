@@ -45,6 +45,8 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   [/^Enter your name/, 'delivery.errors.nameRequired'],
   [/^Choose a drop-off office/, 'delivery.errors.dropOffRequired'],
   [/^Enter an amount in DA/, 'offers.errors.amountRequired'],
+  [/^Your comment contains words/, 'reviews.errors.words'],
+  [/^Choose from 1 to 5 stars/, 'reviews.chooseStars'],
 ];
 
 export function translateApiMessage(message: string, t: TFunction): string {
@@ -99,6 +101,13 @@ export function codedMessage(data: unknown, t: TFunction): string | null {
       return t('delivery.errors.tooLate');
     case 'not_waiting':
       return t('delivery.errors.notWaiting');
+    // Parcels not collected / orders in progress (Step 5.1 H)
+    case 'too_many_refusals':
+      return t('delivery.errors.tooManyRefusals');
+    case 'one_order_at_a_time':
+      return t('delivery.errors.oneAtATime');
+    case 'too_many_orders':
+      return t('delivery.errors.tooManyOrders', { limit });
     // "Faire une offre"
     case 'offer_too_high':
       return t('offers.errors.tooHigh');
@@ -112,6 +121,13 @@ export function codedMessage(data: unknown, t: TFunction): string | null {
       return t('offers.errors.notPending');
     case 'offer_unusable':
       return t('offers.errors.unusable');
+    // Reviews
+    case 'already_reviewed':
+      return t('reviews.errors.already');
+    case 'review_too_late':
+      return t('reviews.errors.tooLate');
+    case 'not_delivered':
+      return t('reviews.errors.notDelivered');
     case 'message_blocked':
       return t('moderation.notSent');
     case 'messaging_blocked':

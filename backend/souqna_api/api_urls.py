@@ -25,5 +25,6 @@ urlpatterns = [
     path('feedback/', FeedbackView.as_view(), name='feedback'),
     # Delivery between wilayas: communes, price estimate, orders, notifications.
     path('', include('delivery.urls')),
+    path('', include('push.urls')),
     *router.urls,
 ]

@@ -37,6 +37,12 @@ def delete_account(user):
         feedback.delete()
     if user.avatar:
         user.avatar.delete(save=False)
+    # Reviews they wrote: the stars still count, their words are erased.
+    from delivery.models import Review
+    Review.objects.filter(author=user).update(comment='')
+    # No more push notifications to their phones.
+    from push.models import PushDevice
+    PushDevice.objects.filter(user=user).delete()
 
     user.phone = None
     # Every account needs a phone or an email: an address that can never receive mail.

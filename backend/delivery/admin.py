@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.utils.html import format_html
 
 from . import services
-from .models import Commune, Notification, Offer, Order, OrderEvent
+from .models import Commune, Notification, Offer, Order, Review, OrderEvent
 from .providers import ProviderError
 
 
@@ -36,9 +36,13 @@ class OrderAdmin(admin.ModelAdmin):
                        'item_price_dzd', 'delivery_price_dzd', 'buyer_fee_dzd',
                        'relay_handling_dzd', 'total', 'confirm_by', 'confirmed_at',
                        'drop_off_point_id', 'drop_off_point_name', 'drop_off_point_address',
-                       'tracking_number', 'status', 'cancel_reason', 'last_synced_at',
-                       'created_at', 'updated_at')
-    actions = ['refresh_from_company', 'cancel_orders']
+                       'tracking_number', 'status', 'cancel_reason', 'buyer_refusals',
+                       'refusal_forgiven', 'last_synced_at', 'created_at', 'updated_at')
+
+    @admin.display(description="buyer's uncollected parcels")
+    def buyer_refusals(self, order):
+        return services.refused_orders(order.buyer).count()
+    actions = ['refresh_from_company', 'cancel_orders', 'forgive_refusals']
 
     def has_add_permission(self, request):
         return False  # orders only come from the app
@@ -62,6 +66,12 @@ class OrderAdmin(admin.ModelAdmin):
         for order in queryset:
             services.sync_order(order, force=True)
         self.message_user(request, f'{queryset.count()} order(s) refreshed.')
+
+    @admin.action(description="Forgive the refusal (it no longer counts against the buyer)")
+    def forgive_refusals(self, request, queryset):
+        done = queryset.filter(events__status=Order.Status.REFUSED).distinct().update(
+            refusal_forgiven=True)
+        self.message_user(request, f'{done} refusal(s) forgiven.')
 
     @admin.action(description='Cancel (only before drop-off)')
     def cancel_orders(self, request, queryset):
@@ -106,3 +116,25 @@ class OfferAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    """Reviews after delivered orders. Tick "hidden" (or use the action) for abusive ones."""
+
+    list_display = ('id', 'stars', 'comment', 'author', 'role', 'subject', 'order', 'hidden',
+                    'created_at')
+    list_filter = ('hidden', 'stars', 'role', 'created_at')
+    list_editable = ('hidden',)
+    search_fields = ('comment', 'author__display_name', 'author__phone', 'subject__display_name',
+                     'subject__phone')
+    list_select_related = ('author', 'subject', 'order')
+    readonly_fields = ('order', 'author', 'subject', 'role', 'stars', 'comment', 'created_at')
+    actions = ['hide_reviews']
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.action(description='Hide the selected reviews')
+    def hide_reviews(self, request, queryset):
+        self.message_user(request, f'{queryset.update(hidden=True)} review(s) hidden.')

@@ -133,10 +133,12 @@ function ProfileMenu() {
         <ListRow designIcon="list" tint="tint1" label={t('profile.myListings')} value={counts.onSale !== null ? String(counts.onSale) : undefined} onPress={go('/my-listings')} />
         <ListRow designIcon="heart" tint="tint5" label={t('profile.myFavorites')} value={counts.favorites !== null ? String(counts.favorites) : undefined} onPress={go('/favorites')} />
         <ListRow designIcon="truck" tint="tint4" label={t('delivery.ordersTitle')} onPress={go('/orders')} />
+        <ListRow designIcon="bell" tint="tint2" label={t('push.title')} onPress={go('/notification-settings')} />
         <ListRow designIcon="pencil" tint="tint3" label={t('profile.editProfile')} onPress={go('/edit-profile')} />
         <ListRow designIcon="globe" tint="tint2" label={t('language.label')} value={LANGUAGE_NAMES[language]} onPress={() => setLanguageSheet(true)} />
         <ListRow designIcon="blocked" tint="tint6" label={t('block.listTitle')} onPress={go('/blocked-users')} />
         <ListRow designIcon="shield" tint="tint4" label={t('profile.safetyTips')} onPress={go('/buy-safely')} />
+        <ListRow designIcon="box" tint="tint3" label={t('packing.title')} onPress={go('/packing-tips')} />
         <ListRow designIcon="help" tint="tint1" label={t('profile.helpContact')} onPress={go('/help')} />
         <ListRow designIcon="message" tint="tint2" label={t('feedback.title')} onPress={go('/feedback')} />
       </ListGroup>

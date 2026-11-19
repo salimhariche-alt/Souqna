@@ -89,20 +89,58 @@ Monorepo:
 - **Send feedback** (Profile tab, logged in): message + optional screenshot ->
   `POST /api/feedback/` (app `feedback`, 20/day, screenshot re-saved max 1600 px without
   hidden data, erased with the account); admin "Feedback from testers".
-- **Delivery between wilayas (Step 5.1)** - app `backend/delivery/`. In the chat the seller taps
-  "Envoyer par livraison" (`app/src/app/delivery/new.tsx`): home or stop-desk, buyer's wilaya,
-  commune, address, name and phone, live price estimate -> `POST /api/orders/` (listing becomes
-  Reserved; Sold when delivered; Active again when returned/cancelled). Order screen
-  `order/[id]` (timeline created -> picked up -> in transit -> out for delivery -> delivered, or
-  returned), "Mes commandes" (`orders`, Profile), in-app notifications (`notifications`, the bell
-  on Home). Admin: Delivery -> Orders (filter by status, wilaya, mode, company; refresh/cancel).
-  - **Companies:** one interface `delivery/providers/base.py` (quote, create_shipment, tracking,
-    cancel); `DJANGO_DELIVERY_PROVIDER` in `.env` picks the class. Only the **FAKE** company
-    exists (`providers/fake.py`: made-up prices, one step every `DJANGO_DELIVERY_FAKE_STEP_MINUTES`,
-    phone ending in `0000` = returned). Yalidine / ZR Express / Maystro: add one file each in
-    `providers/`, keys in `.env` (`YALIDINE_API_ID`, `YALIDINE_API_TOKEN`, `ZR_EXPRESS_TOKEN`,
-    `ZR_EXPRESS_KEY`, `MAYSTRO_API_KEY` -> `settings.DELIVERY_KEYS`). Status is refreshed when an
-    order is opened (at most every 30 s) or with `python manage.py sync_deliveries`.
+- **Selling with delivery (Step 5.1)** - apps `backend/delivery/` and `backend/push/`. Every
+  item is sold through Sougna (no meeting in person): the buyer collects the parcel at the
+  courier's office (relay point / stop-desk) in the 58 wilayas and pays there (cash on
+  delivery). **No home addresses are ever asked.**
+  - **Sell:** the seller gives the parcel size (`Listing.parcel_size` small / medium / large),
+    which sets the delivery price. Tips page "Comment bien emballer" (`packing-tips`).
+  - **Listing page:** "Livraison 58 wilayas" block (`GET /api/delivery/estimate/`) with the price
+    to the buyer's wilaya, Sougna's fee, total and days; **"Acheter"** -> `checkout/[id]`:
+    wilaya, optional commune, offices sorted by distance (approximate location, explained first,
+    **sorted on the phone, never sent**) on a list + OpenStreetMap map (`components/relay-map*`,
+    Leaflet in a WebView / iframe - OSM tiles are free for light use; switch to a paid tile
+    service if traffic grows), name + phone (for the courier only; **the seller never sees
+    them**). `POST /api/orders/` reserves the item and opens the chat.
+  - **Same wilaya:** delivery free for the buyer; the seller drops the parcel at the buyer's
+    office; Sougna's fee gets `SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD` (150) more and
+    `SOUGNA_RELAY_HANDLING_DZD` (150) of it is recorded as owed to the office
+    (`Order.relay_handling_dzd`). Real couriers: this "drop and collect at the same office"
+    service must be negotiated.
+  - **Seller confirms within 24 h** (`SOUGNA_CONFIRM_HOURS`; `order/[id]` "Nouvelle commande !"):
+    "Confirmer la vente" (`order/[id]/confirm`: drop-off office in the seller's wilaya) creates
+    the shipment and shows the **shipment code**; "Refuser" cancels. Not confirmed in time:
+    cancelled (when orders are read, and by `python manage.py sync_deliveries`, which must run
+    every few minutes on the server - cron, see `DEPLOY.md`).
+  - **Timeline:** created -> confirmed -> dropped_off -> in_transit (not in the same wilaya) ->
+    at_relay -> delivered, or refused -> returned; cancelled (+ `cancel_reason`). Buyer or seller
+    can cancel until drop-off. Delivered: listing Sold; returned / cancelled: on sale again.
+  - **"Faire une offre"** (chat; `delivery.Offer`, chat messages with `Message.offer`): at least
+    `SOUGNA_OFFER_MIN_PERCENT` (50) of the price, below it, 20 a day; the seller accepts or
+    declines; an accepted offer is valid `SOUGNA_OFFER_HOURS` (48) for that buyer only
+    ("Acheter a 3 000 DA" -> checkout `?offer=`); the public price never changes.
+  - **Reviews** (`delivery.Review`): after delivery, buyer and seller rate each other (1-5 stars,
+    comment checked with the content word lists), once, within 30 days. Shown on the listing's
+    seller card and profiles (`GET /api/users/{id}/reviews/`). Admin can hide one.
+  - **Refused parcels:** "Acheteur fiable" (>= 1 collected, 0 refused) shown to sellers;
+    max `SOUGNA_MAX_ACTIVE_ORDERS` (5) orders in progress; with `SOUGNA_REFUSALS_ONE_AT_A_TIME`
+    (2) refusals in `SOUGNA_REFUSAL_WINDOW_DAYS` (180): one order at a time; from
+    `SOUGNA_REFUSALS_BLOCKED` (3): no orders. Admin: "parcels not collected" column (Users),
+    "Forgive the refusal" action (Orders).
+  - **Notifications:** in the app (the bell, `notifications`) and **push** (`push` app,
+    expo-notifications): new order, confirmed, sent, arrived, collected, refused, cancelled,
+    messages (max 1 per chat per minute), offers - in the user's language, **never the text of a
+    message**; tap opens the order / chat. Profile -> Notifications: two switches. Our own
+    explanation before Android's permission question. `DJANGO_PUSH_BACKEND`: Console (laptop,
+    printed) / `push.backends.ExpoBackend` (server). **Expo Go on Android can't receive push**:
+    test it with the APK. Android needs Firebase (see "Android builds").
+  - **Couriers:** one interface `delivery/providers/base.py` (quote, relay_points, create_shipment,
+    tracking, cancel); `DJANGO_DELIVERY_PROVIDER` picks the class. Only the **FAKE** company exists
+    (`providers/fake.py` + `fake_relay_points.py`: 19 test offices in 12 wilayas, made-up prices,
+    one step every `DJANGO_DELIVERY_FAKE_STEP_MINUTES` after confirmation, buyer phone ending in
+    `0000` = refused). Yalidine / ZR Express / Maystro: one file each in `providers/`, keys in
+    `.env` (`YALIDINE_API_ID`, `YALIDINE_API_TOKEN`, `ZR_EXPRESS_TOKEN`, `ZR_EXPRESS_KEY`,
+    `MAYSTRO_API_KEY` -> `settings.DELIVERY_KEYS`).
   - **Communes:** `delivery/data/communes.json`, 1541 communes in 58 wilayas, loaded by migration
     `0002_load_communes`. Source: names (fr/ar) and official codes from **dzcode-io/leblad**
     (MIT, 48 old wilayas) + the 2019 wilaya of each commune from **Wikidata** (CC0), checked by
@@ -110,9 +148,10 @@ Monorepo:
     6 missing El Bayadh communes added). New wilayas 49-58 match the official commune counts.
   - **Cash on delivery, no real money:** each order records item price, delivery price and
     Sougna's buyer fee separately (`SOUGNA_BUYER_FEE_PERCENT` 5 %, min `SOUGNA_BUYER_FEE_MIN_DZD`
-    50 DA, rounded to 10 DA); the buyer pays the courier. **Before handling any real money (the
-    cash-on-delivery flow, who collects and pays out the buyer fee, invoices, taxes), have it
-    checked by a lawyer / accountant familiar with Algerian law.**
+    50 DA, rounded to 10 DA); the buyer pays the courier. For Sougna to actually receive its
+    fee, Sougna would hold the courier account and pay sellers out. **Before handling any real
+    money (the cash-on-delivery flow, who collects and pays out the buyer fee and the sellers,
+    invoices, taxes), have it checked by a lawyer / accountant familiar with Algerian law.**
 
 **Phase 3 - putting it online (in progress).** Done: 3.1 Docker Compose setup; 3.2 server;
 3.3 domain; 3.4 rename to Sougna + first deploy - the backend runs at https://sougnadz.com
@@ -122,7 +161,11 @@ gunicorn workers); 3.5 web version of the app at https://sougnadz.com + `deploy.
 "Send feedback" - deployed 17 Nov 2026, `DJANGO_BETA_MODE='True'` in the server's `.env`;
 4.2 Android test version (APK 0.1.0, versionCode 1) built with EAS - **tested and working on
 the user's phone (17 Nov 2026)**; see "Android builds (EAS)" below.
+**Phase 5 - selling with delivery:** 5.1 (steps A-K: relay points, parcel size, estimate,
+"Acheter", seller confirmation + shipment code, offers, reviews, refused parcels, push
+notifications, packing tips) - see "Selling with delivery" above; app 0.3.0 (versionCode 3).
 Still to do: real delivery companies (Yalidine / ZR Express / Maystro; Step 5.1 has a FAKE one),
+a cap on Sougna's buyer fee for expensive items (5 % of 68 000 DA = 3 400 DA),
 iOS build, Play Store release, a real SMS provider (`DJANGO_SMS_BACKEND`), email for urgent moderation alerts
 (`DJANGO_MODERATION_ALERT_BACKEND`), automatic off-server backups, HSTS
 (`DJANGO_HSTS_SECONDS`), possibly private serving of voice messages/avatars (now random,
@@ -176,8 +219,8 @@ moderation evidence is kept - ask a lawyer about Algerian law), and choosing the
 - Expo account **`salimfast`** (free plan), project **@salimfast/sougna**
   (https://expo.dev/accounts/salimfast/projects/sougna), `extra.eas.projectId` + `owner` in
   `app/app.json`. Log in on the laptop: `npx eas-cli@latest login` (the user types the password).
-- `app/app.json`: name "Sougna", version **0.1.0**, Android package **`com.sougnadz.app`**
-  (permanent - never change it), `versionCode` 1 (**raise by 1 for every new APK/AAB**; with
+- `app/app.json`: name "Sougna", version **0.3.0**, Android package **`com.sougnadz.app`**
+  (permanent - never change it), `versionCode` 3 (**raise by 1 for every new APK/AAB**; with
   `"appVersionSource": "local"` EAS takes it from app.json).
 - `app/eas.json` profiles: **`preview`** = APK for testers (`distribution: internal`);
   `production` = AAB for the Play Store (later). Release builds have `__DEV__` false, so the
@@ -186,9 +229,15 @@ moderation evidence is kept - ask a lawyer about Algerian law), and choosing the
   The download link is on the build page (expo.dev -> project -> Builds). The Android signing
   key (keystore) was generated in the cloud and is stored in the Expo account (Credentials):
   every update must be signed with it, so never delete it.
-- Icons/splash (`app/assets/images/`): our own design - white shopping bag with a green "S"
-  (IBM Plex Sans Arabic Bold) on Vert Atlas `#17784A`; adaptive icon foreground/background,
-  monochrome (themed) icon, splash (`imageWidth` 160), favicon.
+- Icons/splash (`app/assets/images/`): our own design - white shopping bag with an "S" on
+  terracotta `#B4472A` (since 0.2.0); adaptive icon foreground/background, monochrome (themed)
+  icon (also the small push notification icon), splash (`imageWidth` 160), favicon.
+- **Push notifications on Android need Firebase** (project created by the user in the Firebase
+  console, Android app `com.sougnadz.app`): `app/google-services.json` is **not in Git** (public
+  repository; `.gitignore`) - it is on the laptop and in the Expo account as the secret file
+  variable `GOOGLE_SERVICES_JSON` (environment `preview`), used by `app/app.config.js`. The FCM V1
+  **service account key** (a private key file) was uploaded by the user to expo.dev ->
+  Credentials -> Android -> FCM V1; never ask for it, never put it in the repository.
 - Testers install the APK by allowing "Install unknown apps" for their browser/file app once.
 
 ## Start the servers again (Windows PowerShell)
@@ -226,7 +275,7 @@ npx expo start --lan --port 8084
 
 ```powershell
 # backend (venv active)
-python manage.py test            # all backend tests (369 after Step 5.1)
+python manage.py test            # all backend tests (423 after Step 5.1)
 python manage.py makemigrations --check --dry-run
 
 # app

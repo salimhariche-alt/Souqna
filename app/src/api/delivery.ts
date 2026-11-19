@@ -27,6 +27,8 @@ export type Quote = {
   stop_desk_name: string;
 };
 
+export type OrderReview = { stars: number; comment: string; created_at: string };
+
 export type Order = {
   id: number;
   conversation: number;
@@ -62,9 +64,19 @@ export type Order = {
   same_wilaya: boolean;
   events: { status: OrderStatus; note: string; created_at: string }[];
   i_am: 'buyer' | 'seller';
-  other_person: { id: number; display_name: string };
+  other_person: {
+    id: number;
+    display_name: string;
+    /** Only for the seller: parcels this buyer collected / didn't collect. */
+    buyer_record?: { collected: number; refused: number; reliable: boolean };
+  };
   can_cancel: boolean;
   can_confirm: boolean;
+  /** Delivered, within 30 days, not reviewed by me yet. */
+  can_review: boolean;
+  my_review: OrderReview | null;
+  /** What the other person wrote about me. */
+  their_review: OrderReview | null;
   created_at: string;
 };
 

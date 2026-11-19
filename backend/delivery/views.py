@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.db.models import Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from rest_framework import mixins, permissions, status, viewsets
+from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,13 +14,15 @@ from listings.visibility import visible_listing_q
 from moderation.models import Block
 
 from . import services
-from .models import Commune, Notification, Offer, Order
+from .models import Commune, Notification, Offer, Order, Review
 from .providers import ProviderError
 from .serializers import (
     CheckoutSerializer,
     CommuneSerializer,
     ConfirmSerializer,
     OfferRequestSerializer,
+    PublicReviewSerializer,
+    ReviewRequestSerializer,
     NotificationSerializer,
     OrderSerializer,
 )
@@ -150,7 +152,7 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
         me = self.request.user
         orders = (Order.objects.filter(Q(buyer=me) | Q(seller=me))
                   .select_related('listing', 'commune', 'buyer', 'seller')
-                  .prefetch_related('events', 'listing__photos'))
+                  .prefetch_related('events', 'reviews', 'listing__photos'))
         if self.action == 'list':
             for param, field in (('conversation', 'conversation_id'), ('listing', 'listing_id')):
                 value = self.request.query_params.get(param)
@@ -195,6 +197,11 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
                              'code': 'not_available'}, status=status.HTTP_409_CONFLICT)
         if Block.between(me, listing.seller):
             return Response({'detail': "You can't buy from this person.", 'code': 'blocked'},
+                            status=status.HTTP_403_FORBIDDEN)
+        try:
+            services.check_order_limit(me)  # parcels not collected, orders in progress
+        except services.OrderLimit as error:
+            return Response({'detail': str(error), 'code': error.code, **error.extra},
                             status=status.HTTP_403_FORBIDDEN)
         offer = None
         if data.get('offer'):
@@ -252,6 +259,23 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
             services.decline_order(order)
         except services.NotWaiting:
             return self._not_waiting()
+        return self._fresh(order)
+
+    @action(detail=True, methods=['post'])
+    def review(self, request, pk=None):
+        """POST /api/orders/{id}/review/ {"stars": 1-5, "comment"} - after delivery."""
+        order = self.get_object()  # only the buyer's or the seller's orders
+        serializer = ReviewRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            services.write_review(order, request.user, serializer.validated_data['stars'],
+                                  serializer.validated_data.get('comment', ''))
+        except services.ReviewRefused as error:
+            field = 'comment' if error.code == 'review_words' else None
+            if field:
+                return Response({field: [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': str(error), 'code': error.code},
+                            status=status.HTTP_409_CONFLICT)
         return self._fresh(order)
 
     @action(detail=True, methods=['post'])
@@ -361,6 +385,19 @@ class OfferViewSet(viewsets.GenericViewSet):
         except services.OfferRefused as error:
             return self._refused(error)
         return Response(self._data(offer))
+
+
+class UserReviewsView(generics.ListAPIView):
+    """GET /api/users/{id}/reviews/ - the reviews someone received (newest first), from
+    delivered orders only. "Not found" like their profile (hidden, blocked, ...)."""
+
+    serializer_class = PublicReviewSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        from accounts.views import visible_users
+        user = get_object_or_404(visible_users(self.request.user), pk=self.kwargs['pk'])
+        return Review.objects.filter(subject=user, hidden=False).select_related('author')
 
 
 class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):

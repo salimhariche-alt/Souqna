@@ -3,7 +3,7 @@ from rest_framework import serializers
 from accounts.models import PHONE_ERROR, normalize_phone
 from souqna_api.wilayas import Wilaya
 
-from .models import Commune, Notification, Order, OrderEvent
+from .models import Commune, Notification, Order, OrderEvent, Review
 
 # The app recognises these sentences and translates them.
 ERRORS = {
@@ -69,6 +69,9 @@ class OrderSerializer(serializers.ModelSerializer):
     can_cancel = serializers.SerializerMethodField()
     can_confirm = serializers.SerializerMethodField()
     steps = serializers.ListField(read_only=True)  # calls Order.steps()
+    can_review = serializers.SerializerMethodField()
+    my_review = serializers.SerializerMethodField()
+    their_review = serializers.SerializerMethodField()
     same_wilaya = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -80,7 +83,8 @@ class OrderSerializer(serializers.ModelSerializer):
                   'confirm_by', 'confirmed_at', 'drop_off_point_id', 'drop_off_point_name',
                   'drop_off_point_address', 'tracking_number', 'status', 'cancel_reason',
                   'steps', 'same_wilaya', 'events', 'i_am', 'other_person', 'can_cancel',
-                  'can_confirm', 'created_at', 'updated_at']
+                  'can_confirm', 'can_review', 'my_review', 'their_review', 'created_at',
+                  'updated_at']
 
     def get_listing(self, order):
         from listings.serializers import cover_photo_url
@@ -97,11 +101,38 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_other_person(self, order):
         other = order.buyer if self.get_i_am(order) == 'seller' else order.seller
-        return {'id': other.pk, 'display_name': other.display_name}
+        data = {'id': other.pk, 'display_name': other.display_name}
+        if self.get_i_am(order) == 'seller':
+            # For the seller: has this buyer collected their parcels? ("Acheteur fiable")
+            from .services import buyer_record
+            data['buyer_record'] = buyer_record(other)
+        return data
 
     def get_can_cancel(self, order):
         # Buyer or seller, until the parcel is at the courier's office.
         return order.status in Order.CANCELLABLE
+
+    def get_can_review(self, order):
+        from .services import can_review
+        me = self._me()
+        return bool(me) and can_review(order, me)
+
+    def _review(self, order, mine):
+        me = self._me()
+        if not me or order.status != Order.Status.DELIVERED:
+            return None
+        reviews = [r for r in order.reviews.all() if (r.author_id == me.pk) == mine]
+        if not reviews or (not mine and reviews[0].hidden):
+            return None
+        return {'stars': reviews[0].stars, 'comment': reviews[0].comment,
+                'created_at': serializers.DateTimeField().to_representation(reviews[0].created_at)}
+
+    def get_my_review(self, order):
+        return self._review(order, mine=True)
+
+    def get_their_review(self, order):
+        """What the other person wrote about me."""
+        return self._review(order, mine=False)
 
     def get_can_confirm(self, order):
         return self.get_i_am(order) == 'seller' and order.status == Order.Status.CREATED
@@ -152,3 +183,23 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     def get_listing_title(self, notification):
         return notification.order.listing.title if notification.order_id else ''
+
+
+class ReviewRequestSerializer(serializers.Serializer):
+    stars = serializers.IntegerField(min_value=1, max_value=5, error_messages={
+        'required': 'Choose from 1 to 5 stars.', 'min_value': 'Choose from 1 to 5 stars.',
+        'max_value': 'Choose from 1 to 5 stars.', 'invalid': 'Choose from 1 to 5 stars.'})
+    comment = serializers.CharField(max_length=300, required=False, allow_blank=True)
+
+
+class PublicReviewSerializer(serializers.ModelSerializer):
+    """On a profile: the stars, the comment, who wrote it (name only) and as what."""
+
+    author = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ['id', 'stars', 'comment', 'role', 'author', 'created_at']
+
+    def get_author(self, review):
+        return {'id': review.author_id, 'display_name': review.author.display_name}

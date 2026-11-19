@@ -100,6 +100,7 @@ INSTALLED_APPS = [
     'moderation',
     'feedback',
     'delivery',
+    'push',
 ]
 
 # Our own user model (phone-number login). Must be set before the first migration.
@@ -189,6 +190,17 @@ SOUGNA_CONFIRM_HOURS = int(os.environ.get('SOUGNA_CONFIRM_HOURS', '24'))
 # "Faire une offre": at least this % of the price; an accepted offer is valid this long.
 SOUGNA_OFFER_MIN_PERCENT = int(os.environ.get('SOUGNA_OFFER_MIN_PERCENT', '50'))
 SOUGNA_OFFER_HOURS = int(os.environ.get('SOUGNA_OFFER_HOURS', '48'))
+# Orders: at most this many in progress per buyer. Parcels the buyer didn't collect
+# (in the last WINDOW days): from ONE_AT_A_TIME, one order at a time; from BLOCKED,
+# no new orders.
+# Push notifications: printed in the terminal on the laptop; on the live server
+# DJANGO_PUSH_BACKEND=push.backends.ExpoBackend (sent through Expo's push service).
+PUSH_BACKEND = os.environ.get('DJANGO_PUSH_BACKEND', 'push.backends.ConsoleBackend')
+EXPO_PUSH_ACCESS_TOKEN = os.environ.get('EXPO_PUSH_ACCESS_TOKEN', '')
+SOUGNA_MAX_ACTIVE_ORDERS = int(os.environ.get('SOUGNA_MAX_ACTIVE_ORDERS', '5'))
+SOUGNA_REFUSAL_WINDOW_DAYS = int(os.environ.get('SOUGNA_REFUSAL_WINDOW_DAYS', '180'))
+SOUGNA_REFUSALS_ONE_AT_A_TIME = int(os.environ.get('SOUGNA_REFUSALS_ONE_AT_A_TIME', '2'))
+SOUGNA_REFUSALS_BLOCKED = int(os.environ.get('SOUGNA_REFUSALS_BLOCKED', '3'))
 
 # Alerts for URGENT content (threats, terrorism). Default: printed in the Django
 # terminal. Later: DJANGO_MODERATION_ALERT_BACKEND=moderation.alerts.EmailAlertBackend

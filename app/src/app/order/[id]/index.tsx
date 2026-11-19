@@ -1,12 +1,13 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams, useNavigation, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { cancelOrder, declineOrder, fetchOrder, type Order } from '@/api/delivery';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FeedMessage } from '@/components/feed-message';
+import { OrderReview } from '@/components/order-review';
 import { AmountRows, OrderTimeline, StatusBadge } from '@/components/order-parts';
 import { RequireAuth } from '@/components/require-auth';
 import { WILAYAS } from '@/constants/wilayas';
@@ -145,6 +146,7 @@ function OrderContent({ id }: { id: string }) {
               : t('delivery.youBuy', { name: order.other_person.display_name })}
           </AppText>
           <StatusBadge status={order.status} />
+          {order.other_person.buyer_record ? <BuyerRecord record={order.other_person.buyer_record} /> : null}
           {order.status === 'cancelled' && order.cancel_reason ? (
             <AppText variant="caption" tone="secondary">
               {t(`delivery.cancelledBecause.${order.cancel_reason}`)}
@@ -152,6 +154,9 @@ function OrderContent({ id }: { id: string }) {
           ) : null}
         </View>
       </View>
+
+      {/* Delivered: rate each other. */}
+      <OrderReview order={order} onChanged={setOrder} />
 
       {/* A new order: the seller has 24 hours to confirm (or decline). */}
       {order.can_confirm ? (
@@ -202,6 +207,16 @@ function OrderContent({ id }: { id: string }) {
           </View>
           <InfoLine icon="box" text={order.drop_off_point_name} />
           {order.drop_off_point_address ? <InfoLine icon="pin" text={order.drop_off_point_address} /> : null}
+          <Pressable
+            onPress={() => router.push('/packing-tips' as Href)}
+            accessibilityRole="link"
+            hitSlop={8}
+            style={styles.packingLink}>
+            <DesignIcon name="box" size={16} color={tk.color.primary} strokeWidth={1.9} />
+            <AppText variant="smallStrong" tone="primary">
+              {t('packing.link')}
+            </AppText>
+          </Pressable>
         </View>
       ) : null}
 
@@ -285,6 +300,26 @@ function OrderContent({ id }: { id: string }) {
   );
 }
 
+/** For the seller: "Acheteur fiable", "2 colis non récupérés" or "Nouvel acheteur". */
+function BuyerRecord({ record }: { record: NonNullable<Order['other_person']['buyer_record']> }) {
+  const { t } = useTranslation();
+  const tk = useTokens();
+  const [label, hint, color, icon] = record.refused
+    ? [t('delivery.refusedParcels', { count: record.refused }), '', tk.color.danger, 'blocked' as const]
+    : record.reliable
+      ? [t('delivery.reliableBuyer'), t('delivery.reliableBuyerHint', { count: record.collected }), tk.color.success, 'shield' as const]
+      : [t('delivery.newBuyer'), '', tk.color.textSecondary, 'person' as const];
+  return (
+    <View style={[styles.row, { gap: 6 }]} accessible accessibilityLabel={[label, hint].filter(Boolean).join('. ')}>
+      <DesignIcon name={icon} size={14} color={color} strokeWidth={2} />
+      <AppText variant="caption" style={{ color }}>
+        {label}
+        {hint ? ` · ${hint}` : ''}
+      </AppText>
+    </View>
+  );
+}
+
 function InfoLine({ icon, text }: { icon: 'home' | 'box' | 'pin' | 'person'; text: string }) {
   const tk = useTokens();
   return (
@@ -312,4 +347,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   code: { borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, alignItems: 'center', gap: 2 },
   codeText: { fontSize: 24, lineHeight: 32, letterSpacing: 1 },
+  packingLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 4 },
 });

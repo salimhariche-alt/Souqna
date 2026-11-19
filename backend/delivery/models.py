@@ -11,6 +11,7 @@
 """
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from accounts.models import algerian_mobile
@@ -104,6 +105,9 @@ class Order(models.Model):
     drop_off_point_name = models.CharField('drop-off office', max_length=200, blank=True)
     drop_off_point_address = models.CharField(max_length=300, blank=True)
     cancel_reason = models.CharField(max_length=20, choices=CancelReason.choices, blank=True)
+    # The buyer didn't collect the parcel, but it wasn't their fault (e.g. the office was
+    # closed): the admin "forgives" it and it no longer counts against them.
+    refusal_forgiven = models.BooleanField(default=False)
 
     tracking_number = models.CharField('shipment code', max_length=60, blank=True, db_index=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.CREATED,
@@ -183,6 +187,39 @@ class Offer(models.Model):
         if self.status == self.Status.ACCEPTED and not self.is_usable:
             return 'expired'
         return self.status
+
+
+class Review(models.Model):
+    """After a DELIVERED order, the buyer and the seller rate each other (1-5 stars and
+    a short comment). Only reviews from real delivered orders exist, one per person."""
+
+    class Role(models.TextChoices):
+        BUYER = 'buyer', 'Written by the buyer (about the seller)'
+        SELLER = 'seller', 'Written by the seller (about the buyer)'
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='reviews')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                               related_name='reviews_written')
+    # The person being rated (the other side of the order).
+    subject = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                related_name='reviews_received')
+    role = models.CharField(max_length=10, choices=Role.choices)
+    stars = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    comment = models.CharField(max_length=300, blank=True)
+    # The admin can hide an abusive review (it then counts nowhere).
+    hidden = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        constraints = [
+            models.UniqueConstraint(fields=['order', 'author'], name='one_review_per_person_per_order'),
+            models.CheckConstraint(condition=models.Q(stars__gte=1, stars__lte=5),
+                                   name='review_stars_1_to_5'),
+        ]
+
+    def __str__(self):
+        return f'{self.stars}* by {self.author} about {self.subject} (order #{self.order_id})'
 
 
 class OrderEvent(models.Model):

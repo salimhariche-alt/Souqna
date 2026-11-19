@@ -41,3 +41,8 @@ example
 # generated native folders
 /ios
 /android
+
+# Firebase config for Android push (kept out of the public repository; see app.config.js)
+google-services.json
+# Firebase service account keys: SECRET, never in Git
+*firebase-adminsdk*.json

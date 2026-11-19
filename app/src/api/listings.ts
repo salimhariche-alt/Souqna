@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 import { ApiError, apiFetch } from './client';
+import type { Rating } from './reviews';
 
 /** One listing in a list (the short version sent by GET /api/listings/). */
 export type ListingSummary = {
@@ -51,6 +52,8 @@ export type ListingDetail = Omit<ListingSummary, 'cover_photo'> & {
     phone_verified: boolean;
     member_since: string;
     items_sold: number;
+    /** From reviews of delivered orders. */
+    rating: Rating;
   };
   photos: { id: number; image: string; position: number }[];
   /** True if it's in the logged-in user's favorites (always false when logged out). */

@@ -107,6 +107,7 @@ function NotificationsContent() {
 /** Which sentence: the seller's "new order", or why it was cancelled. */
 function notifyKey(item: AppNotification): string {
   if (item.status === 'created' && item.role === 'seller') return 'created_seller';
+  if (item.status === 'refused' && item.role === 'buyer') return 'refused_buyer';
   if (item.status === 'cancelled' && item.cancel_reason) return `cancelled_${item.cancel_reason}`;
   return item.status;
 }

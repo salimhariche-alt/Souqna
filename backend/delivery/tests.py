@@ -18,7 +18,7 @@ from messaging.models import Conversation
 from souqna_api.wilayas import Wilaya
 
 from . import services
-from .models import Commune, Notification, Offer, Order
+from .models import Commune, Notification, Offer, Order, Review
 from .providers import ProviderError, get_provider
 from .providers.fake import FakeProvider
 
@@ -32,7 +32,9 @@ PASSWORD = 'Sougna-2026!'
                    DELIVERY_FAKE_STEP_MINUTES=2, SOUGNA_BUYER_FEE_PERCENT=5,
                    SOUGNA_BUYER_FEE_MIN_DZD=50, SOUGNA_SAME_WILAYA_DROP_OFF=True,
                    SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD=150, SOUGNA_RELAY_HANDLING_DZD=150,
-                   SOUGNA_CONFIRM_HOURS=24, SOUGNA_OFFER_MIN_PERCENT=50, SOUGNA_OFFER_HOURS=48)
+                   SOUGNA_CONFIRM_HOURS=24, SOUGNA_OFFER_MIN_PERCENT=50, SOUGNA_OFFER_HOURS=48,
+                   SOUGNA_MAX_ACTIVE_ORDERS=5, SOUGNA_REFUSAL_WINDOW_DAYS=180,
+                   SOUGNA_REFUSALS_ONE_AT_A_TIME=2, SOUGNA_REFUSALS_BLOCKED=3)
 class DeliveryTestCase(APITestCase):
     def setUp(self):
         self.seller = User.objects.create_user(phone='0661000101', display_name='Amina',
@@ -615,6 +617,177 @@ class OfferTests(DeliveryTestCase):
         from moderation.models import Block
         Block.objects.create(blocker=self.seller, blocked=self.buyer)
         self.assertEqual(self.offer(3000, expect=403)['code'], 'blocked')
+
+
+class ReviewTests(DeliveryTestCase):
+    """Step G: after delivery, buyer and seller rate each other."""
+
+    def delivered(self):
+        order = self.age(self.confirm(self.create_order()), minutes=60)
+        services.sync_order(order, force=True)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.DELIVERED)
+        return order
+
+    def review(self, order, user, stars=5, comment='', expect=200):
+        self.client.force_authenticate(user)
+        response = self.client.post(f'{ORDERS}{order.pk}/review/',
+                                    {'stars': stars, 'comment': comment}, format='json')
+        self.assertEqual(response.status_code, expect, response.data)
+        return response.data
+
+    def test_both_sides_review_once(self):
+        order = self.delivered()
+        self.client.force_authenticate(self.buyer)
+        self.assertTrue(self.client.get(f'{ORDERS}{order.pk}/').data['can_review'])
+        data = self.review(order, self.buyer, 5, 'Très bon vendeur, colis bien emballé.')
+        self.assertEqual(data['my_review']['stars'], 5)
+        self.assertFalse(data['can_review'])
+        self.assertEqual(self.review(order, self.buyer, 4, expect=409)['code'], 'already_reviewed')
+        data = self.review(order, self.seller, 4)
+        self.assertEqual(data['their_review']['comment'], 'Très bon vendeur, colis bien emballé.')
+        review = Review.objects.get(author=self.buyer)
+        self.assertEqual((review.subject, review.role), (self.seller, Review.Role.BUYER))
+
+    def test_only_delivered_orders_and_only_its_people(self):
+        order = self.confirm(self.create_order())
+        self.assertEqual(self.review(order, self.buyer, expect=409)['code'], 'not_delivered')
+        order = self.age(order, minutes=60)
+        services.sync_order(order, force=True)
+        self.client.force_authenticate(self.stranger)
+        response = self.client.post(f'{ORDERS}{order.pk}/review/', {'stars': 1})
+        self.assertEqual(response.status_code, 404)
+        self.review(order, self.buyer, stars=6, expect=400)
+        self.review(order, self.buyer, stars=0, expect=400)
+
+    def test_too_late_after_30_days(self):
+        order = self.delivered()
+        order.events.filter(status='delivered').update(created_at=timezone.now() - timedelta(days=31))
+        self.assertEqual(self.review(order, self.buyer, expect=409)['code'], 'review_too_late')
+
+    def test_comment_with_forbidden_words_is_refused(self):
+        from moderation.models import ContentCategory, ContentTerm
+        ContentTerm.objects.create(phrase='imbecile', category=ContentCategory.INSULT,
+                                   language=ContentTerm.Language.FRENCH)
+        order = self.delivered()
+        data = self.review(order, self.buyer, 1, 'Quel imbécile !', expect=400)
+        self.assertIn('comment', data)
+        self.assertFalse(Review.objects.exists())
+
+    def test_ratings_show_on_listings_and_profiles(self):
+        self.review(self.delivered(), self.buyer, 5, 'Parfait')
+        self.listing.status = Listing.Status.ACTIVE
+        self.listing.save()
+        self.review(self.delivered(), self.buyer, 4)
+        listing = self.client.get(f'/api/listings/{self.listing.pk}/').data
+        self.assertEqual(listing['seller']['rating'], {'average': 4.5, 'count': 2})
+        profile = self.client.get(f'/api/users/{self.seller.pk}/').data
+        self.assertEqual(profile['rating'], {'average': 4.5, 'count': 2})
+        reviews = self.client.get(f'/api/users/{self.seller.pk}/reviews/').data['results']
+        self.assertEqual([r['stars'] for r in reviews], [4, 5])
+        self.assertEqual((reviews[1]['author']['display_name'], reviews[1]['role']), ('Yacine', 'buyer'))
+        self.assertNotIn('phone', reviews[1]['author'])
+        # Nobody reviewed yet: no average.
+        self.assertEqual(self.client.get(f'/api/users/{self.buyer.pk}/').data['rating'],
+                         {'average': None, 'count': 0})
+
+    def test_hidden_reviews_count_nowhere(self):
+        self.review(self.delivered(), self.buyer, 1, 'Nul')
+        Review.objects.update(hidden=True)
+        self.assertEqual(self.client.get(f'/api/users/{self.seller.pk}/').data['rating']['count'], 0)
+        self.assertEqual(self.client.get(f'/api/users/{self.seller.pk}/reviews/').data['results'], [])
+
+    def test_deleted_account_keeps_stars_but_not_words(self):
+        from accounts.deletion import delete_account
+        self.review(self.delivered(), self.buyer, 5, 'Merci beaucoup')
+        delete_account(self.buyer)
+        review = Review.objects.get()
+        self.assertEqual((review.stars, review.comment), (5, ''))
+
+
+class RefusalTests(DeliveryTestCase):
+    """Step H: parcels the buyer didn't collect."""
+
+    def new_listing(self):
+        return Listing.objects.create(seller=self.seller, title='Article', price_dzd=2000,
+                                      category=self.listing.category,
+                                      condition=Listing.Condition.GOOD, wilaya=Wilaya.ORAN)
+
+    def finished(self, refused, listing=None):
+        """An order for a new item, confirmed, then collected or refused (fake courier:
+        a buyer phone ending in 0000 never collects)."""
+        listing = listing or self.new_listing()
+        phone = '0771000000' if refused else '0771 00 01 02'
+        order = self.confirm(self.create_order(listing=listing.pk, recipient_phone=phone))
+        order = self.age(order, minutes=60)
+        services.sync_order(order, force=True)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.RETURNED if refused else Order.Status.DELIVERED)
+        return order
+
+    def record_seen_by_seller(self, order):
+        self.client.force_authenticate(self.seller)
+        return self.client.get(f'{ORDERS}{order.pk}/').data['other_person']['buyer_record']
+
+    def test_reliable_buyer(self):
+        self.finished(refused=False)
+        order = self.create_order(listing=self.new_listing().pk)
+        self.assertEqual(self.record_seen_by_seller(order),
+                         {'collected': 1, 'refused': 0, 'reliable': True})
+        # The buyer doesn't get a record about the seller.
+        self.client.force_authenticate(self.buyer)
+        self.assertNotIn('buyer_record', self.client.get(f'{ORDERS}{order.pk}/').data['other_person'])
+
+    def test_new_buyer_is_not_yet_reliable(self):
+        order = self.create_order()
+        self.assertEqual(self.record_seen_by_seller(order),
+                         {'collected': 0, 'refused': 0, 'reliable': False})
+
+    def test_two_refusals_one_order_at_a_time(self):
+        self.finished(refused=False)
+        self.finished(refused=True)
+        self.finished(refused=True)
+        order = self.create_order(listing=self.new_listing().pk)  # the first one is fine
+        self.assertEqual(self.record_seen_by_seller(order)['refused'], 2)
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(ORDERS, self.order_data(listing=self.new_listing().pk), format='json')
+        self.assertEqual((response.status_code, response.data['code']), (403, 'one_order_at_a_time'))
+
+    def test_three_refusals_no_more_orders_until_forgiven_or_old(self):
+        refused = [self.finished(refused=True) for _ in range(3)]
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(ORDERS, self.order_data(listing=self.new_listing().pk), format='json')
+        self.assertEqual((response.status_code, response.data['code'], response.data['refused']),
+                         (403, 'too_many_refusals', 3))
+        # The admin forgives one: back to "one at a time".
+        Order.objects.filter(pk=refused[0].pk).update(refusal_forgiven=True)
+        self.create_order(listing=self.new_listing().pk)
+        # Refusals older than 6 months don't count for the limits.
+        Order.objects.update(refusal_forgiven=False)
+        Order.objects.filter(status=Order.Status.CREATED).update(status=Order.Status.CANCELLED)
+        from .models import OrderEvent
+        OrderEvent.objects.filter(status='refused').update(created_at=timezone.now() - timedelta(days=200))
+        self.create_order(listing=self.new_listing().pk)
+
+    def test_at_most_five_orders_in_progress(self):
+        for _ in range(5):
+            self.create_order(listing=self.new_listing().pk)
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(ORDERS, self.order_data(listing=self.new_listing().pk), format='json')
+        self.assertEqual((response.data['code'], response.data['limit']), ('too_many_orders', 5))
+
+    def test_admin_shows_the_refusals(self):
+        order = self.finished(refused=True)
+        admin = User.objects.create_superuser(phone='0799999982', password=PASSWORD,
+                                              display_name='Admin')
+        browser = Client()
+        browser.force_login(admin)
+        page = browser.get('/admin/accounts/user/')
+        self.assertContains(page, f'?buyer__id__exact={self.buyer.pk}')
+        self.assertEqual(browser.get(f'/admin/delivery/order/{order.pk}/change/').status_code, 200)
+        browser.post('/admin/delivery/order/', {'action': 'forgive_refusals',
+                                                '_selected_action': [order.pk]})
+        self.assertEqual(services.buyer_record(self.buyer)['refused'], 0)
 
 
 class NotificationTests(DeliveryTestCase):

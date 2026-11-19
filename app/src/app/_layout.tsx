@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthProvider } from '@/auth/auth-provider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { LanguageProvider, useLanguage } from '@/i18n/language-provider';
+import { PushBridge } from '@/push/push-bridge';
 import { colorsFor, FONT_ASSETS, FontFiles } from '@/theme';
 
 // Keep the splash screen up until the saved language has been loaded.
@@ -51,6 +52,8 @@ function RootStack() {
       <Stack.Screen name="order/[id]/confirm" options={{ title: t('delivery.confirmTitle') }} />
       <Stack.Screen name="orders" options={{ title: t('delivery.ordersTitle') }} />
       <Stack.Screen name="notifications" options={{ title: t('delivery.notificationsTitle') }} />
+      <Stack.Screen name="notification-settings" options={{ title: t('push.title') }} />
+      <Stack.Screen name="packing-tips" options={{ title: t('packing.title') }} />
       <Stack.Screen name="delete-account" options={{ title: t('deleteAccount.title') }} />
       <Stack.Screen name="seller/[id]" options={{ title: t('listing.seller') }} />
       <Stack.Screen name="design-preview" options={{ title: t('designPreview.screenTitle') }} />
@@ -100,6 +103,8 @@ export default function RootLayout() {
       <LanguageProvider>
         <AuthProvider>
           <RootStack />
+          {/* Push notifications: permission (explained first), phone address, taps. */}
+          <PushBridge />
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>

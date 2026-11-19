@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from listings.models import Listing
 
-from .models import Commune, Notification, Offer, Order, OrderEvent
+from .models import Commune, Notification, Offer, Order, OrderEvent, Review
 from .providers import ProviderError, get_provider
 
 # The app shows the newest status when an order is opened; ask the company at most this often.
@@ -66,8 +66,12 @@ def quote(*, listing, wilaya, commune=None, mode=Order.Mode.STOP_DESK, price=Non
 
 
 def notify(order, status, users):
+    """In-app notifications, and push notifications on the phone for the news that matter."""
+    from push.service import order_update
+
     Notification.objects.bulk_create(
         [Notification(user=user, order=order, status=status) for user in users])
+    order_update(order, status, users)
 
 
 def create_order(*, buyer, listing, data, offer=None):
@@ -349,3 +353,105 @@ def withdraw_offer(offer):
         offer.save(update_fields=['status', 'responded_at'])
         _offer_message(offer, offer.buyer, 'withdrawn')
     return offer
+
+
+# Reviews ---------------------------------------------------------------------------
+
+# A review can be written this many days after the parcel was collected.
+REVIEW_DAYS = 30
+
+
+class ReviewRefused(Exception):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def delivered_at(order):
+    event = order.events.filter(status=Order.Status.DELIVERED).first()
+    return event.created_at if event else None
+
+
+def can_review(order, user) -> bool:
+    """Delivered, within REVIEW_DAYS, and not reviewed by this person yet."""
+    if order.status != Order.Status.DELIVERED or user.pk not in (order.buyer_id, order.seller_id):
+        return False
+    when = delivered_at(order)
+    if when is None or timezone.now() > when + timedelta(days=REVIEW_DAYS):
+        return False
+    return not order.reviews.filter(author=user).exists()
+
+
+def write_review(order, author, stars, comment=''):
+    """The buyer rates the seller, or the seller rates the buyer."""
+    from moderation.content import worst
+
+    if order.status != Order.Status.DELIVERED:
+        raise ReviewRefused('not_delivered', 'You can review only after the parcel was collected.')
+    if order.reviews.filter(author=author).exists():
+        raise ReviewRefused('already_reviewed', 'You have already reviewed this order.')
+    if not can_review(order, author):
+        raise ReviewRefused('review_too_late', 'It is too late to review this order.')
+    comment = (comment or '').strip()
+    if comment and worst(comment):
+        raise ReviewRefused('review_words', "Your comment contains words that aren't allowed.")
+    is_buyer = author.pk == order.buyer_id
+    return Review.objects.create(
+        order=order, author=author, subject=order.seller if is_buyer else order.buyer,
+        role=Review.Role.BUYER if is_buyer else Review.Role.SELLER, stars=stars, comment=comment)
+
+
+def rating_for(user):
+    """{"average": 4.8, "count": 12} from the reviews this person received (not hidden)."""
+    from django.db.models import Avg, Count
+
+    data = Review.objects.filter(subject=user, hidden=False).aggregate(
+        average=Avg('stars'), count=Count('id'))
+    average = data['average']
+    return {'average': round(average, 1) if average is not None else None, 'count': data['count']}
+
+
+# Refused parcels ("Acheteur fiable", order limits) ---------------------------------
+
+def refused_orders(user, since=None):
+    """Orders where this buyer didn't collect the parcel (not forgiven by the admin)."""
+    events = OrderEvent.objects.filter(status=Order.Status.REFUSED)
+    if since is not None:
+        events = events.filter(created_at__gte=since)
+    return Order.objects.filter(buyer=user, refusal_forgiven=False,
+                                pk__in=events.values('order_id'))
+
+
+def buyer_record(user):
+    """For sellers: parcels collected and not collected. "Acheteur fiable" = at least one
+    collected and none refused."""
+    collected = Order.objects.filter(buyer=user, status=Order.Status.DELIVERED).count()
+    refused = refused_orders(user).count()
+    return {'collected': collected, 'refused': refused,
+            'reliable': collected >= 1 and refused == 0}
+
+
+class OrderLimit(Exception):
+    def __init__(self, code, message, **extra):
+        super().__init__(message)
+        self.code = code
+        self.extra = extra
+
+
+def check_order_limit(user):
+    """Raises OrderLimit if this buyer can't place one more order now."""
+    since = timezone.now() - timedelta(days=settings.SOUGNA_REFUSAL_WINDOW_DAYS)
+    recent = refused_orders(user, since).count()
+    in_progress = (Order.objects.filter(buyer=user)
+                   .exclude(status__in=Order.FINAL | {Order.Status.REFUSED}).count())
+    if recent >= settings.SOUGNA_REFUSALS_BLOCKED:
+        raise OrderLimit('too_many_refusals',
+                         "Too many parcels weren't collected: you can't order for now.",
+                         refused=recent)
+    if recent >= settings.SOUGNA_REFUSALS_ONE_AT_A_TIME and in_progress >= 1:
+        raise OrderLimit('one_order_at_a_time',
+                         "Some parcels weren't collected: one order at a time.",
+                         refused=recent)
+    if in_progress >= settings.SOUGNA_MAX_ACTIVE_ORDERS:
+        raise OrderLimit('too_many_orders', 'Too many orders in progress.',
+                         limit=settings.SOUGNA_MAX_ACTIVE_ORDERS)
