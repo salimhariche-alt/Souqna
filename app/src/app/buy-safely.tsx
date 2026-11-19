@@ -19,7 +19,7 @@ type Tip = { icon: ComponentProps<typeof Ionicons>['name']; key: string; warn?: 
 
 const TIPS: Tip[] = [
   { icon: 'chatbubbles-outline', key: 'chat' },
-  { icon: 'people-outline', key: 'meet' },
+  { icon: 'cube-outline', key: 'delivery' },
   { icon: 'search-outline', key: 'check' },
   { icon: 'card-outline', key: 'noAdvance', warn: true },
 ];

@@ -8,7 +8,7 @@ import { fetchOrderForConversation, type Order } from '@/api/delivery';
 import { StatusBadge } from '@/components/order-parts';
 import { useLanguage } from '@/i18n/language-provider';
 import { useTokens } from '@/theme';
-import { AppText, ArchFrame, Button, DesignIcon } from '@/ui';
+import { AppText, ArchFrame, DesignIcon } from '@/ui';
 
 type Props = {
   conversation: Pick<ConversationDetail, 'id' | 'seller' | 'listing'>;
@@ -17,11 +17,11 @@ type Props = {
 };
 
 /**
- * In the chat, under the listing: the delivery for this conversation ("Suivre la
- * livraison" with its status, for both people), or - for the seller, when there is none
- * on its way - the button "Envoyer par livraison".
+ * In the chat, under the listing: the order for this conversation ("Suivre la
+ * livraison" with its status, for both people). Orders are placed by the buyer with
+ * "Acheter" on the listing page.
  */
-export function DeliveryBanner({ conversation, myId, blocked }: Props) {
+export function DeliveryBanner({ conversation }: Props) {
   const { t } = useTranslation();
   const tk = useTokens();
   const { direction } = useLanguage();
@@ -39,14 +39,11 @@ export function DeliveryBanner({ conversation, myId, blocked }: Props) {
     }, [conversation.id]),
   );
 
-  if (order === undefined) return null; // still loading: show nothing rather than a jump
-  const iAmSeller = myId === conversation.seller.id;
-  const ended = !order || order.status === 'cancelled' || order.status === 'returned';
-  const canSend = iAmSeller && ended && conversation.listing.status !== 'sold' && !blocked;
+  if (!order) return null; // loading, or no order: nothing to show
 
   return (
     <View style={styles.box}>
-      {order ? (
+      {(
         <Pressable
           onPress={() => router.push(`/order/${order.id}` as Href)}
           accessibilityRole="button"
@@ -66,23 +63,7 @@ export function DeliveryBanner({ conversation, myId, blocked }: Props) {
           </View>
           <DesignIcon name={direction === 'rtl' ? 'chevronLeft' : 'chevronRight'} size={16} color={tk.color.iconMuted} strokeWidth={1.9} />
         </Pressable>
-      ) : null}
-      {canSend ? (
-        <View style={{ gap: 6 }}>
-          {!order ? (
-            <AppText variant="caption" tone="secondary">
-              {t('delivery.sendHint')}
-            </AppText>
-          ) : null}
-          <Button
-            title={t('delivery.sendByDelivery')}
-            icon="cube-outline"
-            variant="outlined"
-            size="sm"
-            onPress={() => router.push(`/delivery/new?conversation=${conversation.id}` as Href)}
-          />
-        </View>
-      ) : null}
+      )}
     </View>
   );
 }

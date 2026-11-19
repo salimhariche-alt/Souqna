@@ -127,7 +127,7 @@ iOS build, Play Store release, a real SMS provider (`DJANGO_SMS_BACKEND`), email
 (`DJANGO_MODERATION_ALERT_BACKEND`), automatic off-server backups, HSTS
 (`DJANGO_HSTS_SECONDS`), possibly private serving of voice messages/avatars (now random,
 unguessable names under `/media/`), Redis if the database cache gets too slow, removing the
-fake listings before launch, store listings, a privacy policy and terms (incl. how long
+fake listings before launch, store listings, the declaration to the ANPDP (Algerian personal data authority, Law 18-07: buyers' names and phones go to the courier), a privacy policy and terms (incl. how long
 moderation evidence is kept - ask a lawyer about Algerian law), and choosing the license.
 
 ## Server

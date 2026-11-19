@@ -19,9 +19,11 @@ import {
   removeFavorite,
   type ListingDetail,
 } from '@/api/listings';
+import { fetchMyOrderForListing, type Order } from '@/api/delivery';
 import { blockUser } from '@/api/safety';
 import { useAuth } from '@/auth/auth-provider';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { DeliveryEstimate } from '@/components/delivery-estimate';
 import { FeedMessage } from '@/components/feed-message';
 import { MessageSheet } from '@/components/message-sheet';
 import { OptionsMenu, type MenuOption } from '@/components/options-menu';
@@ -65,6 +67,8 @@ export default function ListingDetailsScreen() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string>();
   const [openingChat, setOpeningChat] = useState(false);
+  // My order for this item (then "Suivre ma commande" instead of "Acheter").
+  const [myOrder, setMyOrder] = useState<Order | null>(null);
   const pending = useRef<PendingAction | null>(null);
 
   const signedIn = authStatus === 'signedIn';
@@ -83,12 +87,21 @@ export default function ListingDetailsScreen() {
     }
   }, [id, signedIn]);
 
-  // Every time the screen is shown: also after coming back from "Edit".
+  // Every time the screen is shown: also after coming back from "Edit" or an order.
   useFocusEffect(
     useCallback(() => {
       if (authStatus !== 'loading') load();
-    }, [load, authStatus]),
+      if (signedIn) {
+        fetchMyOrderForListing(Number(id))
+          .then(setMyOrder)
+          .catch(() => setMyOrder(null));
+      } else {
+        setMyOrder(null);
+      }
+    }, [load, authStatus, signedIn, id]),
   );
+
+  const activeOrder = myOrder && myOrder.status !== 'cancelled' && myOrder.status !== 'returned' ? myOrder : null;
 
   const askToLogIn = (action: PendingAction) => {
     pending.current = action;
@@ -397,6 +410,9 @@ export default function ListingDetailsScreen() {
             ) : null}
           </View>
 
+          {/* "Livraison 58 wilayas": price to the buyer's wilaya (every item is delivered) */}
+          {listing.status === 'active' && <DeliveryEstimate listingId={listing.id} initialWilaya={user?.wilaya ?? null} />}
+
           {/* Seller card: arch avatar, name, "Téléphone vérifié", member since · sales */}
           <Pressable
             onPress={() => router.push(`/seller/${listing.seller.id}` as Href)}
@@ -492,7 +508,44 @@ export default function ListingDetailsScreen() {
           ) : (
             <>
               <HeartButton favorited={listing.is_favorited} onPress={onHeart} />
-              {!isSold && (
+              {activeOrder ? (
+                // I already ordered it: follow the order.
+                <View style={styles.flex}>
+                  <Button
+                    title={t('delivery.followOrder')}
+                    icon="cube-outline"
+                    onPress={() => router.push(`/order/${activeOrder.id}` as Href)}
+                  />
+                </View>
+              ) : listing.status === 'active' ? (
+                // For sale: chat with the seller (to ask, or make an offer) and "Acheter".
+                <>
+                  <ChatButton
+                    label={t('listing.contactSeller', { name: firstName(listing.seller.display_name) })}
+                    onPress={onMessage}
+                    busy={openingChat}
+                  />
+                  <Pressable
+                    onPress={() => router.push(`/checkout/${listing.id}` as Href)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('delivery.buyA11y', { title: listing.title })}
+                    style={({ pressed }) => [
+                      styles.contact,
+                      { backgroundColor: pressed ? tk.color.primaryPressed : tk.color.primary },
+                    ]}>
+                    <DesignIcon name="bag" size={19} color={tk.color.onPrimary} strokeWidth={1.9} />
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.contactText,
+                        { color: tk.color.onPrimary, fontFamily: language === 'ar' ? FontFiles.arabicBold : FontFiles.bold },
+                      ]}>
+                      {t('delivery.buy')}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : !isSold ? (
+                // Reserved for someone else: you can still write to the seller.
                 <Pressable
                   onPress={onMessage}
                   disabled={openingChat}
@@ -518,7 +571,7 @@ export default function ListingDetailsScreen() {
                     </>
                   )}
                 </Pressable>
-              )}
+              ) : null}
             </>
           )}
         </View>
@@ -644,6 +697,29 @@ function VerifiedLine() {
 }
 
 /** The ♡ button: 54 x 54, corners 16; filled terracotta when the listing is in my favourites. */
+/** A square chat button next to the heart (the label is read by screen readers). */
+function ChatButton({ label, onPress, busy }: { label: string; onPress: () => void; busy: boolean }) {
+  const tk = useTokens();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ busy }}
+      style={({ pressed }) => [
+        styles.heart,
+        { backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface, borderColor: tk.color.borderStrong },
+      ]}>
+      {busy ? (
+        <ActivityIndicator color={tk.color.primary} />
+      ) : (
+        <DesignIcon name="message" size={22} strokeWidth={1.9} color={tk.color.text} />
+      )}
+    </Pressable>
+  );
+}
+
 function HeartButton({ favorited, onPress }: { favorited: boolean; onPress: () => void }) {
   const { t } = useTranslation();
   const tk = useTokens();

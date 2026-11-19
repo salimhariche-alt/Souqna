@@ -13,9 +13,11 @@ import {
   type Condition,
   type ListingDetail,
   type ListingInput,
+  type ParcelSize,
 } from '@/api/listings';
 import { useAuth } from '@/auth/auth-provider';
 import { mainCategoriesInOrder } from '@/components/category-chips';
+import { ParcelSizePicker } from '@/components/parcel-size-picker';
 import { OptionsMenu } from '@/components/options-menu';
 import { MAX_PHOTOS, PhotoStrip, type FormPhoto } from '@/components/photo-strip';
 import { WilayaPicker } from '@/components/wilaya-picker';
@@ -34,7 +36,9 @@ const BRAND_SUGGESTIONS = ['Zara', 'H&M', 'Mango', 'Bershka', 'LC Waikiki', 'DeF
 
 type Sheet = 'category' | 'size' | 'brand' | 'condition';
 
-type Field = 'photos' | 'title' | 'description' | 'category' | 'size' | 'brand' | 'condition' | 'price' | 'wilaya';
+type Field =
+  | 'photos' | 'title' | 'description' | 'category' | 'size' | 'brand' | 'condition' | 'price' | 'wilaya'
+  | 'parcelSize';
 type Errors = Partial<Record<Field, string>>;
 
 /** Backend field name -> form field, to show the server's messages in the right place. */
@@ -47,6 +51,7 @@ const FIELD_MAP: Record<string, Field> = {
   condition: 'condition',
   price_dzd: 'price',
   wilaya: 'wilaya',
+  parcel_size: 'parcelSize',
   image: 'photos',
 };
 
@@ -67,6 +72,7 @@ function inputFrom(listing: ListingDetail): ListingInput {
     condition: listing.condition as Condition,
     price_dzd: listing.price_dzd,
     wilaya: listing.wilaya,
+    parcel_size: listing.parcel_size,
   };
 }
 
@@ -96,6 +102,8 @@ export function ListingForm({ initial, onDone }: Props) {
   );
   const [price, setPrice] = useState(initial ? String(initial.price_dzd) : '');
   const [wilaya, setWilaya] = useState<number | null>(initial?.wilaya ?? user?.wilaya ?? null);
+  // A new listing: the seller must choose (so they think about it).
+  const [parcelSize, setParcelSize] = useState<ParcelSize | ''>(initial?.parcel_size ?? '');
 
   // Photos already online that the user removed (deleted on the server when saving).
   const [removedIds, setRemovedIds] = useState<number[]>([]);
@@ -166,6 +174,7 @@ export function ListingForm({ initial, onDone }: Props) {
     if (condition === null) found.condition = t('sell.errors.conditionRequired');
     if (!price) found.price = t('sell.errors.priceRequired');
     if (wilaya === null) found.wilaya = t('errors.wilayaRequired');
+    if (!parcelSize) found.parcelSize = t('sell.errors.parcelSizeRequired');
     return found;
   };
 
@@ -191,6 +200,7 @@ export function ListingForm({ initial, onDone }: Props) {
       condition: condition!,
       price_dzd: Number(price),
       wilaya: wilaya!,
+      parcel_size: parcelSize as ParcelSize,
     };
     const details = JSON.stringify(input);
     const toRemove = [...removedIds];
@@ -351,6 +361,17 @@ export function ListingForm({ initial, onDone }: Props) {
             editable={!busy}
           />
         </View>
+
+        {/* Delivery: every item is delivered; the seller gives the parcel size */}
+        <ParcelSizePicker
+          value={parcelSize}
+          disabled={busy}
+          error={errors.parcelSize}
+          onChange={(size) => {
+            setParcelSize(size);
+            clearError('parcelSize');
+          }}
+        />
 
         {/* Location */}
         <View style={{ gap: tk.space.sm }}>

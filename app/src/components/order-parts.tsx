@@ -101,7 +101,8 @@ export function AmountRows({
   const row = (label: string, value: number) => (
     <View style={styles.amountRow} key={label}>
       <AppText tone="secondary">{label}</AppText>
-      <AppText>{formatPrice(value, language)}</AppText>
+      {/* Same wilaya: no delivery to pay ("Gratuite"). */}
+      <AppText>{value === 0 ? t('delivery.estimate.free') : formatPrice(value, language)}</AppText>
     </View>
   );
   return (

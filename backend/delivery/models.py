@@ -63,8 +63,11 @@ class Order(models.Model):
     origin_wilaya = models.PositiveSmallIntegerField(choices=Wilaya.choices)
     wilaya = models.PositiveSmallIntegerField(choices=Wilaya.choices, db_index=True)
     commune = models.ForeignKey(Commune, on_delete=models.PROTECT, related_name='orders')
-    address = models.CharField(max_length=300, blank=True)  # home delivery only
-    stop_desk_name = models.CharField(max_length=200, blank=True)  # stop-desk only
+    address = models.CharField(max_length=300, blank=True)  # home delivery only (not used now)
+    # The relay point (courier's office) chosen by the buyer, copied at order time.
+    relay_point_id = models.CharField(max_length=60, blank=True)
+    stop_desk_name = models.CharField('relay point', max_length=200, blank=True)
+    relay_point_address = models.CharField(max_length=300, blank=True)
     recipient_name = models.CharField(max_length=80)
     recipient_phone = models.CharField(max_length=10, validators=[algerian_mobile])
 
@@ -72,6 +75,9 @@ class Order(models.Model):
     item_price_dzd = models.PositiveIntegerField()
     delivery_price_dzd = models.PositiveIntegerField()
     buyer_fee_dzd = models.PositiveIntegerField()
+    # Same-wilaya sales: the part of Sougna's fee owed to the relay office that keeps
+    # the parcel (the buyer pays no delivery). 0 otherwise.
+    relay_handling_dzd = models.PositiveIntegerField(default=0)
 
     tracking_number = models.CharField(max_length=60, blank=True, db_index=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.CREATED,

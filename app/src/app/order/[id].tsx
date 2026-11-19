@@ -138,11 +138,14 @@ function OrderContent({ id }: { id: string }) {
       {/* Where it goes */}
       <View style={card}>
         <AppText variant="subtitle" style={styles.cardTitle}>
-          {t('delivery.deliveryTo')}
+          {t('delivery.pickupAt')}
         </AppText>
-        <InfoLine icon={order.mode === 'home' ? 'home' : 'box'} text={order.mode === 'home' ? t('delivery.modeHome') : t('delivery.modeStopDesk')} />
-        <InfoLine icon="pin" text={order.mode === 'home' ? `${order.address} · ${place}` : `${order.stop_desk_name} · ${place}`} />
-        <InfoLine icon="person" text={`${order.recipient_name} · ${order.recipient_phone}`} />
+        <InfoLine icon="box" text={order.stop_desk_name} />
+        <InfoLine icon="pin" text={[order.relay_point_address, place].filter(Boolean).join(' · ')} />
+        {/* Only the buyer sees the name and phone given to the courier. */}
+        {order.i_am === 'buyer' ? (
+          <InfoLine icon="person" text={`${order.recipient_name} · ${order.recipient_phone}`} />
+        ) : null}
       </View>
 
       {/* Amounts (cash on delivery) */}

@@ -97,7 +97,7 @@ class ListingDetailSerializer(serializers.ModelSerializer):
         model = Listing
         fields = ['id', 'title', 'description', 'price_dzd', 'category', 'category_name',
                   'size', 'brand', 'condition', 'condition_label', 'wilaya', 'wilaya_name',
-                  'status', 'seller', 'photos', 'is_favorited', 'review_status', 'created_at']
+                  'parcel_size', 'status', 'seller', 'photos', 'is_favorited', 'review_status', 'created_at']
         # review_status: only the seller can see a listing that isn't approved, so the
         # app can show "Under review". The reasons (flag_reasons) stay admin-only.
         read_only_fields = ['created_at', 'review_status']

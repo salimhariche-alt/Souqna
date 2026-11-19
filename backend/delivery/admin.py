@@ -31,10 +31,11 @@ class OrderAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
     inlines = [OrderEventInline]
     readonly_fields = ('conversation', 'listing', 'buyer', 'seller', 'provider', 'mode',
-                       'origin_wilaya', 'wilaya', 'commune', 'address', 'stop_desk_name',
-                       'recipient_name', 'recipient_phone', 'item_price_dzd', 'delivery_price_dzd',
-                       'buyer_fee_dzd', 'total', 'tracking_number', 'status', 'last_synced_at',
-                       'created_at', 'updated_at')
+                       'origin_wilaya', 'wilaya', 'commune', 'stop_desk_name', 'relay_point_id',
+                       'relay_point_address', 'address', 'recipient_name', 'recipient_phone',
+                       'item_price_dzd', 'delivery_price_dzd', 'buyer_fee_dzd',
+                       'relay_handling_dzd', 'total', 'tracking_number', 'status',
+                       'last_synced_at', 'created_at', 'updated_at')
     actions = ['refresh_from_company', 'cancel_orders']
 
     def has_add_permission(self, request):

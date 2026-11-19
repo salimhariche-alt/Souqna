@@ -178,6 +178,12 @@ DELIVERY_KEYS = {
 # cash on delivery; the money flow must be checked with a lawyer - see CLAUDE.md).
 SOUGNA_BUYER_FEE_PERCENT = float(os.environ.get('SOUGNA_BUYER_FEE_PERCENT', '5'))
 SOUGNA_BUYER_FEE_MIN_DZD = int(os.environ.get('SOUGNA_BUYER_FEE_MIN_DZD', '50'))
+# Same wilaya: the seller drops the parcel at the buyer's relay office; delivery is free
+# for the buyer, Sougna's fee gets EXTRA more, and HANDLING of it goes to the office.
+# EXTRA = 0 means Sougna pays the office out of its normal fee.
+SOUGNA_SAME_WILAYA_DROP_OFF = os.environ.get('SOUGNA_SAME_WILAYA_DROP_OFF', 'True') == 'True'
+SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD = int(os.environ.get('SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD', '150'))
+SOUGNA_RELAY_HANDLING_DZD = int(os.environ.get('SOUGNA_RELAY_HANDLING_DZD', '150'))
 
 # Alerts for URGENT content (threats, terrorism). Default: printed in the Django
 # terminal. Later: DJANGO_MODERATION_ALERT_BACKEND=moderation.alerts.EmailAlertBackend

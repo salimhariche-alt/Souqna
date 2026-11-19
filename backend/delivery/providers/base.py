@@ -20,6 +20,26 @@ class Quote:
 
 
 @dataclass
+class RelayPoint:
+    """A place where buyers collect parcels (and sellers can drop them off).
+
+    `open_days` are weekday numbers (0 = Monday ... 6 = Sunday); `opens`/`closes` are
+    "HH:MM". The app writes the hours in the user's language."""
+
+    id: str  # the company's own id for the point
+    name: str
+    address: str
+    wilaya: int
+    commune_code: int
+    latitude: float
+    longitude: float
+    open_days: list[int]
+    opens: str
+    closes: str
+    phone: str = ''
+
+
+@dataclass
 class Shipment:
     tracking_number: str
 
@@ -40,8 +60,15 @@ class DeliveryProvider:
     code = 'base'  # stored on each order, e.g. "yalidine"
     name = 'Base'
 
-    def quote(self, *, origin_wilaya: int, wilaya: int, commune_code: int, mode: str) -> Quote:
-        """Price and delivery time for one parcel (mode: "home" or "stop_desk")."""
+    def quote(self, *, origin_wilaya: int, wilaya: int, commune_code: int | None, mode: str,
+              parcel_size: str = 'small') -> Quote:
+        """Price and delivery time for one parcel (mode: "home" or "stop_desk";
+        parcel_size: "small", "medium" or "large"). Without a commune: an estimate
+        for the wilaya (shown on the listing page)."""
+        raise NotImplementedError
+
+    def relay_points(self, *, wilaya: int, commune_code: int | None = None) -> list[RelayPoint]:
+        """The company's relay points in a wilaya (only that commune when given)."""
         raise NotImplementedError
 
     def create_shipment(self, order) -> Shipment:

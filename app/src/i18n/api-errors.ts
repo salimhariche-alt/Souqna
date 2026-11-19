@@ -40,10 +40,8 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   [/^During the beta, sign up with a phone number/, 'beta.errors.phoneRequired'],
   [/^Please write your message/, 'feedback.messageRequired'],
   // Delivery (Step 5.1).
-  [/^Choose a commune/, 'delivery.errors.communeRequired'],
-  [/^This commune isn't in the chosen wilaya/, 'delivery.errors.communeWilaya'],
-  [/^Enter the delivery address/, 'delivery.errors.addressRequired'],
-  [/^Enter the buyer's name/, 'delivery.errors.nameRequired'],
+  [/^Choose a relay point/, 'delivery.errors.relayRequired'],
+  [/^Enter your name/, 'delivery.errors.nameRequired'],
 ];
 
 export function translateApiMessage(message: string, t: TFunction): string {
@@ -88,8 +86,10 @@ export function codedMessage(data: unknown, t: TFunction): string | null {
     // Delivery (Step 5.1)
     case 'order_exists':
       return t('delivery.errors.orderExists');
-    case 'already_sold':
-      return t('delivery.errors.alreadySold');
+    case 'not_available':
+      return t('delivery.errors.notAvailable');
+    case 'own_listing':
+      return t('delivery.errors.ownListing');
     case 'provider_error':
       return t('delivery.errors.providerError');
     case 'too_late':

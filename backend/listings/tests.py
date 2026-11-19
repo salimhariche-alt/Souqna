@@ -342,6 +342,40 @@ class ListingWriteTests(ApiTestCase):
 
 # 4. Photo upload -----------------------------------------------------------------
 
+class ParcelSizeTests(ApiTestCase):
+    """Step 5.1: every item is delivered; the seller gives the parcel size."""
+
+    def data(self, **kwargs):
+        data = {'title': 'Veste en cuir', 'description': '', 'price_dzd': 9500,
+                'category': self.men.id, 'size': 'XL', 'brand': '',
+                'condition': 'very_good', 'wilaya': 31}
+        data.update(kwargs)
+        return data
+
+    def test_small_unless_chosen(self):
+        self.client.force_authenticate(self.other)
+        response = self.client.post('/api/listings/', self.data(), format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['parcel_size'], 'small')
+        response = self.client.post('/api/listings/', self.data(parcel_size='large'), format='json')
+        self.assertEqual(Listing.objects.get(pk=response.data['id']).parcel_size, 'large')
+
+    def test_unknown_size_is_refused(self):
+        self.client.force_authenticate(self.other)
+        response = self.client.post('/api/listings/', self.data(parcel_size='huge'), format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('parcel_size', response.data)
+
+    def test_seller_can_change_it(self):
+        listing = self.make_listing()
+        self.client.force_authenticate(self.seller)
+        response = self.client.patch(f'/api/listings/{listing.pk}/', {'parcel_size': 'medium'},
+                                     format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        listing.refresh_from_db()
+        self.assertEqual(listing.parcel_size, 'medium')
+
+
 class PhotoUploadTests(ApiTestCase):
     def upload(self, listing, image=None):
         return self.client.post(f'/api/listings/{listing.id}/photos/',
