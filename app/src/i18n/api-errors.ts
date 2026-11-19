@@ -8,6 +8,7 @@ import i18n, { type TFunction } from 'i18next';
 import { ApiError } from '@/api/client';
 import type { Language } from '@/i18n';
 import { dateAndTime } from '@/utils/chat-time';
+import { formatPrice } from '@/utils/format';
 
 const KNOWN_MESSAGES: [RegExp, string][] = [
   [/^Enter a valid Algerian mobile number/, 'errors.phoneInvalid'],
@@ -42,6 +43,8 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   // Delivery (Step 5.1).
   [/^Choose a relay point/, 'delivery.errors.relayRequired'],
   [/^Enter your name/, 'delivery.errors.nameRequired'],
+  [/^Choose a drop-off office/, 'delivery.errors.dropOffRequired'],
+  [/^Enter an amount in DA/, 'offers.errors.amountRequired'],
 ];
 
 export function translateApiMessage(message: string, t: TFunction): string {
@@ -94,6 +97,21 @@ export function codedMessage(data: unknown, t: TFunction): string | null {
       return t('delivery.errors.providerError');
     case 'too_late':
       return t('delivery.errors.tooLate');
+    case 'not_waiting':
+      return t('delivery.errors.notWaiting');
+    // "Faire une offre"
+    case 'offer_too_high':
+      return t('offers.errors.tooHigh');
+    case 'offer_too_low': {
+      const min = (data as { min_dzd?: number }).min_dzd;
+      return t('offers.errors.tooLow', { min: min ? formatPrice(min, i18n.language as Language) : '' });
+    }
+    case 'offer_limit':
+      return t('offers.errors.limit');
+    case 'offer_not_pending':
+      return t('offers.errors.notPending');
+    case 'offer_unusable':
+      return t('offers.errors.unusable');
     case 'message_blocked':
       return t('moderation.notSent');
     case 'messaging_blocked':

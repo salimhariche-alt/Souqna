@@ -5,6 +5,7 @@ from .views import (
     CommuneListView,
     EstimateView,
     NotificationViewSet,
+    OfferViewSet,
     OrderViewSet,
     RelayPointListView,
 )
@@ -12,6 +13,7 @@ from .views import (
 router = DefaultRouter()
 router.register('orders', OrderViewSet, basename='order')
 router.register('notifications', NotificationViewSet, basename='notification')
+router.register('offers', OfferViewSet, basename='offer')
 
 urlpatterns = [
     path('communes/', CommuneListView.as_view(), name='communes'),

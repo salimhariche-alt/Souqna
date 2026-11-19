@@ -47,7 +47,8 @@ function RootStack() {
       <Stack.Screen name="feedback" options={{ title: t('feedback.title') }} />
       {/* Delivery between wilayas (Step 5.1) */}
       <Stack.Screen name="checkout/[id]" options={{ title: t('delivery.checkoutTitle') }} />
-      <Stack.Screen name="order/[id]" options={{ title: t('delivery.ordersTitle') }} />
+      <Stack.Screen name="order/[id]/index" options={{ title: t('delivery.ordersTitle') }} />
+      <Stack.Screen name="order/[id]/confirm" options={{ title: t('delivery.confirmTitle') }} />
       <Stack.Screen name="orders" options={{ title: t('delivery.ordersTitle') }} />
       <Stack.Screen name="notifications" options={{ title: t('delivery.notificationsTitle') }} />
       <Stack.Screen name="delete-account" options={{ title: t('deleteAccount.title') }} />

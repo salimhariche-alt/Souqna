@@ -1,17 +1,20 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { ORDER_STEPS, type Order, type OrderStatus } from '@/api/delivery';
+import { type Order, type OrderStatus } from '@/api/delivery';
 import { useLanguage } from '@/i18n/language-provider';
 import { FontFiles, useTokens } from '@/theme';
 import { AppText, Badge, type BadgeTone, DesignIcon } from '@/ui';
 import { dateAndTime } from '@/utils/chat-time';
 import { formatPrice } from '@/utils/format';
 
-/** The colour of a status: olive when delivered, red when returned/cancelled, terracotta otherwise. */
+/** Endings that leave the normal path (shown in the danger colour). */
+const ENDINGS: OrderStatus[] = ['refused', 'returned', 'cancelled'];
+
+/** The colour of a status: olive when delivered, red when refused/returned/cancelled, terracotta otherwise. */
 export function statusTone(status: OrderStatus): BadgeTone {
   if (status === 'delivered') return 'success';
-  if (status === 'returned' || status === 'cancelled') return 'danger';
+  if (ENDINGS.includes(status)) return 'danger';
   if (status === 'created') return 'neutral';
   return 'brand';
 }
@@ -22,19 +25,20 @@ export function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 /**
- * The order's timeline: the 5 normal steps (created -> delivered) as dots on a line,
- * done ones in terracotta (olive when delivered) with their date, the next ones grey.
- * A returned / cancelled order ends with that step in the danger colour.
+ * The order's timeline: its normal steps (`order.steps`, created -> delivered; no
+ * "in transit" in the same wilaya) as dots on a line, done ones in terracotta (olive
+ * when delivered) with their date, the next ones grey. A refused / returned /
+ * cancelled order ends with those steps in the danger colour.
  */
 export function OrderTimeline({ order }: { order: Order }) {
   const { t } = useTranslation();
   const tk = useTokens();
   const { language } = useLanguage();
   const at = new Map(order.events.map((e) => [e.status, e]));
-  const ended = order.status === 'returned' || order.status === 'cancelled';
-  // Steps to show: the normal path up to where it stopped, then the ending.
-  const reached = ORDER_STEPS.filter((s) => at.has(s));
-  const steps: OrderStatus[] = ended ? [...reached, order.status] : [...ORDER_STEPS];
+  // Steps to show: the normal path up to where it stopped, then the ending(s).
+  const endings = ENDINGS.filter((s) => at.has(s) || s === order.status);
+  const reached = order.steps.filter((s) => at.has(s));
+  const steps: OrderStatus[] = endings.length ? [...reached, ...endings] : order.steps;
 
   return (
     <View accessibilityRole="list">
@@ -46,7 +50,7 @@ export function OrderTimeline({ order }: { order: Order }) {
           ? tk.color.borderStrong
           : step === 'delivered'
             ? tk.color.success
-            : step === 'returned' || step === 'cancelled'
+            : ENDINGS.includes(step)
               ? tk.color.danger
               : tk.color.primary;
         const last = i === steps.length - 1;

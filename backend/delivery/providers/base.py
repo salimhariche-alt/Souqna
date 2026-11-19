@@ -46,8 +46,8 @@ class Shipment:
 
 @dataclass
 class TrackingUpdate:
-    """One step reported by the company: one of Order.Status (picked_up, in_transit,
-    out_for_delivery, delivered, returned)."""
+    """One step reported by the company: one of Order.Status (dropped_off, in_transit,
+    at_relay, delivered, refused, returned)."""
 
     status: str
     at: datetime
@@ -72,7 +72,8 @@ class DeliveryProvider:
         raise NotImplementedError
 
     def create_shipment(self, order) -> Shipment:
-        """Ask the company to pick up the parcel. Returns its tracking number."""
+        """Register the parcel (the seller drops it at `order.drop_off_point_id`, the buyer
+        collects it at `order.relay_point_id`). Returns its shipment code."""
         raise NotImplementedError
 
     def tracking(self, order) -> list[TrackingUpdate]:
@@ -80,5 +81,5 @@ class DeliveryProvider:
         raise NotImplementedError
 
     def cancel(self, order) -> None:
-        """Cancel before pick-up. Raise ProviderError if it is too late."""
+        """Cancel before drop-off. Raise ProviderError if it is too late."""
         raise NotImplementedError

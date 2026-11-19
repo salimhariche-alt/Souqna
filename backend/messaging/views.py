@@ -113,6 +113,8 @@ def with_activity(conversations, me):
         last_duration_ms=Subquery(latest.values('duration_ms')[:1]),
         last_hidden_reason=Subquery(latest.values('hidden_reason')[:1]),
         last_sender_id=Subquery(latest.values('sender_id')[:1]),
+        last_offer_amount=Subquery(latest.values('offer__amount_dzd')[:1]),
+        last_offer_event=Subquery(latest.values('offer_event')[:1]),
         last_sent_at=Subquery(latest.values('sent_at')[:1]),
         last_activity=Coalesce(Subquery(latest.values('sent_at')[:1]), F('created_at')),
         unread_count=Coalesce(Subquery(unread), 0),

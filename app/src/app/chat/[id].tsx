@@ -25,12 +25,15 @@ import {
   type ChatMessage,
   type ConversationDetail,
 } from '@/api/conversations';
+import { acceptOffer, declineOffer, makeOffer, withdrawOffer, type Offer } from '@/api/offers';
 import { blockUser, unblockUser } from '@/api/safety';
 import { useAuth } from '@/auth/auth-provider';
 import { DeliveryBanner } from '@/components/delivery-banner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FeedMessage } from '@/components/feed-message';
 import { MAX_MESSAGE_LENGTH } from '@/components/message-sheet';
+import { OfferCard, type OfferAction } from '@/components/offer-card';
+import { OfferSheet } from '@/components/offer-sheet';
 import { MoreButton, OptionsMenu } from '@/components/options-menu';
 import { ReportSheet } from '@/components/report-sheet';
 import { RequireAuth } from '@/components/require-auth';
@@ -117,6 +120,10 @@ function ChatContent({ id }: { id: string }) {
   const [revealed, setRevealed] = useState<Set<number>>(() => new Set());
   const [hint, setHint] = useState<string>();
   const [voiceTipSeen, setVoiceTipSeen] = useState(true);
+  // "Faire une offre"
+  const [offerOpen, setOfferOpen] = useState(false);
+  const [offerSending, setOfferSending] = useState(false);
+  const [offerError, setOfferError] = useState<string>();
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // One player for the whole chat, so only one voice message plays at a time.
@@ -298,6 +305,61 @@ function ChatContent({ id }: { id: string }) {
     setPending((list) => [...list, item]);
     setSendError(undefined);
     deliver(item);
+  };
+
+  // "Faire une offre" -----------------------------------------------------------------
+  // Each offer as it is now (the newest message about it wins), and the newest offer:
+  // an older one still "pending" was replaced by it.
+  const offers = useMemo(() => {
+    const current = new Map<number, Offer>();
+    let latestId: number | null = null;
+    for (const message of messages) {
+      if (!message.offer) continue;
+      current.set(message.offer.id, message.offer);
+      if (message.offer.event === 'made') latestId = message.offer.id;
+    }
+    return { current, latestId };
+  }, [messages]);
+
+  /** Same checks as sending a message: a verified phone, then the safety tips once. */
+  const openOfferSheet = () => {
+    if (!user) return;
+    if (!user.phone_verified) return askToVerify();
+    if (!user.safety_tips_seen) return router.push('/buy-safely' as Href);
+    setOfferError(undefined);
+    setOfferOpen(true);
+  };
+
+  const sendOffer = async (amount: number) => {
+    setOfferSending(true);
+    setOfferError(undefined);
+    try {
+      await makeOffer(Number(id), amount);
+      setOfferOpen(false);
+      await load();
+    } catch (error) {
+      const data = error instanceof ApiError ? error.data : null;
+      setOfferError(codedMessage(data, t) ?? formErrorsFrom(error, t, { amount_dzd: 'amount' }).fields.amount ?? t('listing.actionFailed'));
+    } finally {
+      setOfferSending(false);
+    }
+  };
+
+  const onOfferAction = async (action: OfferAction, offer: Offer) => {
+    if (action === 'buy') {
+      if (conversation) router.push(`/checkout/${conversation.listing.id}?offer=${offer.id}` as Href);
+      return;
+    }
+    setSendError(undefined);
+    try {
+      if (action === 'accept') await acceptOffer(offer.id);
+      else if (action === 'decline') await declineOffer(offer.id);
+      else await withdrawOffer(offer.id);
+    } catch (error) {
+      const data = error instanceof ApiError ? error.data : null;
+      setSendError(codedMessage(data, t) ?? t('listing.actionFailed'));
+    }
+    await load();
   };
 
   // Blocking ------------------------------------------------------------------------
@@ -524,6 +586,19 @@ function ChatContent({ id }: { id: string }) {
               );
             }
             const { message } = item;
+            if (message.kind === 'offer' && message.offer) {
+              return (
+                <OfferCard
+                  message={{ is_mine: message.is_mine, offer: message.offer }}
+                  current={offers.current.get(message.offer.id) ?? message.offer}
+                  isLatest={offers.latestId === message.offer.id}
+                  iAmBuyer={user?.id === conversation?.buyer.id}
+                  otherName={other?.display_name ?? ''}
+                  time={clock(message.sent_at)}
+                  onAction={onOfferAction}
+                />
+              );
+            }
             const isPlaying = playingId === message.id;
             const covered = message.hidden && !revealed.has(message.id);
             return (
@@ -629,6 +704,21 @@ function ChatContent({ id }: { id: string }) {
                   {sendError ?? hint}
                 </ThemedText>
               ) : null}
+              {/* "Faire une offre": the buyer, while the item is for sale. */}
+              {user?.id === conversation.buyer.id && listing.status === 'active' && !recording ? (
+                <Pressable
+                  onPress={openOfferSheet}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.offerButton,
+                    { borderColor: tk.color.primary, backgroundColor: pressed ? tk.color.primarySoft : 'transparent' },
+                  ]}>
+                  <Ionicons name="pricetag-outline" size={16} color={tk.color.primary} />
+                  <ThemedText type="smallBold" style={{ color: tk.color.primary }}>
+                    {t('offers.make')}
+                  </ThemedText>
+                </Pressable>
+              ) : null}
               <View style={styles.inputRow}>
                 {recording ? (
                   // While recording: a red dot, the timer, and how to cancel.
@@ -715,6 +805,14 @@ function ChatContent({ id }: { id: string }) {
         ]}
       />
       <ReportSheet target={reportTarget} onClose={() => setReportTarget(null)} />
+      <OfferSheet
+        visible={offerOpen}
+        price={listing.price_dzd}
+        sending={offerSending}
+        error={offerError}
+        onSend={sendOffer}
+        onCancel={() => setOfferOpen(false)}
+      />
       <ConfirmDialog
         visible={offensiveDraft !== null}
         title={t('moderation.mayBeOffensiveTitle')}
@@ -926,6 +1024,16 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
     paddingHorizontal: Spacing.three,
     gap: Spacing.one,
+  },
+  offerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   inputRow: {
     flexDirection: 'row',

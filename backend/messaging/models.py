@@ -76,14 +76,23 @@ class Message(models.Model):
     flagged = models.BooleanField(default=False, db_index=True)
     # e.g. [{"code": "contact_phone", "detail": "..."}] (details for admins only).
     flag_reasons = models.JSONField(default=list, blank=True)
+    # "Faire une offre": this message shows an offer (no text, no audio) and what just
+    # happened to it - made, accepted, declined or withdrawn.
+    offer = models.ForeignKey('delivery.Offer', null=True, blank=True, on_delete=models.CASCADE,
+                              related_name='messages')
+    offer_event = models.CharField(max_length=10, blank=True)
 
     class Meta:
         ordering = ['sent_at']
         constraints = [
-            # Exactly one of: text, or a voice recording.
+            # Exactly one of: text, a voice recording, or an offer.
             models.CheckConstraint(
-                condition=(Q(text='') & ~Q(audio='')) | (~Q(text='') & Q(audio='')),
-                name='message_is_text_or_voice',
+                condition=(
+                    (Q(text='') & ~Q(audio='') & Q(offer__isnull=True))
+                    | (~Q(text='') & Q(audio='') & Q(offer__isnull=True))
+                    | (Q(text='') & Q(audio='') & Q(offer__isnull=False))
+                ),
+                name='message_is_text_voice_or_offer',
             ),
         ]
 
@@ -92,7 +101,9 @@ class Message(models.Model):
         return bool(self.audio)
 
     def __str__(self):
-        if self.is_voice:
+        if self.offer_id:
+            preview = f'[offer {self.offer_event}]'
+        elif self.is_voice:
             preview = f'[voice {round((self.duration_ms or 0) / 1000)} s]'
         else:
             preview = self.text if len(self.text) <= 40 else self.text[:40] + '…'

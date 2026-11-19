@@ -1,17 +1,7 @@
-import * as Location from 'expo-location';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
@@ -20,17 +10,15 @@ import {
   fetchCommunes,
   fetchEstimate,
   fetchRelayPoints,
-  sortByDistance,
   type Commune,
   type Estimate,
   type RelayPoint,
 } from '@/api/delivery';
 import { fetchListing, type ListingDetail } from '@/api/listings';
 import { useAuth } from '@/auth/auth-provider';
-import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FeedMessage } from '@/components/feed-message';
 import { AmountRows } from '@/components/order-parts';
-import { RelayMap } from '@/components/relay-map';
+import { RelayPicker } from '@/components/relay-picker';
 import { RequireAuth } from '@/components/require-auth';
 import { WilayaPicker } from '@/components/wilaya-picker';
 import { formErrorsFrom } from '@/i18n/api-errors';
@@ -39,9 +27,6 @@ import { FontFiles, useTokens } from '@/theme';
 import { AppText, ArchFrame, Button, ChoiceSheet, DesignIcon, ListGroup, ListRow, SectionHeader, TextField } from '@/ui';
 import { formatPrice } from '@/utils/format';
 
-type Position = { lat: number; lng: number };
-type LocationState = 'off' | 'asking' | 'on' | 'denied' | 'failed';
-
 /**
  * "Acheter" -> "Commander": the buyer chooses the courier's office (relay point) where
  * they will collect the parcel - nearest first if they allow their approximate location
@@ -49,7 +34,7 @@ type LocationState = 'off' | 'asking' | 'on' | 'denied' | 'failed';
  * small map; then their name and phone (only for the courier) and the amounts.
  * Cash on delivery at the office: nothing is paid in the app.
  */
-function Checkout({ listingId }: { listingId: number }) {
+function Checkout({ listingId, offerId }: { listingId: number; offerId: number | null }) {
   const { t } = useTranslation();
   const tk = useTokens();
   const { language } = useLanguage();
@@ -64,8 +49,6 @@ function Checkout({ listingId }: { listingId: number }) {
   const [points, setPoints] = useState<RelayPoint[] | null>(null);
   const [pointsFailed, setPointsFailed] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [me, setMe] = useState<Position | null>(null);
-  const [locationState, setLocationState] = useState<LocationState>('off');
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [name, setName] = useState(user?.display_name ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
@@ -112,36 +95,13 @@ function Checkout({ listingId }: { listingId: number }) {
     }
     let current = true;
     setEstimate(null);
-    fetchEstimate(listingId, wilaya)
+    fetchEstimate(listingId, wilaya, offerId)
       .then((found) => current && setEstimate(found))
       .catch(() => current && setEstimate(null));
     return () => {
       current = false;
     };
-  }, [listingId, wilaya]);
-
-  // Nearest first when we know where the phone is (computed here, on the phone).
-  const sorted = useMemo(() => {
-    if (!points) return null;
-    if (!me) return points.map((point) => ({ point, km: null as number | null }));
-    return sortByDistance(points, me.lat, me.lng);
-  }, [points, me]);
-
-  const findMe = async () => {
-    setLocationState('off');
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) {
-        setLocationState('denied');
-        return;
-      }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-      setMe({ lat: position.coords.latitude, lng: position.coords.longitude });
-      setLocationState('on');
-    } catch {
-      setLocationState('failed');
-    }
-  };
+  }, [listingId, wilaya, offerId]);
 
   const choose = useCallback((id: string) => {
     setSelected(id);
@@ -176,6 +136,7 @@ function Checkout({ listingId }: { listingId: number }) {
         relay_point: selected,
         recipient_name: name.trim(),
         recipient_phone: phone.trim(),
+        ...(offerId ? { offer: offerId } : {}),
       });
       router.replace(`/order/${order.id}` as Href);
     } catch (error) {
@@ -220,8 +181,15 @@ function Checkout({ listingId }: { listingId: number }) {
                 styles.price,
                 { color: tk.color.primary, fontFamily: language === 'ar' ? FontFiles.arabicBold : FontFiles.serifBold },
               ]}>
-              {formatPrice(listing.price_dzd, language)}
+              {formatPrice(estimate?.item_price_dzd ?? listing.price_dzd, language)}
             </Text>
+            {/* Bought at an accepted offer's price. */}
+            {offerId && estimate && estimate.item_price_dzd !== listing.price_dzd ? (
+              <AppText variant="caption" tone="success">
+                {t('offers.checkoutNote')} ·{' '}
+                <Text style={styles.struck}>{formatPrice(listing.price_dzd, language)}</Text>
+              </AppText>
+            ) : null}
           </View>
         </View>
 
@@ -241,74 +209,14 @@ function Checkout({ listingId }: { listingId: number }) {
             </ListGroup>
           ) : null}
 
-          {/* Nearest offices: explained first, then the phone asks. */}
-          {wilaya && points && points.length > 1 ? (
-            locationState === 'on' ? (
-              <View style={styles.row}>
-                <DesignIcon name="pin" size={16} color={tk.color.success} strokeWidth={1.9} />
-                <AppText variant="small" tone="success">
-                  {t('delivery.locationOn')}
-                </AppText>
-              </View>
-            ) : (
-              <View style={{ gap: 6 }}>
-                <Button
-                  title={t('delivery.useLocation')}
-                  icon="navigate-outline"
-                  variant="outlined"
-                  size="sm"
-                  onPress={() => setLocationState('asking')}
-                />
-                {locationState === 'denied' || locationState === 'failed' ? (
-                  <AppText variant="small" tone="secondary">
-                    {locationState === 'denied' ? t('delivery.locationDenied') : t('delivery.locationFailed')}
-                  </AppText>
-                ) : null}
-              </View>
-            )
-          ) : null}
-
-          {!wilaya ? null : pointsFailed ? (
-            <AppText variant="small" tone="danger">
-              {t('delivery.relayError')}
-            </AppText>
-          ) : !sorted ? (
-            <View style={styles.row}>
-              <ActivityIndicator color={tk.color.primary} />
-              <AppText tone="secondary">{t('delivery.relayLoading')}</AppText>
-            </View>
-          ) : sorted.length === 0 ? (
-            <View style={[styles.note, { backgroundColor: tk.color.warningSoft }]}>
-              <AppText variant="small" tone="warning" style={styles.flex}>
-                {t('delivery.noRelay')}
-              </AppText>
-            </View>
-          ) : (
-            <>
-              <RelayMap
-                points={points ?? []}
-                selected={selected}
-                onSelect={choose}
-                me={me}
-                accessibilityLabel={t('delivery.mapA11y')}
-              />
-              <View accessibilityRole="radiogroup" style={{ gap: 8 }}>
-                {sorted.map(({ point, km }) => (
-                  <RelayPointCard
-                    key={point.id}
-                    point={point}
-                    km={km}
-                    selected={selected === point.id}
-                    onPress={() => choose(point.id)}
-                  />
-                ))}
-              </View>
-            </>
-          )}
-          {errors.relay_point ? (
-            <AppText variant="small" tone="danger" accessibilityLiveRegion="polite">
-              {errors.relay_point}
-            </AppText>
+          {wilaya ? (
+            <RelayPicker
+              points={points}
+              failed={pointsFailed}
+              selected={selected}
+              onSelect={choose}
+              error={errors.relay_point}
+            />
           ) : null}
         </View>
 
@@ -385,92 +293,19 @@ function Checkout({ listingId }: { listingId: number }) {
         }}
         onClose={() => setCommuneSheet(false)}
       />
-      <ConfirmDialog
-        visible={locationState === 'asking'}
-        title={t('delivery.locationAskTitle')}
-        message={t('delivery.locationAskText')}
-        confirmLabel={t('delivery.locationAllow')}
-        cancelLabel={t('delivery.locationNo')}
-        onConfirm={findMe}
-        onCancel={() => setLocationState('off')}
-      />
     </KeyboardAvoidingView>
-  );
-}
-
-/** "Sam–jeu · 08:30–18:00" in the user's language. */
-function useHours() {
-  const { t } = useTranslation();
-  return (point: RelayPoint) => {
-    const days = [...point.open_days].sort((a, b) => a - b);
-    const times = { opens: point.opens, closes: point.closes };
-    if (days.length === 7) return t('delivery.hoursEveryDay', times);
-    if (days.join() === '0,1,2,3,5,6') return t('delivery.hoursDays', { ...times, days: t('delivery.satToThu') });
-    return t('delivery.hoursDays', { ...times, days: days.map((d) => t(`delivery.weekdays.d${d}`)).join(', ') });
-  };
-}
-
-function RelayPointCard({
-  point,
-  km,
-  selected,
-  onPress,
-}: {
-  point: RelayPoint;
-  km: number | null;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const { t } = useTranslation();
-  const tk = useTokens();
-  const { language } = useLanguage();
-  const hours = useHours();
-  const commune = language === 'ar' ? point.commune.name_ar : point.commune.name_fr;
-  const distance = km === null ? '' : t('delivery.km', { km: km < 10 ? km.toFixed(1) : Math.round(km) });
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      accessibilityLabel={[point.name, point.address, commune, hours(point), distance].filter(Boolean).join('. ')}
-      style={({ pressed }) => [
-        styles.point,
-        {
-          backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface,
-          borderColor: selected ? tk.color.primary : tk.color.border,
-          borderWidth: selected ? 2 : 1,
-          padding: selected ? 11 : 12,
-        },
-      ]}>
-      <View style={[styles.radio, { borderColor: selected ? tk.color.primary : tk.color.iconMuted }]}>
-        {selected ? <View style={[styles.radioDot, { backgroundColor: tk.color.primary }]} /> : null}
-      </View>
-      <View style={[styles.flex, { gap: 2 }]}>
-        <AppText variant="bodyStrong">{point.name}</AppText>
-        <AppText variant="small" tone="secondary">
-          {point.address} · {commune}
-        </AppText>
-        <AppText variant="caption" tone="secondary">
-          {hours(point)}
-        </AppText>
-      </View>
-      {distance ? (
-        <AppText variant="smallStrong" style={styles.km}>
-          {distance}
-        </AppText>
-      ) : null}
-    </Pressable>
   );
 }
 
 export default function CheckoutScreen() {
   const { t } = useTranslation();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, offer } = useLocalSearchParams<{ id: string; offer?: string }>();
   const listingId = Number(id);
+  const offerId = offer && /^\d+$/.test(offer) ? Number(offer) : null;
   return (
     <RequireAuth next={`/checkout/${id ?? ''}`} verified>
       {Number.isInteger(listingId) && listingId > 0 ? (
-        <Checkout listingId={listingId} />
+        <Checkout listingId={listingId} offerId={offerId} />
       ) : (
         <FeedMessage kind="message" icon="search-outline" text={t('listing.notFound')} />
       )}
@@ -486,9 +321,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 18, lineHeight: 24 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   price: { fontSize: 17, lineHeight: 22 },
+  struck: { textDecorationLine: 'line-through' },
   note: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 16, alignItems: 'flex-start' },
-  point: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderRadius: 18 },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  radioDot: { width: 10, height: 10, borderRadius: 5 },
-  km: { marginTop: 2 },
 });

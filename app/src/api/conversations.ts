@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 import { ApiError, apiFetch } from './client';
+import type { OfferEvent, OfferInMessage } from './offers';
 
 export type Person = { id: number; display_name: string };
 
@@ -20,8 +21,8 @@ export type ChatMessage = {
   id: number;
   sender: Person;
   is_mine: boolean;
-  kind: 'text' | 'voice';
-  /** Empty for a voice message. */
+  kind: 'text' | 'voice' | 'offer';
+  /** Empty for a voice message or an offer. */
   text: string;
   /** Web address of the recording (voice messages only). */
   audio: string | null;
@@ -32,6 +33,8 @@ export type ChatMessage = {
   warnings: MessageWarning[];
   /** Received message that may be offensive (harassment / sexual): shown only after a tap. */
   hidden: boolean;
+  /** "Faire une offre" messages only. */
+  offer: OfferInMessage | null;
 };
 
 /** One row of "my conversations". */
@@ -44,6 +47,8 @@ export type ConversationSummary = {
     /** May be offensive: not shown in the list. */
     hidden: boolean;
     is_voice: boolean;
+    /** The last message was about an offer. */
+    offer: { amount_dzd: number; event: OfferEvent } | null;
     duration_ms: number | null;
     sent_at: string;
     is_mine: boolean;

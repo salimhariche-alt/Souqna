@@ -1,10 +1,10 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams, useNavigation, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { cancelOrder, fetchOrder, type Order } from '@/api/delivery';
+import { cancelOrder, declineOrder, fetchOrder, type Order } from '@/api/delivery';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FeedMessage } from '@/components/feed-message';
 import { AmountRows, OrderTimeline, StatusBadge } from '@/components/order-parts';
@@ -13,15 +13,18 @@ import { WILAYAS } from '@/constants/wilayas';
 import { formErrorsFrom } from '@/i18n/api-errors';
 import { useLanguage } from '@/i18n/language-provider';
 import { refreshNotificationsUnread } from '@/messages/notifications-unread';
-import { useTokens } from '@/theme';
+import { FontFiles, useTokens } from '@/theme';
 import { AppText, ArchFrame, Button, DesignIcon } from '@/ui';
+import { dateAndTime } from '@/utils/chat-time';
 
 /** While the order page is open, ask for news this often. */
 const REFRESH_MS = 30000;
 
 /**
- * One order (buyer or seller): the item, the status timeline, where it goes, the amounts
- * (cash on delivery), and - for the seller - "Annuler l'envoi" before pick-up.
+ * One order (buyer or seller): the item and its status; for a new order, the seller's
+ * "Confirmer la vente" / "Refuser" (within 24 hours) or the buyer's "waiting for the
+ * seller"; once confirmed, the shipment code and the drop-off office for the seller;
+ * the timeline, the pick-up office, the amounts (cash on delivery) and "Annuler".
  */
 function OrderContent({ id }: { id: string }) {
   const { t } = useTranslation();
@@ -33,6 +36,8 @@ function OrderContent({ id }: { id: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [confirmDecline, setConfirmDecline] = useState(false);
+  const [declining, setDeclining] = useState(false);
   const [error, setError] = useState<string>();
 
   const load = useCallback(async () => {
@@ -85,6 +90,29 @@ function OrderContent({ id }: { id: string }) {
     }
   };
 
+  const decline = async () => {
+    setDeclining(true);
+    setError(undefined);
+    try {
+      setOrder(await declineOrder(order.id));
+    } catch (failure) {
+      setError(formErrorsFrom(failure, t).general);
+      load();
+    } finally {
+      setConfirmDecline(false);
+      setDeclining(false);
+    }
+  };
+
+  // "jusqu'au 19 novembre, 21:03 (encore 23 h)"
+  const deadline = order.confirm_by ? dateAndTime(order.confirm_by, language) : '';
+  const hoursLeft = order.confirm_by
+    ? Math.floor((new Date(order.confirm_by).getTime() - Date.now()) / 3600000)
+    : 0;
+  const left = hoursLeft >= 1 ? t('delivery.hoursLeft', { count: hoursLeft }) : t('delivery.lessThanHour');
+  const showDropOff = order.i_am === 'seller' && order.status === 'confirmed' && !!order.tracking_number;
+  const serif = language === 'ar' ? FontFiles.arabicBold : FontFiles.serifBold;
+
   const card = [styles.card, { backgroundColor: tk.color.surface, borderColor: tk.color.border }];
   return (
     <ScrollView
@@ -117,8 +145,65 @@ function OrderContent({ id }: { id: string }) {
               : t('delivery.youBuy', { name: order.other_person.display_name })}
           </AppText>
           <StatusBadge status={order.status} />
+          {order.status === 'cancelled' && order.cancel_reason ? (
+            <AppText variant="caption" tone="secondary">
+              {t(`delivery.cancelledBecause.${order.cancel_reason}`)}
+            </AppText>
+          ) : null}
         </View>
       </View>
+
+      {/* A new order: the seller has 24 hours to confirm (or decline). */}
+      {order.can_confirm ? (
+        <View style={[styles.card, { backgroundColor: tk.color.primarySoft, borderColor: tk.color.primary }]}>
+          <AppText variant="subtitle" style={styles.cardTitle}>
+            {t('delivery.waitingSellerTitle')}
+          </AppText>
+          <AppText variant="small">{t('delivery.waitingSellerText', { date: deadline, left })}</AppText>
+          <View style={{ gap: 8, marginTop: 4 }}>
+            <Button
+              title={t('delivery.confirmSale')}
+              icon="checkmark-circle-outline"
+              onPress={() => router.push(`/order/${order.id}/confirm` as Href)}
+            />
+            <Button title={t('delivery.decline')} variant="outlined" tone="danger" onPress={() => setConfirmDecline(true)} />
+          </View>
+        </View>
+      ) : order.i_am === 'buyer' && order.status === 'created' ? (
+        <View style={[styles.card, { backgroundColor: tk.color.infoSoft, borderColor: tk.color.infoSoft }]}>
+          <AppText variant="bodyStrong" style={{ color: tk.color.info }}>
+            {t('delivery.waitingBuyerTitle')}
+          </AppText>
+          <AppText variant="small" style={{ color: tk.color.info }}>
+            {t('delivery.waitingBuyerText', { date: deadline })}
+          </AppText>
+        </View>
+      ) : null}
+
+      {/* Confirmed: the code to write on the parcel and where to drop it off. */}
+      {showDropOff ? (
+        <View style={[styles.card, { backgroundColor: tk.color.surface, borderColor: tk.color.primary }]}>
+          <AppText variant="subtitle" style={styles.cardTitle}>
+            {t('delivery.dropTitle')}
+          </AppText>
+          <AppText variant="small" tone="secondary">
+            {t('delivery.dropText')}
+          </AppText>
+          <View
+            style={[styles.code, { backgroundColor: tk.color.surfaceAlt }]}
+            accessible
+            accessibilityLabel={`${t('delivery.codeLabel')}: ${order.tracking_number.split('').join(' ')}`}>
+            <AppText variant="caption" tone="secondary">
+              {t('delivery.codeLabel')}
+            </AppText>
+            <Text selectable style={[styles.codeText, { color: tk.color.text, fontFamily: serif }]}>
+              {order.tracking_number}
+            </Text>
+          </View>
+          <InfoLine icon="box" text={order.drop_off_point_name} />
+          {order.drop_off_point_address ? <InfoLine icon="pin" text={order.drop_off_point_address} /> : null}
+        </View>
+      ) : null}
 
       {/* Timeline */}
       <View style={card}>
@@ -185,6 +270,17 @@ function OrderContent({ id }: { id: string }) {
         loading={cancelling}
         danger
       />
+      <ConfirmDialog
+        visible={confirmDecline}
+        title={t('delivery.declineTitle')}
+        message={t('delivery.declineText')}
+        confirmLabel={t('delivery.decline')}
+        cancelLabel={t('delivery.back')}
+        onConfirm={decline}
+        onCancel={() => setConfirmDecline(false)}
+        loading={declining}
+        danger
+      />
     </ScrollView>
   );
 }
@@ -214,4 +310,6 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, padding: 16, gap: 8 },
   cardTitle: { fontSize: 18, lineHeight: 24 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  code: { borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, alignItems: 'center', gap: 2 },
+  codeText: { fontSize: 24, lineHeight: 32, letterSpacing: 1 },
 });

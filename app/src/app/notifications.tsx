@@ -91,7 +91,7 @@ function NotificationsContent() {
             </ArchFrame>
             <View style={[styles.flex, { gap: 2 }]}>
               <AppText variant={item.read ? 'body' : 'bodyStrong'}>
-                {t(`delivery.notify.${item.status}`, { title: item.listing_title })}
+                {t(`delivery.notify.${notifyKey(item)}`, { title: item.listing_title })}
               </AppText>
               <AppText variant="caption" tone="secondary">
                 {dateAndTime(item.created_at, language)}
@@ -102,6 +102,13 @@ function NotificationsContent() {
       }}
     />
   );
+}
+
+/** Which sentence: the seller's "new order", or why it was cancelled. */
+function notifyKey(item: AppNotification): string {
+  if (item.status === 'created' && item.role === 'seller') return 'created_seller';
+  if (item.status === 'cancelled' && item.cancel_reason) return `cancelled_${item.cancel_reason}`;
+  return item.status;
 }
 
 export default function NotificationsScreen() {

@@ -9,8 +9,10 @@ export type Commune = { code: number; wilaya: number; name_fr: string; name_ar: 
 
 export type DeliveryMode = 'home' | 'stop_desk';
 
-export const ORDER_STEPS = ['created', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as const;
-export type OrderStatus = (typeof ORDER_STEPS)[number] | 'returned' | 'cancelled';
+/** The normal path (the server sends each order's own `steps`: same wilaya = no transit). */
+export const ORDER_STEPS = ['created', 'confirmed', 'dropped_off', 'in_transit', 'at_relay', 'delivered'] as const;
+export type OrderStatus = (typeof ORDER_STEPS)[number] | 'refused' | 'returned' | 'cancelled';
+export type CancelReason = '' | 'buyer' | 'seller' | 'declined' | 'not_confirmed' | 'admin';
 
 export type Quote = {
   provider: string;
@@ -45,12 +47,24 @@ export type Order = {
   delivery_price_dzd: number;
   buyer_fee_dzd: number;
   total_to_pay_dzd: number;
+  /** The seller must confirm before this time (else the order is cancelled). */
+  confirm_by: string | null;
+  confirmed_at: string | null;
+  /** Where the seller drops the parcel (chosen when confirming). */
+  drop_off_point_id: string;
+  drop_off_point_name: string;
+  drop_off_point_address: string;
+  /** The shipment code (written on the parcel), given when the seller confirms. */
   tracking_number: string;
   status: OrderStatus;
+  cancel_reason: CancelReason;
+  steps: OrderStatus[];
+  same_wilaya: boolean;
   events: { status: OrderStatus; note: string; created_at: string }[];
   i_am: 'buyer' | 'seller';
   other_person: { id: number; display_name: string };
   can_cancel: boolean;
+  can_confirm: boolean;
   created_at: string;
 };
 
@@ -61,6 +75,8 @@ export type CheckoutRequest = {
   relay_point: string;
   recipient_name: string;
   recipient_phone: string;
+  /** Buying at my accepted offer's price. */
+  offer?: number;
 };
 
 /** A courier's office where buyers collect parcels. Days: 0 = Monday ... 6 = Sunday. */
@@ -83,6 +99,9 @@ export type AppNotification = {
   kind: 'order_status';
   order: number | null;
   status: OrderStatus;
+  /** My side of the order: the text differs (e.g. "new order, confirm it" for the seller). */
+  role: 'buyer' | 'seller' | '';
+  cancel_reason: CancelReason;
   listing_title: string;
   read: boolean;
   created_at: string;
@@ -104,9 +123,11 @@ export async function fetchCommunes(wilaya: number): Promise<Commune[]> {
 /** Listing page: delivery to a wilaya (pick-up at the courier's office), fee and total. */
 export type Estimate = Omit<Quote, 'stop_desk_name'> & { wilaya: number };
 
-export function fetchEstimate(listing: number, wilaya: number) {
+/** With `offer` (my accepted offer), the item price is the offer's. */
+export function fetchEstimate(listing: number, wilaya: number, offer?: number | null) {
   const params = new URLSearchParams({ listing: String(listing), wilaya: String(wilaya) });
-  return apiFetch<Estimate>(`/api/delivery/estimate/?${params}`);
+  if (offer) params.set('offer', String(offer));
+  return apiFetch<Estimate>(`/api/delivery/estimate/?${params}`, { auth: !!offer });
 }
 
 /**
@@ -156,6 +177,20 @@ export async function fetchOrderForConversation(conversation: number): Promise<O
 export async function fetchMyOrderForListing(listing: number): Promise<Order | null> {
   const data = await apiFetch<Page<Order>>(`/api/orders/?listing=${listing}`, { auth: true });
   return data.results.find((order) => order.i_am === 'buyer') ?? null;
+}
+
+/** The seller confirms the sale and the office where they drop the parcel. */
+export function confirmOrder(id: number, dropOffPoint: string) {
+  return apiFetch<Order>(`/api/orders/${id}/confirm/`, {
+    method: 'POST',
+    body: { drop_off_point: dropOffPoint },
+    auth: true,
+  });
+}
+
+/** The seller says no: the order is cancelled and the item is on sale again. */
+export function declineOrder(id: number) {
+  return apiFetch<Order>(`/api/orders/${id}/decline/`, { method: 'POST', auth: true });
 }
 
 export function cancelOrder(id: number) {

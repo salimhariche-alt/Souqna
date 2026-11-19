@@ -18,7 +18,7 @@ from messaging.models import Conversation
 from souqna_api.wilayas import Wilaya
 
 from . import services
-from .models import Commune, Notification, Order
+from .models import Commune, Notification, Offer, Order
 from .providers import ProviderError, get_provider
 from .providers.fake import FakeProvider
 
@@ -31,7 +31,8 @@ PASSWORD = 'Sougna-2026!'
 @override_settings(DELIVERY_PROVIDER='delivery.providers.fake.FakeProvider',
                    DELIVERY_FAKE_STEP_MINUTES=2, SOUGNA_BUYER_FEE_PERCENT=5,
                    SOUGNA_BUYER_FEE_MIN_DZD=50, SOUGNA_SAME_WILAYA_DROP_OFF=True,
-                   SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD=150, SOUGNA_RELAY_HANDLING_DZD=150)
+                   SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD=150, SOUGNA_RELAY_HANDLING_DZD=150,
+                   SOUGNA_CONFIRM_HOURS=24, SOUGNA_OFFER_MIN_PERCENT=50, SOUGNA_OFFER_HOURS=48)
 class DeliveryTestCase(APITestCase):
     def setUp(self):
         self.seller = User.objects.create_user(phone='0661000101', display_name='Amina',
@@ -62,11 +63,21 @@ class DeliveryTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         return Order.objects.get(pk=response.data['id'])
 
+    def confirm(self, order, point='FAKE-ORN-01', expect=200):
+        """The seller confirms, dropping the parcel at an Oran office."""
+        self.client.force_authenticate(self.seller)
+        response = self.client.post(f'{ORDERS}{order.pk}/confirm/', {'drop_off_point': point},
+                                    format='json')
+        self.assertEqual(response.status_code, expect, response.data)
+        order.refresh_from_db()
+        return order
+
     def age(self, order, minutes):
-        """Pretend the order was created `minutes` ago (the fake company moves with time)."""
+        """Pretend the seller confirmed `minutes` ago (the fake company moves with time)."""
         start = timezone.now() - timedelta(minutes=minutes)
-        Order.objects.filter(pk=order.pk).update(created_at=start, last_synced_at=None)
-        order.events.filter(status=Order.Status.CREATED).update(created_at=start)
+        Order.objects.filter(pk=order.pk).update(confirmed_at=start, last_synced_at=None)
+        order.events.filter(status__in=[Order.Status.CREATED, Order.Status.CONFIRMED]).update(
+            created_at=start - timedelta(seconds=1))
         order.refresh_from_db()
         return order
 
@@ -240,7 +251,10 @@ class CreateOrderTests(DeliveryTestCase):
         self.assertEqual((order.item_price_dzd, order.delivery_price_dzd, order.buyer_fee_dzd),
                          (3500, 400, 180))
         self.assertEqual(order.total_to_pay_dzd, 4080)
-        self.assertTrue(order.tracking_number.startswith('FAKE-'))
+        # No shipment until the seller confirms, within 24 hours.
+        self.assertEqual(order.tracking_number, '')
+        self.assertAlmostEqual((order.confirm_by - order.created_at).total_seconds(), 24 * 3600,
+                               delta=5)
         self.assertEqual(list(order.events.values_list('status', flat=True)), ['created'])
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, Listing.Status.RESERVED)
@@ -316,14 +330,92 @@ class CreateOrderTests(DeliveryTestCase):
         self.assertEqual(self.client.post(ORDERS, self.order_data(listing=99999),
                                           format='json').status_code, 404)
 
-    def test_provider_error_creates_nothing(self):
+    def test_seller_has_to_confirm_first(self):
+        order = self.create_order()
+        self.client.force_authenticate(self.seller)
+        data = self.client.get(f'{ORDERS}{order.pk}/').data
+        self.assertTrue(data['can_confirm'])
+        self.assertEqual(data['steps'], ['created', 'confirmed', 'dropped_off', 'in_transit',
+                                         'at_relay', 'delivered'])
         self.client.force_authenticate(self.buyer)
-        with mock.patch.object(FakeProvider, 'create_shipment', side_effect=ProviderError('down')):
-            response = self.client.post(ORDERS, self.order_data(), format='json')
-        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertFalse(Order.objects.exists())
+        self.assertFalse(self.client.get(f'{ORDERS}{order.pk}/').data['can_confirm'])
+
+
+class ConfirmTests(DeliveryTestCase):
+    """Step E: the seller confirms within 24 hours and gets the shipment code."""
+
+    def test_confirm_gives_the_shipment_code_and_drop_off_office(self):
+        order = self.confirm(self.create_order())
+        self.assertEqual(order.status, Order.Status.CONFIRMED)
+        self.assertTrue(order.tracking_number.startswith('FAKE-'))
+        self.assertEqual(order.drop_off_point_id, 'FAKE-ORN-01')
+        self.assertIn('Oran', order.drop_off_point_name)
+        self.assertTrue(order.drop_off_point_address)
+        self.assertIsNotNone(order.confirmed_at)
+        self.assertTrue(Notification.objects.filter(user=self.buyer, status='confirmed').exists())
+
+    def test_only_the_seller_and_only_once(self):
+        order = self.create_order()
+        self.client.force_authenticate(self.buyer)
+        self.assertEqual(self.client.post(f'{ORDERS}{order.pk}/confirm/').status_code, 403)
+        self.assertEqual(self.client.post(f'{ORDERS}{order.pk}/decline/').status_code, 403)
+        self.confirm(order)
+        response = self.client.post(f'{ORDERS}{order.pk}/confirm/', {'drop_off_point': 'FAKE-ORN-01'})
+        self.assertEqual((response.status_code, response.data['code']), (409, 'not_waiting'))
+
+    def test_drop_off_must_be_in_the_sellers_wilaya(self):
+        order = self.create_order()
+        self.confirm(order, point='FAKE-ALG-01', expect=400)  # an Alger office
+        self.confirm(order, point='', expect=400)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CREATED)
+
+    def test_same_wilaya_uses_the_buyers_office(self):
+        self.listing.wilaya = Wilaya.ALGER
+        self.listing.save()
+        order = self.create_order(relay_point='FAKE-ALG-03')
+        self.confirm(order, point='FAKE-ALG-01', expect=400)  # another office: no
+        order = self.confirm(order, point='')                # nothing chosen: the buyer's
+        self.assertEqual(order.drop_off_point_id, 'FAKE-ALG-03')
+        self.client.force_authenticate(self.buyer)
+        data = self.client.get(f'{ORDERS}{order.pk}/').data
+        self.assertTrue(data['same_wilaya'])
+        self.assertNotIn('in_transit', data['steps'])
+
+    def test_decline_puts_the_item_back_on_sale(self):
+        order = self.create_order()
+        self.client.force_authenticate(self.seller)
+        response = self.client.post(f'{ORDERS}{order.pk}/decline/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual((response.data['status'], response.data['cancel_reason']),
+                         ('cancelled', 'declined'))
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, Listing.Status.ACTIVE)
+        self.assertTrue(Notification.objects.filter(user=self.buyer, status='cancelled').exists())
+
+    def test_not_confirmed_in_24_hours_is_cancelled(self):
+        order = self.create_order()
+        Order.objects.filter(pk=order.pk).update(confirm_by=timezone.now() - timedelta(minutes=1))
+        self.client.force_authenticate(self.buyer)
+        data = self.client.get(ORDERS).data['results'][0]  # reading the list is enough
+        self.assertEqual((data['status'], data['cancel_reason']), ('cancelled', 'not_confirmed'))
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, Listing.Status.ACTIVE)
+        self.confirm(order, expect=409)  # too late for the seller now
+
+    def test_sync_command_cancels_late_orders(self):
+        order = self.create_order()
+        Order.objects.filter(pk=order.pk).update(confirm_by=timezone.now() - timedelta(minutes=1))
+        call_command('sync_deliveries', stdout=mock.MagicMock())
+        order.refresh_from_db()
+        self.assertEqual(order.cancel_reason, Order.CancelReason.NOT_CONFIRMED)
+
+    def test_provider_error_changes_nothing(self):
+        order = self.create_order()
+        with mock.patch.object(FakeProvider, 'create_shipment', side_effect=ProviderError('down')):
+            self.confirm(order, expect=503)
+        order.refresh_from_db()
+        self.assertEqual((order.status, order.tracking_number), (Order.Status.CREATED, ''))
 
 
 # Seeing and following an order ----------------------------------------------------------
@@ -349,51 +441,180 @@ class TimelineTests(DeliveryTestCase):
         self.assertEqual([o['id'] for o in data], [order.pk])
         self.assertEqual(self.client.get(ORDERS, {'listing': 'x'}).data['results'], [])
 
+    def test_nothing_moves_before_the_seller_confirms(self):
+        order = self.create_order()
+        Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(hours=2))
+        self.client.force_authenticate(self.buyer)
+        self.assertEqual(self.client.get(f'{ORDERS}{order.pk}/').data['status'], 'created')
+
     def test_status_moves_forward_and_item_becomes_sold(self):
-        order = self.age(self.create_order(), minutes=5)  # 2 steps of 2 minutes
+        order = self.age(self.confirm(self.create_order()), minutes=5)  # 2 steps of 2 minutes
         self.client.force_authenticate(self.buyer)
         data = self.client.get(f'{ORDERS}{order.pk}/').data
         self.assertEqual(data['status'], 'in_transit')
-        self.assertEqual([e['status'] for e in data['events']], ['created', 'picked_up', 'in_transit'])
+        self.assertEqual([e['status'] for e in data['events']],
+                         ['created', 'confirmed', 'dropped_off', 'in_transit'])
         # Both people are told about each new step.
         self.assertEqual(Notification.objects.filter(user=self.seller, status='in_transit').count(), 1)
 
         order = self.age(order, minutes=60)
         data = self.client.get(f'{ORDERS}{order.pk}/').data
         self.assertEqual(data['status'], 'delivered')
-        self.assertEqual(len(data['events']), 5)
+        # (Pretending time passed shuffles the event times, so check the set.)
+        self.assertTrue({'at_relay', 'delivered'} <= {e['status'] for e in data['events']})
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, Listing.Status.SOLD)
 
-    def test_returned_parcel_puts_the_item_back_on_sale(self):
-        order = self.age(self.create_order(recipient_phone='0771000000'), minutes=60)
+    def test_refused_parcel_goes_back_and_the_item_is_on_sale_again(self):
+        order = self.confirm(self.create_order(recipient_phone='0771000000'))
+        order = self.age(order, minutes=60)
         services.sync_order(order, force=True)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.RETURNED)
+        statuses = list(order.events.values_list('status', flat=True))
+        self.assertEqual(statuses[-2:], ['refused', 'returned'])
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, Listing.Status.ACTIVE)
 
-    def test_cancel_before_pick_up_only(self):
+    def test_cancel_until_drop_off_only(self):
         order = self.create_order()
         self.client.force_authenticate(self.stranger)
         self.assertEqual(self.client.post(f'{ORDERS}{order.pk}/cancel/').status_code, 404)
-        self.client.force_authenticate(self.seller)
+        self.client.force_authenticate(self.buyer)
         response = self.client.post(f'{ORDERS}{order.pk}/cancel/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['status'], 'cancelled')
+        self.assertEqual((response.data['status'], response.data['cancel_reason']),
+                         ('cancelled', 'buyer'))
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, Listing.Status.ACTIVE)
 
-        second = self.age(self.create_order(), minutes=3)  # picked up already
-        response = self.client.post(f'{ORDERS}{second.pk}/cancel/')  # the buyer this time
+        # Confirmed but not dropped off yet: the seller can still cancel.
+        second = self.confirm(self.create_order())
+        self.client.force_authenticate(self.seller)
+        response = self.client.post(f'{ORDERS}{second.pk}/cancel/')
+        self.assertEqual((response.status_code, response.data['cancel_reason']), (200, 'seller'))
+
+        third = self.age(self.confirm(self.create_order()), minutes=3)  # dropped off already
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(f'{ORDERS}{third.pk}/cancel/')
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['code'], 'too_late')
 
     def test_sync_deliveries_command(self):
-        order = self.age(self.create_order(), minutes=3)
+        order = self.age(self.confirm(self.create_order()), minutes=3)
         call_command('sync_deliveries', stdout=mock.MagicMock())
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.Status.PICKED_UP)
+        self.assertEqual(order.status, Order.Status.DROPPED_OFF)
+
+
+OFFERS = '/api/offers/'
+
+
+class OfferTests(DeliveryTestCase):
+    """Step F: "Faire une offre" in the chat (the listing's price is 3,500 DA)."""
+
+    def offer(self, amount, expect=201):
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(OFFERS, {'conversation': self.conversation.pk,
+                                             'amount_dzd': amount}, format='json')
+        self.assertEqual(response.status_code, expect, response.data)
+        return response.data
+
+    def answer(self, offer_id, what, user=None, expect=200):
+        self.client.force_authenticate(user or self.seller)
+        response = self.client.post(f'{OFFERS}{offer_id}/{what}/')
+        self.assertEqual(response.status_code, expect, response.data)
+        return response.data
+
+    def chat(self, user):
+        self.client.force_authenticate(user)
+        return self.client.get(f'/api/conversations/{self.conversation.pk}/').data['messages']
+
+    def test_offer_shows_in_the_chat_for_both(self):
+        offer = self.offer(3000)['offer']
+        self.assertEqual((offer['amount_dzd'], offer['list_price_dzd'], offer['status']),
+                         (3000, 3500, 'pending'))
+        # The seller has 1 unread message (before opening the chat).
+        self.client.force_authenticate(self.seller)
+        self.assertEqual(self.client.get('/api/conversations/unread-count/').data, {'unread': 1})
+        for user, mine in ((self.buyer, True), (self.seller, False)):
+            last = self.chat(user)[-1]
+            self.assertEqual((last['kind'], last['is_mine'], last['text']), ('offer', mine, ''))
+            self.assertEqual((last['offer']['event'], last['offer']['amount_dzd']), ('made', 3000))
+        # The Messages list shows it too.
+        self.client.force_authenticate(self.seller)
+        row = self.client.get('/api/conversations/').data['results'][0]
+        self.assertEqual(row['last_message']['offer'], {'amount_dzd': 3000, 'event': 'made'})
+
+    def test_limits(self):
+        self.assertEqual(self.offer(3500, expect=400)['code'], 'offer_too_high')
+        data = self.offer(1700, expect=400)  # under half of 3,500
+        self.assertEqual((data['code'], data['min_dzd']), ('offer_too_low', 1750))
+        self.offer(1750)
+        # Only the buyer of this chat.
+        self.client.force_authenticate(self.seller)
+        response = self.client.post(OFFERS, {'conversation': self.conversation.pk, 'amount_dzd': 3000})
+        self.assertEqual(response.status_code, 404)
+        # Not on a reserved item.
+        Listing.objects.filter(pk=self.listing.pk).update(status=Listing.Status.RESERVED)
+        self.assertEqual(self.offer(3000, expect=409)['code'], 'not_available')
+
+    def test_a_new_offer_replaces_the_previous_one(self):
+        first = self.offer(2800)['offer']
+        self.offer(3000)
+        self.assertEqual(Offer.objects.get(pk=first['id']).status, Offer.Status.WITHDRAWN)
+        # The old card now says so (each message carries the offer as it is now).
+        cards = [m for m in self.chat(self.seller) if m['kind'] == 'offer']
+        self.assertEqual([c['offer']['status'] for c in cards], ['withdrawn', 'pending'])
+
+    def test_accept_then_buy_at_that_price(self):
+        offer = self.offer(3000)['offer']
+        self.answer(offer['id'], 'accept', user=self.buyer, expect=403)  # not the seller
+        data = self.answer(offer['id'], 'accept')['offer']
+        self.assertEqual(data['status'], 'accepted')
+        self.assertEqual(self.chat(self.buyer)[-1]['offer']['event'], 'accepted')
+        self.answer(offer['id'], 'decline', expect=409)  # already answered
+
+        # The estimate and the order use the offer's price (fee on 3,000: 150 DA).
+        self.client.force_authenticate(self.buyer)
+        estimate = self.client.get(ESTIMATE, {'listing': self.listing.pk, 'wilaya': 16,
+                                              'offer': offer['id']}).data
+        self.assertEqual((estimate['item_price_dzd'], estimate['buyer_fee_dzd']), (3000, 150))
+        order = self.create_order(offer=offer['id'])
+        self.assertEqual((order.item_price_dzd, order.buyer_fee_dzd, order.offer_id),
+                         (3000, 150, offer['id']))
+        self.assertEqual(Offer.objects.get(pk=offer['id']).status, Offer.Status.USED)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.price_dzd, 3500)  # the public price didn't change
+
+    def test_offer_price_is_only_for_that_buyer_and_only_48_hours(self):
+        offer = self.offer(3000)['offer']
+        self.answer(offer['id'], 'accept')
+        # Someone else can't use it.
+        self.client.force_authenticate(self.stranger)
+        response = self.client.post(ORDERS, self.order_data(offer=offer['id']), format='json')
+        self.assertEqual((response.status_code, response.data['code']), (409, 'offer_unusable'))
+        # Too late.
+        Offer.objects.filter(pk=offer['id']).update(valid_until=timezone.now() - timedelta(minutes=1))
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(ORDERS, self.order_data(offer=offer['id']), format='json')
+        self.assertEqual(response.data['code'], 'offer_unusable')
+        self.assertEqual(self.chat(self.buyer)[-1]['offer']['status'], 'expired')
+
+    def test_decline_and_withdraw(self):
+        offer = self.offer(3000)['offer']
+        self.assertEqual(self.answer(offer['id'], 'decline')['offer']['status'], 'declined')
+        second = self.offer(3200)['offer']
+        self.answer(second['id'], 'withdraw', expect=403)  # the seller can't withdraw it
+        data = self.answer(second['id'], 'withdraw', user=self.buyer)
+        self.assertEqual(data['offer']['status'], 'withdrawn')
+        events = [m['offer']['event'] for m in self.chat(self.buyer) if m['kind'] == 'offer']
+        self.assertEqual(events, ['made', 'declined', 'made', 'withdrawn'])
+
+    def test_blocked_people_cannot_make_offers(self):
+        from moderation.models import Block
+        Block.objects.create(blocker=self.seller, blocked=self.buyer)
+        self.assertEqual(self.offer(3000, expect=403)['code'], 'blocked')
 
 
 class NotificationTests(DeliveryTestCase):
@@ -405,7 +626,7 @@ class NotificationTests(DeliveryTestCase):
         self.assertEqual(self.client.get('/api/notifications/unread-count/').data, {'unread': 1})
         self.client.force_authenticate(self.buyer)
         items = self.client.get('/api/notifications/').data['results']
-        self.assertEqual(items[0]['status'], 'created')
+        self.assertEqual((items[0]['status'], items[0]['role']), ('created', 'buyer'))
         self.assertEqual(items[0]['listing_title'], 'Veste en jean')
         self.client.post('/api/notifications/read/')
         self.assertEqual(self.client.get('/api/notifications/unread-count/').data, {'unread': 0})
@@ -415,7 +636,7 @@ class NotificationTests(DeliveryTestCase):
 
 class AdminTests(DeliveryTestCase):
     def test_admin_pages_and_filters(self):
-        order = self.create_order()
+        order = self.confirm(self.create_order())  # confirmed: it has a shipment code
         admin = User.objects.create_superuser(phone='0799999981', password=PASSWORD,
                                               display_name='Admin')
         browser = Client()

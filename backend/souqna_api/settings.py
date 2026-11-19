@@ -184,6 +184,11 @@ SOUGNA_BUYER_FEE_MIN_DZD = int(os.environ.get('SOUGNA_BUYER_FEE_MIN_DZD', '50'))
 SOUGNA_SAME_WILAYA_DROP_OFF = os.environ.get('SOUGNA_SAME_WILAYA_DROP_OFF', 'True') == 'True'
 SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD = int(os.environ.get('SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD', '150'))
 SOUGNA_RELAY_HANDLING_DZD = int(os.environ.get('SOUGNA_RELAY_HANDLING_DZD', '150'))
+# The seller must confirm a new order within this many hours, or it is cancelled.
+SOUGNA_CONFIRM_HOURS = int(os.environ.get('SOUGNA_CONFIRM_HOURS', '24'))
+# "Faire une offre": at least this % of the price; an accepted offer is valid this long.
+SOUGNA_OFFER_MIN_PERCENT = int(os.environ.get('SOUGNA_OFFER_MIN_PERCENT', '50'))
+SOUGNA_OFFER_HOURS = int(os.environ.get('SOUGNA_OFFER_HOURS', '48'))
 
 # Alerts for URGENT content (threats, terrorism). Default: printed in the Django
 # terminal. Later: DJANGO_MODERATION_ALERT_BACKEND=moderation.alerts.EmailAlertBackend

@@ -30,6 +30,8 @@ class CheckoutSerializer(serializers.Serializer):
     recipient_name = serializers.CharField(max_length=80, error_messages={
         'required': ERRORS['name_required'], 'blank': ERRORS['name_required']})
     recipient_phone = serializers.CharField(max_length=20)
+    # Buying at an accepted offer's price (optional).
+    offer = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_recipient_phone(self, value):
         phone = normalize_phone(value)
@@ -65,6 +67,9 @@ class OrderSerializer(serializers.ModelSerializer):
     i_am = serializers.SerializerMethodField()
     other_person = serializers.SerializerMethodField()
     can_cancel = serializers.SerializerMethodField()
+    can_confirm = serializers.SerializerMethodField()
+    steps = serializers.ListField(read_only=True)  # calls Order.steps()
+    same_wilaya = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Order
@@ -72,8 +77,10 @@ class OrderSerializer(serializers.ModelSerializer):
                   'commune', 'relay_point_id', 'stop_desk_name', 'relay_point_address',
                   'recipient_name', 'recipient_phone',
                   'item_price_dzd', 'delivery_price_dzd', 'buyer_fee_dzd', 'total_to_pay_dzd',
-                  'tracking_number', 'status', 'events', 'i_am', 'other_person', 'can_cancel',
-                  'created_at', 'updated_at']
+                  'confirm_by', 'confirmed_at', 'drop_off_point_id', 'drop_off_point_name',
+                  'drop_off_point_address', 'tracking_number', 'status', 'cancel_reason',
+                  'steps', 'same_wilaya', 'events', 'i_am', 'other_person', 'can_cancel',
+                  'can_confirm', 'created_at', 'updated_at']
 
     def get_listing(self, order):
         from listings.serializers import cover_photo_url
@@ -93,8 +100,11 @@ class OrderSerializer(serializers.ModelSerializer):
         return {'id': other.pk, 'display_name': other.display_name}
 
     def get_can_cancel(self, order):
-        # Buyer or seller, until the courier has the parcel.
-        return order.status == Order.Status.CREATED
+        # Buyer or seller, until the parcel is at the courier's office.
+        return order.status in Order.CANCELLABLE
+
+    def get_can_confirm(self, order):
+        return self.get_i_am(order) == 'seller' and order.status == Order.Status.CREATED
 
     def to_representation(self, order):
         data = super().to_representation(order)
@@ -105,12 +115,40 @@ class OrderSerializer(serializers.ModelSerializer):
         return data
 
 
+class OfferRequestSerializer(serializers.Serializer):
+    """ "Faire une offre": the chat and the amount in dinars."""
+
+    conversation = serializers.IntegerField()
+    amount_dzd = serializers.IntegerField(min_value=1, max_value=999_999_999, error_messages={
+        'invalid': 'Enter an amount in DA.', 'required': 'Enter an amount in DA.'})
+
+
+class ConfirmSerializer(serializers.Serializer):
+    """The seller confirms: the office where they will drop the parcel (in the same
+    wilaya it is always the buyer's office, so it may be left out)."""
+
+    drop_off_point = serializers.CharField(max_length=60, required=False, allow_blank=True)
+
+
 class NotificationSerializer(serializers.ModelSerializer):
+    """The app writes the text from: status, my role, the reason and the item."""
+
     listing_title = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    cancel_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = Notification
-        fields = ['id', 'kind', 'order', 'status', 'listing_title', 'read', 'created_at']
+        fields = ['id', 'kind', 'order', 'status', 'role', 'cancel_reason', 'listing_title',
+                  'read', 'created_at']
+
+    def get_role(self, notification):
+        if not notification.order_id:
+            return ''
+        return 'seller' if notification.order.seller_id == notification.user_id else 'buyer'
+
+    def get_cancel_reason(self, notification):
+        return notification.order.cancel_reason if notification.order_id else ''
 
     def get_listing_title(self, notification):
         return notification.order.listing.title if notification.order_id else ''

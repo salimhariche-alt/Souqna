@@ -3,10 +3,11 @@
 - Prices: same wilaya 400 DA; between northern wilayas 600 DA; to or from the south
   900 DA; south to south 1,100 DA. Stop-desk is 200 DA cheaper (at least 250 DA).
   Medium parcels cost 200 DA more, large ones 500 DA more.
-- The parcel moves one step every DELIVERY_FAKE_STEP_MINUTES minutes (default 2):
-  picked up -> in transit -> out for delivery -> delivered.
-- A recipient phone ending in "0000" is "not reachable": the parcel is returned
-  instead of delivered (to try returns).
+- Once the seller has confirmed, the parcel moves one step every
+  DELIVERY_FAKE_STEP_MINUTES minutes (default 2): dropped off -> in transit (not in
+  the same wilaya) -> at the pick-up point -> collected.
+- A buyer phone ending in "0000" never collects it: refused -> returned to the seller
+  (to try refusals).
 - Relay points: test points in a few big wilayas (fake_relay_points.py).
 """
 
@@ -56,19 +57,25 @@ class FakeProvider(DeliveryProvider):
         return timedelta(minutes=getattr(settings, 'DELIVERY_FAKE_STEP_MINUTES', 2))
 
     def tracking(self, order):
-        start = order.created_at
-        returned = order.recipient_phone.endswith('0000')
-        path = ['picked_up', 'in_transit', 'out_for_delivery', 'returned' if returned else 'delivered']
+        start = order.confirmed_at
+        if start is None:
+            return []  # nothing happens before the seller confirms
+        path = ['dropped_off']
+        if order.origin_wilaya != order.wilaya:
+            path.append('in_transit')
+        path.append('at_relay')
+        refused = order.recipient_phone.endswith('0000')
+        path += ['refused', 'returned'] if refused else ['delivered']
         now = timezone.now()
         updates = []
         for n, status in enumerate(path, start=1):
             at = start + self._step() * n
             if at > now:
                 break
-            note = 'Recipient not reachable' if status == 'returned' else ''
+            note = 'Not collected by the buyer' if status == 'refused' else ''
             updates.append(TrackingUpdate(status=status, at=at, note=note))
         return updates
 
     def cancel(self, order):
         if self.tracking(order):
-            raise ProviderError('Already picked up: it can no longer be cancelled.')
+            raise ProviderError('Already dropped off: it can no longer be cancelled.')
