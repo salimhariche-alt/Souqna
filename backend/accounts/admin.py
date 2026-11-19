@@ -63,7 +63,7 @@ class UserAdmin(BaseUserAdmin):
     add_form = SougnaUserCreationForm
 
     list_display = ('phone', 'display_name', 'email', 'wilaya', 'verification',
-                    'items_sold_count',
+                    'items_sold_count', 'refused_parcels',
                     'suspicious_messages', 'open_reports', 'strikes', 'account_status',
                     'invite_code', 'preferred_language',
                     'is_staff', 'date_joined')
@@ -99,6 +99,10 @@ class UserAdmin(BaseUserAdmin):
         # several counts in one query would otherwise multiply each other.
         return super().get_queryset(request).annotate(
             _items_sold=Count('listings', filter=Q(listings__status='sold'), distinct=True),
+            # Parcels this person didn't collect as a buyer (not forgiven).
+            _refused=Count('orders_as_buyer', distinct=True, filter=Q(
+                orders_as_buyer__events__status='refused',
+                orders_as_buyer__refusal_forgiven=False)),
             _suspicious_messages=Count('messages_sent', filter=Q(messages_sent__flagged=True),
                                        distinct=True),
             _open_reports=Count('reports_received', filter=Q(reports_received__status='open'),
@@ -148,6 +152,14 @@ class UserAdmin(BaseUserAdmin):
         url = reverse('admin:moderation_contentflag_changelist')
         return format_html('<a href="{}?user__id__exact={}"><b style="color:#ba2121">{}</b></a>',
                            url, user.pk, n)
+
+    @admin.display(description='parcels not collected', ordering='_refused')
+    def refused_parcels(self, user):
+        if not user._refused:
+            return 0
+        url = reverse('admin:delivery_order_changelist')
+        return format_html('<a href="{}?buyer__id__exact={}"><b style="color:#ba2121">{}</b></a>',
+                           url, user.pk, user._refused)
 
     @admin.display(description='items sold', ordering='_items_sold')
     def items_sold_count(self, user):

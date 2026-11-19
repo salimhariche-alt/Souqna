@@ -54,11 +54,12 @@ class MessageSerializer(serializers.ModelSerializer):
     kind = serializers.SerializerMethodField()
     audio = serializers.SerializerMethodField()
     hidden = serializers.SerializerMethodField()
+    offer = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = ['id', 'sender', 'is_mine', 'kind', 'text', 'audio', 'duration_ms', 'sent_at',
-                  'read', 'warnings', 'hidden']
+                  'read', 'warnings', 'hidden', 'offer']
         read_only_fields = ['sent_at', 'read', 'duration_ms']
 
     def get_is_mine(self, message):
@@ -69,7 +70,25 @@ class MessageSerializer(serializers.ModelSerializer):
         return bool(message.hidden_reason) and not self.get_is_mine(message)
 
     def get_kind(self, message) -> str:
+        if message.offer_id:
+            return 'offer'
         return 'voice' if message.is_voice else 'text'
+
+    def get_offer(self, message):
+        """An offer message: the offer as it is NOW (the app updates older cards of the
+        same offer with it), and what this message says happened (`event`)."""
+        if not message.offer_id:
+            return None
+        offer = message.offer
+        return {
+            'id': offer.pk,
+            'event': message.offer_event,
+            'amount_dzd': offer.amount_dzd,
+            'list_price_dzd': offer.list_price_dzd,
+            'status': offer.shown_status,
+            'valid_until': (serializers.DateTimeField().to_representation(offer.valid_until)
+                            if offer.valid_until else None),
+        }
 
     def get_audio(self, message):
         """Full web address of the voice recording (None for a text message)."""
@@ -135,9 +154,14 @@ class ConversationListSerializer(serializers.Serializer):
         is_mine = conversation.last_sender_id == self.context['request'].user.id
         # A hidden message (harassment / sexual) isn't shown in the receiver's list either.
         hidden = bool(conversation.last_hidden_reason) and not is_mine
+        offer = None
+        if conversation.last_offer_amount is not None:
+            offer = {'amount_dzd': conversation.last_offer_amount,
+                     'event': conversation.last_offer_event}
         return {
             'text': '' if hidden else conversation.last_text,
             'hidden': hidden,
+            'offer': offer,
             'is_voice': bool(conversation.last_audio),
             'duration_ms': conversation.last_duration_ms,
             'sent_at': serializers.DateTimeField().to_representation(conversation.last_sent_at),
@@ -175,7 +199,7 @@ class ConversationDetailSerializer(serializers.Serializer):
         return PersonSerializer(other_person(conversation, self.context['request'].user)).data
 
     def get_messages(self, conversation):
-        messages = conversation.messages.select_related('sender').order_by('sent_at', 'id')
+        messages = conversation.messages.select_related('sender', 'offer').order_by('sent_at', 'id')
         # ?after=<message id>: only newer messages (the app checks every few seconds,
         # so it doesn't download the whole conversation each time).
         after = self.context.get('after')

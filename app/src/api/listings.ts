@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 import { ApiError, apiFetch } from './client';
+import type { Rating } from './reviews';
 
 /** One listing in a list (the short version sent by GET /api/listings/). */
 export type ListingSummary = {
@@ -40,6 +41,8 @@ export type Category = {
 /** One listing with everything (GET /api/listings/{id}/). */
 export type ListingDetail = Omit<ListingSummary, 'cover_photo'> & {
   description: string;
+  /** Every item is delivered (to a relay point); the size sets the delivery price. */
+  parcel_size: ParcelSize;
   seller: {
     id: number;
     display_name: string;
@@ -49,6 +52,8 @@ export type ListingDetail = Omit<ListingSummary, 'cover_photo'> & {
     phone_verified: boolean;
     member_since: string;
     items_sold: number;
+    /** From reviews of delivered orders. */
+    rating: Rating;
   };
   photos: { id: number; image: string; position: number }[];
   /** True if it's in the logged-in user's favorites (always false when logged out). */
@@ -124,6 +129,10 @@ export async function fetchFavorites(page = 1): Promise<ListingsPage> {
   return { ...data, results: data.results.map((favorite) => favorite.listing) };
 }
 
+/** The parcel sizes the delivery company prices differently. */
+export const PARCEL_SIZES = ['small', 'medium', 'large'] as const;
+export type ParcelSize = (typeof PARCEL_SIZES)[number];
+
 /** What the Sell / Edit form sends (photos go separately, one by one). */
 export type ListingInput = {
   title: string;
@@ -134,6 +143,7 @@ export type ListingInput = {
   condition: Condition;
   price_dzd: number;
   wilaya: number;
+  parcel_size: ParcelSize;
 };
 
 export function createListing(input: ListingInput) {

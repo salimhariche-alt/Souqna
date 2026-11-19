@@ -127,7 +127,7 @@ class PublicProfileTests(ProfileTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(set(response.data), {'id', 'display_name', 'wilaya', 'avatar',
                                               'phone_verified', 'member_since', 'items_sold',
-                                              'active_listings'})
+                                              'active_listings', 'rating'})
         self.assertEqual((response.data['items_sold'], response.data['active_listings']), (1, 1))
         text = str(response.content)
         self.assertNotIn('0550000001', text)

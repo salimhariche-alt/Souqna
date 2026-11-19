@@ -141,9 +141,13 @@ function ConversationRow({ conversation }: { conversation: ConversationSummary }
     ? (last_message.is_mine ? t('messages.you') : '') +
       (last_message.hidden
         ? t('moderation.hiddenPreview')
-        : last_message.is_voice
-          ? t('voice.preview', { duration: formatDuration(last_message.duration_ms) })
-          : last_message.text.replace(/\s+/g, ' '))
+        : last_message.offer
+          ? t(`offers.preview.${last_message.offer.event}`, {
+              price: formatPrice(last_message.offer.amount_dzd, language),
+            })
+          : last_message.is_voice
+            ? t('voice.preview', { duration: formatDuration(last_message.duration_ms) })
+            : last_message.text.replace(/\s+/g, ' '))
     : '';
 
   return (

@@ -12,3 +12,9 @@ export function formatPrice(amount: number, language: Language): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
   return `${digits}${NBSP}${CURRENCY[language]}`;
 }
+
+/** 4.8 -> "4,8" (French) or "4.8" (English, Arabic). */
+export function formatRating(value: number, language: Language): string {
+  const text = value.toFixed(1);
+  return language === 'fr' ? text.replace('.', ',') : text;
+}

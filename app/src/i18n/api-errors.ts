@@ -8,6 +8,7 @@ import i18n, { type TFunction } from 'i18next';
 import { ApiError } from '@/api/client';
 import type { Language } from '@/i18n';
 import { dateAndTime } from '@/utils/chat-time';
+import { formatPrice } from '@/utils/format';
 
 const KNOWN_MESSAGES: [RegExp, string][] = [
   [/^Enter a valid Algerian mobile number/, 'errors.phoneInvalid'],
@@ -39,6 +40,13 @@ const KNOWN_MESSAGES: [RegExp, string][] = [
   [/^This invite code has already been used/, 'beta.errors.inviteUsedUp'],
   [/^During the beta, sign up with a phone number/, 'beta.errors.phoneRequired'],
   [/^Please write your message/, 'feedback.messageRequired'],
+  // Delivery (Step 5.1).
+  [/^Choose a relay point/, 'delivery.errors.relayRequired'],
+  [/^Enter your name/, 'delivery.errors.nameRequired'],
+  [/^Choose a drop-off office/, 'delivery.errors.dropOffRequired'],
+  [/^Enter an amount in DA/, 'offers.errors.amountRequired'],
+  [/^Your comment contains words/, 'reviews.errors.words'],
+  [/^Choose from 1 to 5 stars/, 'reviews.chooseStars'],
 ];
 
 export function translateApiMessage(message: string, t: TFunction): string {
@@ -80,6 +88,46 @@ export function codedMessage(data: unknown, t: TFunction): string | null {
       return t('errors.accountBanned');
     case 'blocked':
       return t('errors.blockedUser');
+    // Delivery (Step 5.1)
+    case 'order_exists':
+      return t('delivery.errors.orderExists');
+    case 'not_available':
+      return t('delivery.errors.notAvailable');
+    case 'own_listing':
+      return t('delivery.errors.ownListing');
+    case 'provider_error':
+      return t('delivery.errors.providerError');
+    case 'too_late':
+      return t('delivery.errors.tooLate');
+    case 'not_waiting':
+      return t('delivery.errors.notWaiting');
+    // Parcels not collected / orders in progress (Step 5.1 H)
+    case 'too_many_refusals':
+      return t('delivery.errors.tooManyRefusals');
+    case 'one_order_at_a_time':
+      return t('delivery.errors.oneAtATime');
+    case 'too_many_orders':
+      return t('delivery.errors.tooManyOrders', { limit });
+    // "Faire une offre"
+    case 'offer_too_high':
+      return t('offers.errors.tooHigh');
+    case 'offer_too_low': {
+      const min = (data as { min_dzd?: number }).min_dzd;
+      return t('offers.errors.tooLow', { min: min ? formatPrice(min, i18n.language as Language) : '' });
+    }
+    case 'offer_limit':
+      return t('offers.errors.limit');
+    case 'offer_not_pending':
+      return t('offers.errors.notPending');
+    case 'offer_unusable':
+      return t('offers.errors.unusable');
+    // Reviews
+    case 'already_reviewed':
+      return t('reviews.errors.already');
+    case 'review_too_late':
+      return t('reviews.errors.tooLate');
+    case 'not_delivered':
+      return t('reviews.errors.notDelivered');
     case 'message_blocked':
       return t('moderation.notSent');
     case 'messaging_blocked':

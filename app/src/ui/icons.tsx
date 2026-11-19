@@ -41,6 +41,11 @@ export const ICON_PATHS = {
   globe: 'M12 3a9 9 0 1 1 0 18a9 9 0 0 1 0-18z M3 12h18 M12 3c3 3 3 15 0 18 M12 3c-3 3-3 15 0 18',
   blocked: 'M12 3a9 9 0 1 1 0 18a9 9 0 0 1 0-18z M6 6l12 12',
   help: 'M12 3a9 9 0 1 1 0 18a9 9 0 0 1 0-18z M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14 M12 17h.01',
+  // Delivery (our own, in the same line style)
+  truck: 'M3 7h11v9H3z M14 10h4l3 3v3h-7z M7 19a2 2 0 1 0 0-4a2 2 0 0 0 0 4z M17.5 19a2 2 0 1 0 0-4a2 2 0 0 0 0 4z',
+  box: 'M4 8l8-4 8 4v8l-8 4-8-4z M4 8l8 4 8-4 M12 12v8',
+  check: 'M5 12l5 5 9-10',
+  star: 'M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z',
 } as const;
 
 export type DesignIconName = keyof typeof ICON_PATHS;

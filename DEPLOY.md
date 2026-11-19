@@ -600,3 +600,45 @@ the admin: **Feedback from testers -> Feedback**. Opening a message marks it **R
 the status to **Done** in the list (then **Save** at the bottom), or tick several and use
 **"Mark as done"**. "Admin note" is only for you. Screenshots are re-saved without hidden data
 (like the GPS location); feedback is deleted when its author deletes their account.
+
+---
+
+## Part E - Selling with delivery and push notifications (Step 5.1)
+
+The delivery settings all have sensible defaults (see `.env.example`): nothing has to be
+added for the FAKE delivery company. Two things must be set up once on the server.
+
+### E1. Push notifications
+
+In `~/sougna/.env` (on the server) this line makes the server really send alerts through
+Expo's push service (without it they are only printed in the logs):
+
+```
+DJANGO_PUSH_BACKEND='push.backends.ExpoBackend'
+```
+
+Then `docker compose up -d` (no rebuild needed). Check it with
+`grep '^DJANGO_PUSH_BACKEND' ~/sougna/.env` - never print the whole `.env`.
+
+### E2. The task every 5 minutes (`sync_deliveries`)
+
+It cancels orders the seller didn't confirm within 24 hours, and asks the delivery company
+for news about every parcel on its way. On the server, as `sougna`:
+
+```bash
+crontab -l 2>/dev/null | grep -q sync_deliveries || \
+  (crontab -l 2>/dev/null; echo '*/5 * * * * cd /home/sougna/sougna && docker compose exec -T backend python manage.py sync_deliveries >> /home/sougna/sync_deliveries.log 2>&1') | crontab -
+crontab -l                           # shows the line
+tail -n 5 ~/sync_deliveries.log      # after 5 minutes: "N order(s) checked."
+```
+
+The log grows slowly (one short line every 5 minutes); empty it now and then with
+`: > ~/sync_deliveries.log`.
+
+### E3. Orders in the admin
+
+**Delivery -> Orders**: every order, filters by status, cancel reason, wilaya, company.
+Actions: "Ask the delivery company for news", "Cancel (only before drop-off)", "Forgive the
+refusal" (a parcel the buyer didn't collect, but not their fault). Also **Offers**,
+**Reviews** (tick "hidden" for an abusive one) and **Push notifications** (phones, settings).
+In **Accounts -> Users**, the column "parcels not collected" shows each buyer's refusals.

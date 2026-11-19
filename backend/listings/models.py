@@ -41,6 +41,13 @@ class Listing(models.Model):
         GOOD = 'good', 'Good'
         SATISFACTORY = 'satisfactory', 'Satisfactory'
 
+    class ParcelSize(models.TextChoices):
+        # Every item is sold with delivery (to a relay point); the delivery company
+        # prices the parcel by its size (Step 5.1).
+        SMALL = 'small', 'Small (clothes, accessories - up to 1 kg)'
+        MEDIUM = 'medium', 'Medium (shoes, bag, small electronics - up to 5 kg)'
+        LARGE = 'large', 'Large (up to 15 kg)'
+
     class Status(models.TextChoices):
         ACTIVE = 'active', 'Active'
         RESERVED = 'reserved', 'Reserved'
@@ -57,6 +64,8 @@ class Listing(models.Model):
     brand = models.CharField(max_length=50, blank=True)
     condition = models.CharField(max_length=20, choices=Condition.choices)
     wilaya = models.PositiveSmallIntegerField(choices=Wilaya.choices)
+    parcel_size = models.CharField(max_length=10, choices=ParcelSize.choices,
+                                   default=ParcelSize.SMALL)
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.ACTIVE, db_index=True
     )

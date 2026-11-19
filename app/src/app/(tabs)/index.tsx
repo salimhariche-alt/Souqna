@@ -27,7 +27,7 @@ import { useFavoriteIds } from '@/hooks/use-favorite-ids';
 import { useListingsFeed } from '@/hooks/use-listings-feed';
 import type { Language } from '@/i18n';
 import { useLanguage } from '@/i18n/language-provider';
-import { useUnreadCount } from '@/messages/unread';
+import { useNotificationsUnread } from '@/messages/notifications-unread';
 import { FontFiles, textStyleFor, useTokens } from '@/theme';
 import { AppText, ArchFrame, DesignIcon, type DesignIconName, Logo, TriangleBand } from '@/ui';
 import { formatPrice } from '@/utils/format';
@@ -168,11 +168,11 @@ export default function HomeScreen() {
   );
 }
 
-/** "Marhba bik, Salim" + the logo, and the round bell (opens Messages). */
+/** "Marhba bik, Salim" + the logo, and the round bell (opens Notifications). */
 function TopBar({ name }: { name?: string }) {
   const { t } = useTranslation();
   const tk = useTokens();
-  const unread = useUnreadCount();
+  const unread = useNotificationsUnread();
   return (
     <View style={[styles.row, styles.padded, styles.spaceBetween]}>
       <View style={styles.greeting}>
@@ -185,9 +185,11 @@ function TopBar({ name }: { name?: string }) {
         <Logo size={30} />
       </View>
       <Pressable
-        onPress={() => router.navigate('/messages')}
+        onPress={() => router.push('/notifications' as Href)}
         accessibilityRole="button"
-        accessibilityLabel={unread > 0 ? t('tabs.messagesUnread', { count: unread }) : t('tabs.messages')}
+        accessibilityLabel={
+          unread > 0 ? t('delivery.notificationsUnread', { count: unread }) : t('delivery.notificationsA11y')
+        }
         style={({ pressed }) => [
           styles.bell,
           { backgroundColor: pressed ? tk.color.surfaceAlt : tk.color.surface, borderColor: tk.color.border },

@@ -41,9 +41,15 @@ class SellerSerializer(serializers.Serializer):
     phone_verified = serializers.BooleanField()
     member_since = serializers.DateTimeField(source='date_joined')
     items_sold = serializers.IntegerField()
+    # {"average": 4.8, "count": 12} from reviews of delivered orders.
+    rating = serializers.SerializerMethodField()
 
     def get_avatar(self, user):
         return avatar_url(user, self.context.get('request'))
+
+    def get_rating(self, user):
+        from delivery.services import rating_for
+        return rating_for(user)
 
 
 class ListingPhotoSerializer(serializers.ModelSerializer):
@@ -97,7 +103,7 @@ class ListingDetailSerializer(serializers.ModelSerializer):
         model = Listing
         fields = ['id', 'title', 'description', 'price_dzd', 'category', 'category_name',
                   'size', 'brand', 'condition', 'condition_label', 'wilaya', 'wilaya_name',
-                  'status', 'seller', 'photos', 'is_favorited', 'review_status', 'created_at']
+                  'parcel_size', 'status', 'seller', 'photos', 'is_favorited', 'review_status', 'created_at']
         # review_status: only the seller can see a listing that isn't approved, so the
         # app can show "Under review". The reasons (flag_reasons) stay admin-only.
         read_only_fields = ['created_at', 'review_status']

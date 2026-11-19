@@ -1,6 +1,6 @@
 """All /api/ endpoints in one router, so the /api/ home page lists them all."""
 
-from django.urls import path
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import MemberSearchView, PublicProfileView
@@ -23,5 +23,8 @@ urlpatterns = [
     path('users/<int:pk>/', PublicProfileView.as_view(), name='public-profile'),
     # "Send feedback" from the Profile tab (logged in).
     path('feedback/', FeedbackView.as_view(), name='feedback'),
+    # Delivery between wilayas: communes, price estimate, orders, notifications.
+    path('', include('delivery.urls')),
+    path('', include('push.urls')),
     *router.urls,
 ]

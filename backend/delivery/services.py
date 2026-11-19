@@ -1,0 +1,457 @@
+"""The delivery rules, in one place (used by the API, the admin and sync_deliveries)."""
+
+from datetime import timedelta
+from math import asin, cos, radians, sin, sqrt
+
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
+
+from listings.models import Listing
+
+from .models import Commune, Notification, Offer, Order, OrderEvent, Review
+from .providers import ProviderError, get_provider
+
+# The app shows the newest status when an order is opened; ask the company at most this often.
+SYNC_EVERY = timedelta(seconds=30)
+
+
+def buyer_fee(item_price_dzd: int) -> int:
+    """Sougna's fee for the buyer: SOUGNA_BUYER_FEE_PERCENT of the price (at least
+    SOUGNA_BUYER_FEE_MIN_DZD), rounded to 10 DA. Only RECORDED for now - no money is
+    taken (see CLAUDE.md: the money flow must be checked with a lawyer)."""
+    fee = item_price_dzd * settings.SOUGNA_BUYER_FEE_PERCENT / 100
+    fee = max(settings.SOUGNA_BUYER_FEE_MIN_DZD, fee)
+    return int(round(fee / 10) * 10)
+
+
+def is_same_wilaya(listing, wilaya) -> bool:
+    """Seller and buyer in the same wilaya, with relay pick-up: the seller drops the
+    parcel at the office where the buyer collects it - no transport between wilayas."""
+    return listing.wilaya == wilaya and settings.SOUGNA_SAME_WILAYA_DROP_OFF
+
+
+def quote(*, listing, wilaya, commune=None, mode=Order.Mode.STOP_DESK, price=None):
+    """The delivery price (from the company) plus our amounts - used for the listing
+    page's estimate (no commune), the order form and the order itself.
+
+    Same wilaya (relay pick-up): delivery is FREE for the buyer; Sougna's fee gets
+    SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD more, and SOUGNA_RELAY_HANDLING_DZD of the fee is
+    owed to the relay office for keeping the parcel (`relay_handling_dzd`).
+    `price`: an accepted offer's amount instead of the listing's price."""
+    item_price = listing.price_dzd if price is None else price
+    provider = get_provider()
+    q = provider.quote(origin_wilaya=listing.wilaya, wilaya=wilaya,
+                       commune_code=commune.code if commune else None,
+                       mode=mode, parcel_size=listing.parcel_size)
+    fee = buyer_fee(item_price)
+    delivery, handling, days = q.price_dzd, 0, (q.days_min, q.days_max)
+    same = mode == Order.Mode.STOP_DESK and is_same_wilaya(listing, wilaya)
+    if same:
+        delivery, days = 0, (1, 2)
+        fee += settings.SOUGNA_SAME_WILAYA_EXTRA_FEE_DZD
+        handling = settings.SOUGNA_RELAY_HANDLING_DZD
+    return {
+        'provider': provider.name,
+        'same_wilaya': same,
+        'item_price_dzd': item_price,
+        'delivery_price_dzd': delivery,
+        'buyer_fee_dzd': fee,
+        'relay_handling_dzd': handling,
+        'total_dzd': item_price + delivery + fee,
+        'days_min': days[0],
+        'days_max': days[1],
+        'stop_desk_name': q.stop_desk_name,
+    }
+
+
+def notify(order, status, users):
+    """In-app notifications, and push notifications on the phone for the news that matter."""
+    from push.service import order_update
+
+    Notification.objects.bulk_create(
+        [Notification(user=user, order=order, status=status) for user in users])
+    order_update(order, status, users)
+
+
+def create_order(*, buyer, listing, data, offer=None):
+    """The buyer taps "Acheter": pick-up at a relay point, cash on delivery.
+
+    Opens (or reuses) the buyer's chat with the seller, reserves the item and tells
+    both people. The seller then confirms (confirm_order) or declines within
+    SOUGNA_CONFIRM_HOURS."""
+    from messaging.models import Conversation
+
+    provider = get_provider()  # its code is recorded on the order
+    point = data['relay_point']
+    with transaction.atomic():
+        conversation, _ = Conversation.objects.get_or_create(
+            listing=listing, buyer=buyer, defaults={'seller': listing.seller})
+        q = quote(listing=listing, wilaya=data['wilaya'], commune=data['commune'],
+                  mode=Order.Mode.STOP_DESK, price=offer.amount_dzd if offer else None)
+        order = Order.objects.create(
+            conversation=conversation, listing=listing, buyer=buyer,
+            seller=listing.seller, provider=provider.code, mode=Order.Mode.STOP_DESK,
+            origin_wilaya=listing.wilaya, wilaya=data['wilaya'], commune=data['commune'],
+            relay_point_id=point.id, stop_desk_name=point.name,
+            relay_point_address=point.address,
+            recipient_name=data['recipient_name'], recipient_phone=data['recipient_phone'],
+            offer=offer, item_price_dzd=q['item_price_dzd'],
+            delivery_price_dzd=q['delivery_price_dzd'],
+            buyer_fee_dzd=q['buyer_fee_dzd'], relay_handling_dzd=q['relay_handling_dzd'],
+        )
+        if offer:
+            Offer.objects.filter(pk=offer.pk).update(status=Offer.Status.USED)
+        # The seller has SOUGNA_CONFIRM_HOURS to confirm (the shipment is created then).
+        order.confirm_by = order.created_at + timedelta(hours=settings.SOUGNA_CONFIRM_HOURS)
+        order.save(update_fields=['confirm_by'])
+        OrderEvent.objects.create(order=order, status=Order.Status.CREATED, created_at=order.created_at)
+        # The item is promised to this buyer now.
+        if listing.status == Listing.Status.ACTIVE:
+            Listing.objects.filter(pk=listing.pk).update(status=Listing.Status.RESERVED)
+        notify(order, Order.Status.CREATED, [order.buyer, order.seller])
+    return order
+
+
+def _listing_after(order):
+    if order.status == Order.Status.DELIVERED:
+        Listing.objects.filter(pk=order.listing_id).update(status=Listing.Status.SOLD)
+    elif order.status in (Order.Status.RETURNED, Order.Status.CANCELLED):
+        # Back on sale (unless the seller already changed it).
+        Listing.objects.filter(pk=order.listing_id, status=Listing.Status.RESERVED).update(
+            status=Listing.Status.ACTIVE)
+
+
+def _cancel(order, reason, note=''):
+    """Cancel now (no checks), tell both people and put the item back on sale."""
+    with transaction.atomic():
+        order.status = Order.Status.CANCELLED
+        order.cancel_reason = reason
+        order.save(update_fields=['status', 'cancel_reason', 'updated_at'])
+        OrderEvent.objects.create(order=order, status=Order.Status.CANCELLED, note=note[:200],
+                                  created_at=timezone.now())
+        notify(order, Order.Status.CANCELLED, [order.buyer, order.seller])
+        _listing_after(order)
+    return order
+
+
+def is_late(order) -> bool:
+    return (order.status == Order.Status.CREATED and order.confirm_by is not None
+            and timezone.now() >= order.confirm_by)
+
+
+def expire_if_late(order) -> bool:
+    """Not confirmed in time: cancelled. True if it was."""
+    if not is_late(order):
+        return False
+    _cancel(order, Order.CancelReason.NOT_CONFIRMED, 'Not confirmed by the seller in time')
+    return True
+
+
+def expire_late_orders(orders=None):
+    """Cancel every order (of this queryset) the seller didn't confirm in time."""
+    orders = Order.objects.all() if orders is None else orders
+    late = orders.filter(status=Order.Status.CREATED, confirm_by__lte=timezone.now())
+    for order in late:
+        expire_if_late(order)
+
+
+def drop_off_points(order):
+    """Where the seller can drop the parcel: in the same wilaya, only the buyer's own
+    office; otherwise any office of the courier in the seller's (listing's) wilaya."""
+    points = get_provider().relay_points(wilaya=order.origin_wilaya)
+    if order.same_wilaya:
+        points = [p for p in points if p.id == order.relay_point_id]
+    return points
+
+
+class NotWaiting(Exception):
+    """The order is no longer waiting for the seller (confirmed, cancelled or too late)."""
+
+
+class BadDropOff(Exception):
+    """This office can't be used to drop off this parcel."""
+
+
+def confirm_order(order, drop_off_point_id=''):
+    """The seller confirms the sale: chooses the drop-off office (the buyer's own in the
+    same wilaya), the shipment is created with the courier and its code is shown.
+    Raises NotWaiting, BadDropOff, or ProviderError (nothing changes then)."""
+    if expire_if_late(order) or order.status != Order.Status.CREATED:
+        raise NotWaiting()
+    points = drop_off_points(order)
+    if order.same_wilaya and points:
+        drop_off_point_id = drop_off_point_id or points[0].id
+    point = next((p for p in points if p.id == drop_off_point_id), None)
+    if point is None:
+        raise BadDropOff()
+    with transaction.atomic():
+        now = timezone.now()
+        order.drop_off_point_id = point.id
+        order.drop_off_point_name = point.name
+        order.drop_off_point_address = point.address
+        order.confirmed_at = now
+        shipment = get_provider().create_shipment(order)  # ProviderError undoes everything
+        order.tracking_number = shipment.tracking_number
+        order.status = Order.Status.CONFIRMED
+        order.last_synced_at = now
+        order.save(update_fields=['drop_off_point_id', 'drop_off_point_name',
+                                  'drop_off_point_address', 'confirmed_at', 'tracking_number',
+                                  'status', 'last_synced_at', 'updated_at'])
+        OrderEvent.objects.create(order=order, status=Order.Status.CONFIRMED, created_at=now)
+        notify(order, Order.Status.CONFIRMED, [order.buyer])
+    return order
+
+
+def decline_order(order):
+    """The seller says no (e.g. no longer has the item)."""
+    if expire_if_late(order) or order.status != Order.Status.CREATED:
+        raise NotWaiting()
+    return _cancel(order, Order.CancelReason.DECLINED)
+
+
+def sync_order(order, force=False):
+    """Ask the company for news; add new steps to the timeline and notify both people.
+    Also cancels the order if the seller didn't confirm in time."""
+    if expire_if_late(order) or order.is_final or order.status == Order.Status.CREATED:
+        return order
+    now = timezone.now()
+    if not force and order.last_synced_at and now - order.last_synced_at < SYNC_EVERY:
+        return order
+    try:
+        updates = get_provider().tracking(order)
+    except ProviderError:
+        return order  # try again next time
+    seen = set(order.events.values_list('status', flat=True))
+    with transaction.atomic():
+        for update in updates:
+            if update.status in seen or update.status not in Order.Status.values:
+                continue
+            OrderEvent.objects.create(order=order, status=update.status, note=update.note[:200],
+                                      created_at=update.at)
+            seen.add(update.status)
+            order.status = update.status
+            notify(order, update.status, [order.buyer, order.seller])
+        order.last_synced_at = now
+        order.save(update_fields=['status', 'last_synced_at', 'updated_at'])
+        _listing_after(order)
+    return order
+
+
+def cancel_order(order, reason=Order.CancelReason.ADMIN):
+    """Cancel until the parcel is at the office. Raises ProviderError if too late."""
+    if order.status not in Order.CANCELLABLE:
+        raise ProviderError('Already dropped off: it can no longer be cancelled.')
+    if order.status == Order.Status.CONFIRMED:
+        get_provider().cancel(order)  # the shipment exists: the courier must agree
+    return _cancel(order, reason)
+
+
+def _distance_km(lat1, lng1, lat2, lng2):
+    """Straight-line distance on the Earth (haversine formula)."""
+    dlat, dlng = radians(lat2 - lat1), radians(lng2 - lng1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
+    return 6371 * 2 * asin(sqrt(a))
+
+
+def relay_points(*, wilaya, commune_code=None, latitude=None, longitude=None):
+    """The company's relay points in a wilaya, as dicts for the app.
+
+    With the phone's position: nearest first (with `distance_km`). Without it: the
+    points in the buyer's commune first, then the others by name."""
+    points = get_provider().relay_points(wilaya=wilaya)
+    names = {c.code: c for c in Commune.objects.filter(code__in={p.commune_code for p in points})}
+    rows = []
+    for p in points:
+        commune = names.get(p.commune_code)
+        distance = None
+        if latitude is not None and longitude is not None:
+            distance = round(_distance_km(latitude, longitude, p.latitude, p.longitude), 1)
+        rows.append({
+            'id': p.id, 'name': p.name, 'address': p.address, 'wilaya': p.wilaya,
+            'commune': {'code': p.commune_code,
+                        'name_fr': commune.name_fr if commune else '',
+                        'name_ar': commune.name_ar if commune else ''},
+            'latitude': p.latitude, 'longitude': p.longitude,
+            'open_days': p.open_days, 'opens': p.opens, 'closes': p.closes, 'phone': p.phone,
+            'distance_km': distance,
+        })
+    if latitude is not None and longitude is not None:
+        rows.sort(key=lambda r: r['distance_km'])
+    else:
+        rows.sort(key=lambda r: (r['commune']['code'] != commune_code, r['name']))
+    return rows
+
+
+# "Faire une offre" ------------------------------------------------------------------
+
+class OfferRefused(Exception):
+    """Not possible: `code` says why (the API sends it to the app)."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def min_offer(price_dzd: int) -> int:
+    """The lowest offer allowed: SOUGNA_OFFER_MIN_PERCENT of the price, rounded up to 10 DA."""
+    low = price_dzd * settings.SOUGNA_OFFER_MIN_PERCENT / 100
+    return int(-(-low // 10) * 10)
+
+
+def _offer_message(offer, sender, event):
+    from messaging.models import Message
+    return Message.objects.create(conversation=offer.conversation, sender=sender, offer=offer,
+                                  offer_event=event)
+
+
+def make_offer(*, conversation, buyer, amount):
+    """The buyer offers a lower price. A previous offer still waiting (or accepted and
+    unused) in this chat is replaced."""
+    listing = conversation.listing
+    if listing.status != Listing.Status.ACTIVE:
+        raise OfferRefused('not_available', 'This item is no longer available.')
+    if amount >= listing.price_dzd:
+        raise OfferRefused('offer_too_high', 'An offer must be lower than the price.')
+    if amount < min_offer(listing.price_dzd):
+        raise OfferRefused('offer_too_low', 'This offer is too low.')
+    with transaction.atomic():
+        conversation.offers.filter(
+            status__in=[Offer.Status.PENDING, Offer.Status.ACCEPTED]).update(
+            status=Offer.Status.WITHDRAWN, responded_at=timezone.now())
+        offer = Offer.objects.create(conversation=conversation, listing=listing, buyer=buyer,
+                                     seller=conversation.seller, amount_dzd=amount,
+                                     list_price_dzd=listing.price_dzd)
+        _offer_message(offer, buyer, 'made')
+    return offer
+
+
+def answer_offer(offer, *, accept: bool):
+    """The seller accepts (valid SOUGNA_OFFER_HOURS for this buyer) or declines."""
+    if offer.status != Offer.Status.PENDING:
+        raise OfferRefused('offer_not_pending', 'This offer is no longer waiting for an answer.')
+    if accept and offer.listing.status != Listing.Status.ACTIVE:
+        raise OfferRefused('not_available', 'This item is no longer available.')
+    now = timezone.now()
+    with transaction.atomic():
+        offer.status = Offer.Status.ACCEPTED if accept else Offer.Status.DECLINED
+        offer.responded_at = now
+        if accept:
+            offer.valid_until = now + timedelta(hours=settings.SOUGNA_OFFER_HOURS)
+        offer.save(update_fields=['status', 'responded_at', 'valid_until'])
+        _offer_message(offer, offer.seller, 'accepted' if accept else 'declined')
+    return offer
+
+
+def withdraw_offer(offer):
+    """The buyer takes back an offer that is waiting, or accepted and not used."""
+    if offer.status not in (Offer.Status.PENDING, Offer.Status.ACCEPTED):
+        raise OfferRefused('offer_not_pending', 'This offer is no longer waiting for an answer.')
+    with transaction.atomic():
+        offer.status = Offer.Status.WITHDRAWN
+        offer.responded_at = timezone.now()
+        offer.save(update_fields=['status', 'responded_at'])
+        _offer_message(offer, offer.buyer, 'withdrawn')
+    return offer
+
+
+# Reviews ---------------------------------------------------------------------------
+
+# A review can be written this many days after the parcel was collected.
+REVIEW_DAYS = 30
+
+
+class ReviewRefused(Exception):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def delivered_at(order):
+    event = order.events.filter(status=Order.Status.DELIVERED).first()
+    return event.created_at if event else None
+
+
+def can_review(order, user) -> bool:
+    """Delivered, within REVIEW_DAYS, and not reviewed by this person yet."""
+    if order.status != Order.Status.DELIVERED or user.pk not in (order.buyer_id, order.seller_id):
+        return False
+    when = delivered_at(order)
+    if when is None or timezone.now() > when + timedelta(days=REVIEW_DAYS):
+        return False
+    return not order.reviews.filter(author=user).exists()
+
+
+def write_review(order, author, stars, comment=''):
+    """The buyer rates the seller, or the seller rates the buyer."""
+    from moderation.content import worst
+
+    if order.status != Order.Status.DELIVERED:
+        raise ReviewRefused('not_delivered', 'You can review only after the parcel was collected.')
+    if order.reviews.filter(author=author).exists():
+        raise ReviewRefused('already_reviewed', 'You have already reviewed this order.')
+    if not can_review(order, author):
+        raise ReviewRefused('review_too_late', 'It is too late to review this order.')
+    comment = (comment or '').strip()
+    if comment and worst(comment):
+        raise ReviewRefused('review_words', "Your comment contains words that aren't allowed.")
+    is_buyer = author.pk == order.buyer_id
+    return Review.objects.create(
+        order=order, author=author, subject=order.seller if is_buyer else order.buyer,
+        role=Review.Role.BUYER if is_buyer else Review.Role.SELLER, stars=stars, comment=comment)
+
+
+def rating_for(user):
+    """{"average": 4.8, "count": 12} from the reviews this person received (not hidden)."""
+    from django.db.models import Avg, Count
+
+    data = Review.objects.filter(subject=user, hidden=False).aggregate(
+        average=Avg('stars'), count=Count('id'))
+    average = data['average']
+    return {'average': round(average, 1) if average is not None else None, 'count': data['count']}
+
+
+# Refused parcels ("Acheteur fiable", order limits) ---------------------------------
+
+def refused_orders(user, since=None):
+    """Orders where this buyer didn't collect the parcel (not forgiven by the admin)."""
+    events = OrderEvent.objects.filter(status=Order.Status.REFUSED)
+    if since is not None:
+        events = events.filter(created_at__gte=since)
+    return Order.objects.filter(buyer=user, refusal_forgiven=False,
+                                pk__in=events.values('order_id'))
+
+
+def buyer_record(user):
+    """For sellers: parcels collected and not collected. "Acheteur fiable" = at least one
+    collected and none refused."""
+    collected = Order.objects.filter(buyer=user, status=Order.Status.DELIVERED).count()
+    refused = refused_orders(user).count()
+    return {'collected': collected, 'refused': refused,
+            'reliable': collected >= 1 and refused == 0}
+
+
+class OrderLimit(Exception):
+    def __init__(self, code, message, **extra):
+        super().__init__(message)
+        self.code = code
+        self.extra = extra
+
+
+def check_order_limit(user):
+    """Raises OrderLimit if this buyer can't place one more order now."""
+    since = timezone.now() - timedelta(days=settings.SOUGNA_REFUSAL_WINDOW_DAYS)
+    recent = refused_orders(user, since).count()
+    in_progress = (Order.objects.filter(buyer=user)
+                   .exclude(status__in=Order.FINAL | {Order.Status.REFUSED}).count())
+    if recent >= settings.SOUGNA_REFUSALS_BLOCKED:
+        raise OrderLimit('too_many_refusals',
+                         "Too many parcels weren't collected: you can't order for now.",
+                         refused=recent)
+    if recent >= settings.SOUGNA_REFUSALS_ONE_AT_A_TIME and in_progress >= 1:
+        raise OrderLimit('one_order_at_a_time',
+                         "Some parcels weren't collected: one order at a time.",
+                         refused=recent)
+    if in_progress >= settings.SOUGNA_MAX_ACTIVE_ORDERS:
+        raise OrderLimit('too_many_orders', 'Too many orders in progress.',
+                         limit=settings.SOUGNA_MAX_ACTIVE_ORDERS)

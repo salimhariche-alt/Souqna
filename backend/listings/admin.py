@@ -45,7 +45,8 @@ class ListingAdmin(admin.ModelAdmin):
     list_display = ('cover', 'title', 'price_dzd', 'category', 'condition', 'wilaya',
                     'status', 'review_status', 'seller', 'created_at')
     list_display_links = ('cover', 'title')
-    list_filter = ('review_status', 'status', 'condition', 'category', 'wilaya', 'created_at')
+    list_filter = ('review_status', 'status', 'parcel_size', 'condition', 'category', 'wilaya',
+                   'created_at')
     list_editable = ('status',)
     search_fields = ('title', 'description', 'brand', 'seller__phone', 'seller__display_name')
     autocomplete_fields = ('seller', 'category')

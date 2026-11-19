@@ -5,6 +5,7 @@ import { getDeviceId } from '@/auth/device-id';
 import type { Language } from '@/i18n';
 
 import { apiFetch } from './client';
+import type { Rating } from './reviews';
 
 /** The logged-in user, as returned by /api/auth/me/. */
 export type User = {
@@ -139,6 +140,8 @@ export type PublicProfile = {
   member_since: string;
   items_sold: number;
   active_listings: number;
+  /** From reviews of delivered orders. */
+  rating: Rating;
 };
 
 /** Members whose name contains the words (at least 2 letters, at most 10 results). */

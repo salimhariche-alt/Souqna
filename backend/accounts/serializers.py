@@ -81,11 +81,17 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     items_sold = serializers.IntegerField(read_only=True)
     avatar = serializers.SerializerMethodField()
     active_listings = serializers.SerializerMethodField()
+    # {"average": 4.8, "count": 12} from reviews of delivered orders.
+    rating = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'display_name', 'wilaya', 'avatar', 'phone_verified', 'member_since',
-                  'items_sold', 'active_listings']
+                  'items_sold', 'active_listings', 'rating']
+
+    def get_rating(self, user):
+        from delivery.services import rating_for
+        return rating_for(user)
 
     def get_avatar(self, user):
         from listings.serializers import avatar_url
